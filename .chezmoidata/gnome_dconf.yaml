@@ -1,0 +1,36 @@
+gnome_dconf:
+  payload: |
+    [desktop/input-sources]
+    per-window=false
+    sources=[('xkb', 'us'), ('ibus', 'Bamboo::Us')]
+    xkb-options=['lv3:ralt_switch']
+
+    [desktop/interface]
+    clock-format='24h'
+    clock-show-date=true
+    enable-hot-corners=true
+    show-battery-percentage=true
+
+    [desktop/peripherals/mouse]
+    speed=0.0
+
+    [desktop/peripherals/touchpad]
+    speed=-0.2649572649572649
+    tap-to-click=true
+    two-finger-scrolling-enabled=true
+
+    [settings-daemon/plugins/color]
+    night-light-enabled=true
+    night-light-schedule-automatic=false
+    night-light-temperature=uint32 4700
+
+    [settings-daemon/plugins/media-keys]
+    custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']
+
+    [settings-daemon/plugins/media-keys/custom-keybindings/custom0]
+    binding='<Super>period'
+    command='ibus emoji'
+    name='Emoji Picker'
+
+    [settings-daemon/plugins/power]
+    power-button-action='hibernate'

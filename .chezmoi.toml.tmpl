@@ -1,0 +1,17 @@
+{{- $gitName := promptStringOnce . "git.name" "Git user.name" "Patruxs" -}}
+{{- $gitEmail := promptStringOnce . "git.email" "Git user.email" "Patruxs@users.noreply.github.com" -}}
+encryption = "gpg"
+mode = "symlink"
+
+[gpg]
+    recipient = "0E923D7CC07C7873C6C4D0F35BC1E5D2E24B1DC9"
+    args = ["--quiet"]
+
+[data]
+    dotfiles_repo_https = "https://github.com/Patruxs/dotfiles.git"
+    dotfiles_repo_ssh = "git@github.com:Patruxs/dotfiles.git"
+    dotfiles_owner = "Patruxs"
+
+[data.git]
+    name = {{ $gitName | quote }}
+    email = {{ $gitEmail | quote }}

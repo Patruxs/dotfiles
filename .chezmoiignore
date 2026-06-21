@@ -1,0 +1,41 @@
+README.md
+SPEC.md
+bootstrap.sh
+bootstrap.ps1
+packages/**
+
+.env
+.env.*
+.ssh/id_*
+.ssh/*.pub
+.ssh/known_hosts*
+.docker/config.json
+.config/gh/**
+.config/Code/User/globalStorage/**
+.config/Code/User/workspaceStorage/**
+.config/Code/User/History/**
+.config/Code/User/logs/**
+.config/warp-terminal/user_preferences.json
+.config/opencode/node_modules/**
+.config/opencode/**/auth*
+.config/opencode/**/session*
+.config/monitors.xml
+.config/dconf/user
+.config/org.gnome.Ptyxis/session.gvariant
+
+{{- if ne .chezmoi.os "linux" }}
+.config/MangoHud/**
+.config/fcitx5/**
+.config/goverlay/**
+.config/gpu-screen-recorder/**
+.config/mimeapps.list
+.config/systemd/**
+{{- end }}
+
+{{- if ne .chezmoi.os "darwin" }}
+.Library/**
+{{- end }}
+
+{{- if ne .chezmoi.os "windows" }}
+.AppData/**
+{{- end }}

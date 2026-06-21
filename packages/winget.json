@@ -1,0 +1,39 @@
+{
+  "$schema": "https://aka.ms/winget-packages.schema.2.0.json",
+  "CreationDate": "2026-06-21T00:00:00.000-00:00",
+  "Sources": [
+    {
+      "SourceDetails": {
+        "Argument": "https://cdn.winget.microsoft.com/cache",
+        "Identifier": "Microsoft.Winget.Source_8wekyb3d8bbwe",
+        "Name": "winget",
+        "Type": "Microsoft.PreIndexed.Package"
+      },
+      "Packages": [
+        { "PackageIdentifier": "Git.Git" },
+        { "PackageIdentifier": "OpenJS.NodeJS.LTS" },
+        { "PackageIdentifier": "Microsoft.OpenJDK.21" },
+        { "PackageIdentifier": "GoLang.Go" },
+        { "PackageIdentifier": "Python.Python.3.13" },
+        { "PackageIdentifier": "Neovim.Neovim" },
+        { "PackageIdentifier": "BurntSushi.ripgrep.MSVC" },
+        { "PackageIdentifier": "sharkdp.fd" },
+        { "PackageIdentifier": "junegunn.fzf" },
+        { "PackageIdentifier": "jqlang.jq" },
+        { "PackageIdentifier": "sharkdp.bat" },
+        { "PackageIdentifier": "eza-community.eza" },
+        { "PackageIdentifier": "JesseDuffield.lazygit" },
+        { "PackageIdentifier": "GitHub.cli" },
+        { "PackageIdentifier": "Docker.DockerDesktop" },
+        { "PackageIdentifier": "jdx.mise" },
+        { "PackageIdentifier": "astral-sh.uv" },
+        { "PackageIdentifier": "Microsoft.VisualStudioCode" },
+        { "PackageIdentifier": "Google.Chrome" },
+        { "PackageIdentifier": "Obsidian.Obsidian" },
+        { "PackageIdentifier": "Postman.Postman" },
+        { "PackageIdentifier": "Discord.Discord" },
+        { "PackageIdentifier": "Telegram.TelegramDesktop" }
+      ]
+    }
+  ]
+}

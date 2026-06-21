@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+{{ template "script_helpers.sh.tmpl" . }}
+
+mkdir -p "$HOME/.local/bin" "$HOME/.local/share/pnpm" "$HOME/.config/mise"
+log "prepared local directories"

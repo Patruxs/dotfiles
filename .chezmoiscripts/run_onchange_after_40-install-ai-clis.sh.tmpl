@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+{{ template "script_helpers.sh.tmpl" . }}
+
+if [ "{{ .chezmoi.os }}" = "windows" ]; then
+  log "use bootstrap.ps1 for Windows AI CLI installation"
+  exit 0
+fi
+
+should_install_ai() {
+  confirm_or_skip "$1" DOTFILES_AUTO_INSTALL_AI
+}
+
+post_install() {
+  local cmd=${1:?}
+  local login_hint=${2:?}
+  if have "$cmd"; then
+    log "installed: $cmd -> $(command -v "$cmd")"
+  else
+    log "install did not place $cmd on PATH"
+  fi
+  log "$login_hint"
+}
+
+install_codex() {
+  have codex && { log "codex already installed"; return 0; }
+  should_install_ai "Install Codex CLI?" || return 0
+  curl -fsSL https://chatgpt.com/codex/install.sh | sh
+  post_install codex "manual login: run codex"
+}
+
+install_antigravity() {
+  have agy && { log "agy already installed"; return 0; }
+  should_install_ai "Install Antigravity CLI?" || return 0
+  curl -fsSL https://antigravity.google/cli/install.sh | bash
+  post_install agy "manual login: run agy"
+}
+
+install_claude() {
+  have claude && { log "claude already installed"; return 0; }
+  should_install_ai "Install Claude Code CLI?" || return 0
+  curl -fsSL https://claude.ai/install.sh | bash
+  post_install claude "manual login: run claude"
+}
+
+install_droid() {
+  have droid && { log "droid already installed"; return 0; }
+  should_install_ai "Install Factory Droid CLI?" || return 0
+  curl -fsSL https://app.factory.ai/cli | sh
+  post_install droid "manual login: run droid"
+}
+
+install_opencode() {
+  have opencode && { log "opencode already installed"; return 0; }
+  should_install_ai "Install OpenCode CLI?" || return 0
+  curl -fsSL https://opencode.ai/install | bash
+  post_install opencode "manual login: run opencode, then /connect"
+}
+
+install_codex
+install_antigravity
+install_claude
+install_droid
+install_opencode

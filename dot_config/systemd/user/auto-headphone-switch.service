@@ -1,0 +1,12 @@
+[Unit]
+Description=Automatically switch PipeWire output to headphones when connected
+After=pipewire.service wireplumber.service
+PartOf=pipewire.service
+
+[Service]
+ExecStart=%h/.local/bin/auto-headphone-switch
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

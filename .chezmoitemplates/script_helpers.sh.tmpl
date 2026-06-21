@@ -1,0 +1,23 @@
+set -euo pipefail
+
+log() {
+  printf '[dotfiles] %s\n' "$*"
+}
+
+confirm_or_skip() {
+  local prompt=${1:?}
+  local auto_var=${2:-DOTFILES_AUTO_INSTALL}
+  if [ "${!auto_var:-0}" = "1" ]; then
+    return 0
+  fi
+  printf '%s [y/N] ' "$prompt" >&2
+  read -r reply || true
+  case "${reply:-}" in
+    y|Y|yes|YES) return 0 ;;
+    *) log "skipped"; return 1 ;;
+  esac
+}
+
+have() {
+  command -v "$1" >/dev/null 2>&1
+}

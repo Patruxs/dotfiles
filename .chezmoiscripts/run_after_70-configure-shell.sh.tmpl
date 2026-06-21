@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+{{ template "script_helpers.sh.tmpl" . }}
+
+if [ "{{ .chezmoi.os }}" = "linux" ] && have systemctl; then
+  systemctl --user daemon-reload || true
+  if [ -f "$HOME/.config/systemd/user/auto-headphone-switch.service" ]; then
+    systemctl --user enable --now auto-headphone-switch.service || true
+  fi
+fi
+
+if have zsh && [ "${SHELL##*/}" != "zsh" ]; then
+  log "zsh is installed; switch shells manually with: chsh -s $(command -v zsh)"
+fi

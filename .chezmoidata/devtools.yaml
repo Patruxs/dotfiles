@@ -1,0 +1,11 @@
+devtools:
+  runtimes:
+    node: lts
+    java: "21"
+    go: latest
+    python: "3"
+  tools:
+    pnpm: latest
+    uv: latest
+    maven: latest
+    gradle: latest

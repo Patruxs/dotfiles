@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+{{ template "script_helpers.sh.tmpl" . }}
+
+if [ "{{ .chezmoi.os }}" != "linux" ]; then
+  exit 0
+fi
+
+if [ "${XDG_CURRENT_DESKTOP:-}" != "GNOME" ] && [ "${XDG_CURRENT_DESKTOP:-}" != "ubuntu:GNOME" ]; then
+  log "GNOME not detected; skipping dconf load"
+  exit 0
+fi
+
+if ! have dconf; then
+  log "dconf command not found; skipping dconf load"
+  exit 0
+fi
+
+confirm_or_skip "Load curated GNOME dconf settings?" || exit 0
+dconf load /org/gnome/ <<'EOF'
+{{ .gnome_dconf.payload -}}
+EOF
