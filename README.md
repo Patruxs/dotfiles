@@ -95,6 +95,7 @@ What this means:
 - Regular non-templated managed files are symlinked into `$HOME` on `chezmoi apply`.
 - Templates, `private_` files, encrypted files, executable files, and directories are still managed normally by chezmoi and are not symlinked.
 - If a program edits a symlinked config file, it is editing the tracked source file in this repo.
+- Files that used to need templates for live syncing now point at tracked backing files in [.live/](/home/pat/.local/share/chezmoi/.live): shell dotfiles, `~/.gitconfig`, `~/.ssh/config`, `mise`, and Docker.
 
 Useful checks:
 

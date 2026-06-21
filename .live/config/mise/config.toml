@@ -1,0 +1,9 @@
+[tools]
+node = "lts"
+java = "21"
+go = "latest"
+python = "3"
+pnpm = "latest"
+uv = "latest"
+maven = "latest"
+gradle = "latest"

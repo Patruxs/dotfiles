@@ -1,6 +1,6 @@
 [user]
-	name = {{ .git.name }}
-	email = {{ .git.email }}
+	name = Sora0977
+	email = Sora0977@users.noreply.github.com
 [init]
 	defaultBranch = main
 [credential "https://github.com"]
