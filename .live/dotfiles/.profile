@@ -11,6 +11,19 @@ path_prepend() {
 path_prepend "$HOME/bin"
 path_prepend "$HOME/.local/bin"
 
+case "$(uname -s)" in
+  Darwin)
+    if [ -d /opt/homebrew/bin ]; then
+      path_prepend /opt/homebrew/bin
+    elif [ -d /usr/local/bin ]; then
+      path_prepend /usr/local/bin
+    fi
+    ;;
+  MINGW*|MSYS*|CYGWIN*)
+    path_prepend "$HOME/AppData/Local/Microsoft/WinGet/Links"
+    ;;
+esac
+
 export GOPATH="${GOPATH:-$HOME/go}"
 path_prepend "$HOME/.local/go/bin"
 path_prepend "$GOPATH/bin"

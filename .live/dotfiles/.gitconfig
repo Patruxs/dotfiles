@@ -1,6 +1,5 @@
-[user]
-	name = Sora0977
-	email = Sora0977@users.noreply.github.com
+[include]
+	path = ~/.gitconfig.local
 [init]
 	defaultBranch = main
 [credential "https://github.com"]

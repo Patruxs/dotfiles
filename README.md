@@ -56,10 +56,12 @@ chezmoi cat-config | rg '^mode = "symlink"$'
 Install packages manually:
 
 ```sh
-bash ~/.local/share/chezmoi/.chezmoiscripts/run_onchange_after_10-install-system-packages.sh
-bash ~/.local/share/chezmoi/.chezmoiscripts/run_onchange_after_20-install-devtools.sh
-bash ~/.local/share/chezmoi/.chezmoiscripts/run_onchange_after_30-install-flatpaks.sh
+bash ~/.chezmoiscripts/10-install-system-packages.sh
+bash ~/.chezmoiscripts/20-install-devtools.sh
+bash ~/.chezmoiscripts/30-install-flatpaks.sh
 ```
+
+These rendered helper scripts are created by `chezmoi apply`.
 
 ## Manual login
 
@@ -95,7 +97,8 @@ What this means:
 - Regular non-templated managed files are symlinked into `$HOME` on `chezmoi apply`.
 - Templates, `private_` files, encrypted files, executable files, and directories are still managed normally by chezmoi and are not symlinked.
 - If a program edits a symlinked config file, it is editing the tracked source file in this repo.
-- Files that used to need templates for live syncing now point at tracked backing files in [.live/](/home/pat/.local/share/chezmoi/.live): shell dotfiles, `~/.gitconfig`, `~/.ssh/config`, `mise`, and Docker.
+- Files that used to need templates for live syncing now point at tracked backing files in [.live/](/home/pat/.local/share/chezmoi/.live): shell dotfiles, `~/.ssh/config`, `mise`, and Docker.
+- `~/.gitconfig` stays symlinked to the tracked shared config and includes a generated `~/.gitconfig.local` for per-machine `user.name` and `user.email`.
 
 Useful checks:
 
@@ -121,7 +124,7 @@ Store :
 
 Setup:
 - Installs `chezmoi` if needed, initializes this dotfiles repo, shows a diff, and applies managed files.
-- Prompts for Git name and email the first time `chezmoi` renders templates.
+- Prompts for Git name and email the first time `chezmoi` renders templates, then writes them to `~/.gitconfig.local`.
 - Prepares local directories such as `~/.local/bin`, `~/.local/share/pnpm`, and `~/.config/mise`.
 - Installs curated system packages with `dnf`, `apt`, `pacman`, or Homebrew depending on the OS.
 - Installs and updates development runtimes and tools through `mise`.

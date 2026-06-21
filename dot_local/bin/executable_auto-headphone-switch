@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -u
+
+PATTERN="${AUTO_HEADPHONE_PATTERN:-EarPods|[Hh]ead[Pp]hone|[Hh]ead[Ss]et|[Ee]ar[Bb]ud|[Bb]uds}"
+IGNORE_PATTERN="${AUTO_HEADPHONE_IGNORE_PATTERN:-Speaker|HDMI|DisplayPort}"
+
+have() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+require_commands() {
+  local missing=0
+  for cmd in jq pw-dump pw-metadata pw-mon wpctl; do
+    if ! have "$cmd"; then
+      printf '[auto-headphone-switch] missing command: %s\n' "$cmd" >&2
+      missing=1
+    fi
+  done
+  return "$missing"
+}
+
+find_headphone_sink() {
+  pw-dump | jq -r --arg pattern "$PATTERN" --arg ignore "$IGNORE_PATTERN" '
+    [
+      .[]
+      | select(.type == "PipeWire:Interface:Node")
+      | . as $node
+      | ($node.info.props // {}) as $props
+      | select($props["media.class"] == "Audio/Sink")
+      | {
+          id: $node.id,
+          label: (($props["node.name"] // "") + " " + ($props["node.description"] // "") + " " + ($props["node.nick"] // "")),
+          priority: (($props["priority.session"] // "0") | tonumber? // 0)
+        }
+      | select(.label | test($pattern))
+      | select((.label | test($ignore)) | not)
+    ]
+    | sort_by(.priority)
+    | last
+    | .id // empty
+  '
+}
+
+current_default_sink_name() {
+  pw-metadata -n default 0 2>/dev/null |
+    sed -n "s/.*key:'default.audio.sink' value:'{\"name\":\"\\([^\"]*\\)\".*/\\1/p" |
+    tail -n 1
+}
+
+sink_name_for_id() {
+  local id="$1"
+  pw-dump | jq -r --argjson id "$id" '
+    .[]
+    | select(.id == $id)
+    | .info.props["node.name"] // empty
+  '
+}
+
+switch_if_present() {
+  local sink_id sink_name current_name
+
+  sink_id="$(find_headphone_sink)"
+  [[ -n "$sink_id" ]] || return 0
+
+  sink_name="$(sink_name_for_id "$sink_id")"
+  current_name="$(current_default_sink_name)"
+
+  if [[ -n "$sink_name" && "$sink_name" != "$current_name" ]]; then
+    wpctl clear-default >/dev/null 2>&1 || true
+    wpctl set-default "$sink_id" >/dev/null 2>&1 || true
+  fi
+}
+
+if ! require_commands; then
+  exit 0
+fi
+
+switch_if_present
+
+while true; do
+  pw-mon --no-colors --print-separator 2>/dev/null | while IFS= read -r _; do
+    sleep 0.4
+    switch_if_present
+  done
+  sleep 1
+done

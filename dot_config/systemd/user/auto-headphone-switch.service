@@ -5,7 +5,7 @@ PartOf=pipewire.service
 
 [Service]
 ExecStart=%h/.local/bin/auto-headphone-switch
-Restart=always
+Restart=on-failure
 RestartSec=2
 
 [Install]
