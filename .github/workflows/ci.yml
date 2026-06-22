@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Bootstrap (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: |
+        ./bootstrap.sh --profile personal
+        
+    - name: Check Idempotency (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: |
+        ./bootstrap.sh --profile personal | tee output.log
+        if grep -qE "changed=[1-9]" output.log; then
+          echo "Idempotency test failed, changes were made on the second run"
+          exit 1
+        fi
+        
+    - name: Run Bootstrap (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        .\bootstrap.ps1 -ProfileName personal
+        
+    - name: Check Idempotency (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        .\bootstrap.ps1 -ProfileName personal
+
+  test-fedora:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+    steps:
+    - name: Install dependencies
+      run: dnf install -y git sudo curl
+    - uses: actions/checkout@v4
+    - name: Run Bootstrap (Fedora)
+      run: ./bootstrap.sh --profile personal
+    - name: Check Idempotency (Fedora)
+      run: |
+        ./bootstrap.sh --profile personal | tee output.log
+        if grep -qE "changed=[1-9]" output.log; then
+          echo "Idempotency test failed, changes were made on the second run"
+          exit 1
+        fi

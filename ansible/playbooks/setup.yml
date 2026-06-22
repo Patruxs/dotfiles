@@ -1,0 +1,66 @@
+---
+- name: Local Machine Setup
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+
+  vars:
+    chezmoi_dir: "{{ lookup('env', 'HOME') }}/.local/share/chezmoi"
+
+  pre_tasks:
+    - name: Check saved profile and ask for confirmation
+      pause:
+        prompt: "Current profile is {{ dotfiles_profile }}. Continue? [Y/n]"
+      register: confirm_profile
+      when: profile is not defined and dotfiles_profile is defined
+
+    - name: Set profile from saved fact if confirmed
+      set_fact:
+        profile: "{{ dotfiles_profile }}"
+      when: profile is not defined and confirm_profile is defined and not confirm_profile.skipped | default(false) and confirm_profile.user_input | default('y') | lower in ['y', 'yes', '']
+
+    - name: Prompt for profile if not provided or saved/confirmed
+      pause:
+        prompt: "Select profile (personal or work)"
+      register: prompt_profile
+      when: profile is not defined
+
+    - name: Set profile fact from prompt
+      set_fact:
+        profile: "{{ prompt_profile.user_input }}"
+      when: profile is not defined and prompt_profile is defined and not prompt_profile.skipped | default(false)
+
+    - name: Fail if invalid profile
+      fail:
+        msg: "Invalid profile selected. Must be 'personal' or 'work'"
+      when: profile not in ['personal', 'work']
+
+    - name: Save selected profile to facts cache
+      set_fact:
+        dotfiles_profile: "{{ profile }}"
+        cacheable: yes
+
+    - name: Remove old legacy profile file if it exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.dotfiles_profile"
+        state: absent
+
+    - name: Load profile vars
+      include_vars:
+        file: "{{ chezmoi_dir }}/ansible/vars/profiles/{{ profile }}.yml"
+
+    - name: Load chezmoi packages data
+      include_vars:
+        file: "{{ chezmoi_dir }}/.chezmoidata/packages.yaml"
+        name: chezmoi_data
+
+  roles:
+    - base
+    - packages
+    - mise
+    - flatpak
+    - gnome
+    - ai_tools
+    - docker
+    - shell
+    - chezmoi

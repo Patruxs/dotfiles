@@ -1,0 +1,9 @@
+---
+- name: Enable Docker service (Linux)
+  systemd:
+    name: docker
+    enabled: yes
+    state: started
+  become: yes
+  when: install_docker | default(false) and ansible_system == 'Linux'
+  ignore_errors: yes

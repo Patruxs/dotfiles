@@ -2,21 +2,22 @@
 set -euo pipefail
 
 repo="https://github.com/Patruxs/dotfiles.git"
+chezmoi_dir="$HOME/.local/share/chezmoi"
+
+# Ask for the administrator password upfront
+sudo -v
+# Keep-alive: update existing sudo time stamp until this script has finished
+while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+
+OS="$(uname -s)"
+DISTRO=""
+if [ "$OS" = "Linux" ] && [ -f /etc/os-release ]; then
+  . /etc/os-release
+  DISTRO="$ID"
+fi
 
 have() {
   command -v "$1" >/dev/null 2>&1
-}
-
-confirm() {
-  if [ "${DOTFILES_AUTO_INSTALL:-0}" = "1" ]; then
-    return 0
-  fi
-  printf '%s [y/N] ' "$1" >&2
-  read -r reply || true
-  case "${reply:-}" in
-    y|Y|yes|YES) return 0 ;;
-    *) return 1 ;;
-  esac
 }
 
 if ! have chezmoi; then
@@ -25,15 +26,60 @@ if ! have chezmoi; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
-chezmoi init "$repo"
-chezmoi diff
-
-if confirm "Apply dotfiles from $repo?"; then
-  chezmoi apply -v
-else
-  exit 0
+if [ ! -d "$chezmoi_dir/.git" ]; then
+  chezmoi init "$repo"
 fi
 
-if confirm "Switch chezmoi source remote to SSH?"; then
-  git -C "$HOME/.local/share/chezmoi" remote set-url origin git@github.com:Patruxs/dotfiles.git
+install_ansible() {
+  echo "Ansible not found. Installing..."
+  if [ "$OS" = "Darwin" ]; then
+    if ! have brew; then
+      echo "Homebrew not found. Please install Homebrew first."
+      exit 1
+    fi
+    brew install ansible
+  elif [ "$OS" = "Linux" ]; then
+    case "$DISTRO" in
+      fedora)
+        sudo dnf install -y ansible
+        ;;
+      debian|ubuntu)
+        sudo apt-get update && sudo apt-get install -y ansible
+        ;;
+      arch|manjaro)
+        sudo pacman -S --noconfirm ansible
+        ;;
+      *)
+        echo "Unsupported Linux distro: $DISTRO"
+        exit 1
+        ;;
+    esac
+  else
+    echo "Unsupported OS: $OS"
+    exit 1
+  fi
+}
+
+if ! have ansible-playbook; then
+  install_ansible
 fi
+
+profile=""
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --profile)
+      profile="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+extra_vars=""
+if [ -n "$profile" ]; then
+  extra_vars="-e profile=$profile"
+fi
+
+ansible-playbook "$chezmoi_dir/ansible/playbooks/setup.yml" $extra_vars

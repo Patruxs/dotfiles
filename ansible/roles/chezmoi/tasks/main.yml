@@ -1,0 +1,6 @@
+---
+- name: Run chezmoi apply
+  command: chezmoi apply -v
+  environment:
+    PROFILE: "{{ profile }}"
+  ignore_errors: yes

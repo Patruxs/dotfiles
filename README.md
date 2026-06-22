@@ -53,15 +53,13 @@ Check rendered config:
 chezmoi cat-config | rg '^mode = "symlink"$'
 ```
 
-Install packages manually:
+Run setup manually:
 
 ```sh
-bash ~/.chezmoiscripts/10-install-system-packages.sh
-bash ~/.chezmoiscripts/20-install-devtools.sh
-bash ~/.chezmoiscripts/30-install-flatpaks.sh
+ansible-playbook ansible/playbooks/setup.yml
 ```
 
-These rendered helper scripts are created by `chezmoi apply`.
+This runs the main orchestration playbook to install packages and configure the system.
 
 ## Manual login
 
@@ -109,29 +107,23 @@ find "$HOME" -maxdepth 3 -type l
 ```
 
 <details>
-<summary>What This Repo Stores And Sets Up</summary>
+<summary>What This repo does , setup , store </summary>
 
-Store :
-- Shell config for `~/.profile`, Bash, and Zsh, including PATH setup and `mise` activation.
-- Git config for user identity, default branch, and GitHub CLI credential helper.
-- `chezmoi` config for prompts, repo metadata, and `gpg` encryption settings.
-- Runtime and tool version config for `mise` with Node.js, Java, Go, Python, `pnpm`, `uv`, Maven, and Gradle.
-- Package lists for Linux package managers, Homebrew, Winget, and Linux Flatpak apps.
-- AI CLI install metadata for `codex`, `claude`, `agy`, `droid`, and `opencode`.
-- App and system config for Ghostty, the Nord Ghostty theme, Docker daemon, Fcitx5, XDG user dirs, OpenCode, and a user `systemd` service.
-- Safe SSH host aliases in `~/.ssh/config` for personal and work GitHub identities.
-- Shared `chezmoi` data, helper templates, and ignore rules used to render files and control what is managed.
+What this repo does:
+- Acts as a cross-platform machine bootstrap system and dotfiles manager for Linux, macOS, and Windows.
+- Uses Ansible as the primary orchestration layer for OS detection, profile selection (personal/work), and role-based setups.
+- Uses Chezmoi for dotfile templating, secret handling, and managing configurations in `symlink` mode.
 
 Setup:
-- Installs `chezmoi` if needed, initializes this dotfiles repo, shows a diff, and applies managed files.
-- Prompts for Git name and email the first time `chezmoi` renders templates, then writes them to `~/.gitconfig.local`.
-- Prepares local directories such as `~/.local/bin`, `~/.local/share/pnpm`, and `~/.config/mise`.
-- Installs curated system packages with `dnf`, `apt`, `pacman`, or Homebrew depending on the OS.
-- Installs and updates development runtimes and tools through `mise`.
-- Installs curated Flatpak desktop apps on Linux.
-- Installs optional AI CLIs on Unix-like systems.
-- Loads curated GNOME `dconf` settings on GNOME-based Linux systems.
-- Reloads user `systemd`, enables the `auto-headphone-switch` service, and reminds you to switch to `zsh` manually.
-- On Windows, imports curated `winget` packages and prints AI CLI install commands.
-- Optionally switches the local dotfiles repo remote from HTTPS to SSH after bootstrap.
+- Automatically detects OS and installs Chezmoi and Ansible if missing.
+- Installs system packages and desktop apps using native package managers (dnf, apt, pacman, Homebrew, Winget) and Flatpak.
+- Configures `mise` for developer runtimes (Node.js, Python, Go, Java, etc.) and installs AI CLIs.
+- Applies system configurations like GNOME `dconf` settings, Docker daemon, SSH host aliases, and user `systemd` services.
+- Renders templates and symlinks user dotfiles (Zsh, Git, Ghostty) into `$HOME`.
+
+Store:
+- Ansible logic including playbooks, roles (base, packages, mise, flatpak, gnome, shell, docker), and profile variables.
+- Package definitions in `.chezmoidata/packages.yaml` grouped by common, personal, and work profiles.
+- Dotfile templates (`*.tmpl`), ignore rules, and configuration sources.
+- Bootstrap scripts (`bootstrap.sh`, `bootstrap.ps1`) to trigger the setup flow.
 </details>

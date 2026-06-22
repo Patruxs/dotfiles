@@ -1,0 +1,16 @@
+---
+- name: Set zsh as default shell (Linux)
+  user:
+    name: "{{ lookup('env', 'USER') }}"
+    shell: /usr/bin/zsh
+  become: yes
+  when: ansible_system == 'Linux'
+  ignore_errors: yes
+
+- name: Set zsh as default shell (macOS)
+  user:
+    name: "{{ lookup('env', 'USER') }}"
+    shell: /bin/zsh
+  become: yes
+  when: ansible_os_family == 'Darwin'
+  ignore_errors: yes

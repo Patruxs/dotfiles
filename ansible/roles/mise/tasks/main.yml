@@ -1,0 +1,6 @@
+---
+- name: Run mise install
+  command: mise install
+  args:
+    chdir: "{{ lookup('env', 'HOME') }}"
+  ignore_errors: yes

@@ -1,0 +1,12 @@
+---
+- name: Validate sudo access
+  command: sudo -v
+  become: no
+  when: ansible_system != "Windows"
+
+- name: Keep sudo alive in background
+  shell: "while true; do sudo -n true; sleep 60; kill -0 \"$$\" || exit; done 2>/dev/null &"
+  async: 0
+  poll: 0
+  become: no
+  when: ansible_system != "Windows"

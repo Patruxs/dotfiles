@@ -1,0 +1,10 @@
+---
+- name: Install flatpak packages
+  flatpak:
+    name: "{{ item }}"
+    state: present
+    method: system
+  loop: "{{ (chezmoi_data.packages.common.flatpak.linux | default([])) + (chezmoi_data.packages[profile].flatpak.linux | default([])) }}"
+  when: ansible_system == 'Linux'
+  become: yes
+  ignore_errors: yes

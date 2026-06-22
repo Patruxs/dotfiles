@@ -1,42 +1,78 @@
 $ErrorActionPreference = "Stop"
 
+param(
+    [string]$ProfileName = ""
+)
 $repoHttps = "https://github.com/Patruxs/dotfiles.git"
-$repoSsh = "git@github.com:Patruxs/dotfiles.git"
 $chezmoiSource = Join-Path $HOME ".local/share/chezmoi"
-$wingetFile = Join-Path $chezmoiSource "packages/winget.json"
+$profileCacheFile = Join-Path $HOME ".dotfiles_profile"
 
-function Confirm-Step {
-  param([string]$Prompt)
-  if ($env:DOTFILES_AUTO_INSTALL -eq "1") { return $true }
-  $reply = Read-Host "$Prompt [y/N]"
-  return $reply -match "^(y|yes)$"
+function Get-Profile {
+  if (-not [string]::IsNullOrWhiteSpace($ProfileName)) {
+    if ($ProfileName -match "^(personal|work)$") {
+      Set-Content -Path $profileCacheFile -Value $ProfileName
+      return $ProfileName
+    }
+    Write-Warning "Provided ProfileName '$ProfileName' is invalid. Falling back to prompt."
+  }
+
+  if (Test-Path $profileCacheFile) {
+    $savedProfile = (Get-Content $profileCacheFile).Trim()
+    $reply = Read-Host "Current profile is $savedProfile. Continue? [Y/n]"
+    if ([string]::IsNullOrWhiteSpace($reply) -or $reply -match "^(y|yes)$") {
+      return $savedProfile
+    }
+  }
+
+  while ($true) {
+    $reply = Read-Host "Select profile (personal or work)"
+    if ($reply -match "^(personal|work)$") {
+      Set-Content -Path $profileCacheFile -Value $reply
+      return $reply
+    }
+    Write-Host "Invalid profile. Please enter 'personal' or 'work'."
+  }
 }
 
 if (-not (Get-Command chezmoi -ErrorAction SilentlyContinue)) {
   winget install --id twpayne.chezmoi -e --accept-source-agreements --accept-package-agreements
 }
 
-chezmoi init $repoHttps
-chezmoi diff
-
-if (-not (Confirm-Step "Apply dotfiles from $repoHttps?")) {
-  exit 0
+if (-not (Test-Path (Join-Path $chezmoiSource ".git"))) {
+  chezmoi init $repoHttps
 }
+
+$profile = Get-Profile
+Write-Host "Using profile: $profile"
 
 chezmoi apply -v
 
-if (Test-Path $wingetFile -and (Confirm-Step "Install curated winget packages?")) {
-  winget import -i $wingetFile --ignore-unavailable --accept-source-agreements --accept-package-agreements
+Write-Host "Installing packages for $profile profile..."
+$dataJson = chezmoi data
+$data = $dataJson | ConvertFrom-Json
+
+$pkgs = @()
+if ($null -ne $data.packages.common.windows.packages) {
+    $pkgs += $data.packages.common.windows.packages
+}
+if ($null -ne $data.packages.$profile.windows.packages) {
+    $pkgs += $data.packages.$profile.windows.packages
 }
 
-if (Confirm-Step "Switch chezmoi source remote to SSH?") {
-  git -C $chezmoiSource remote set-url origin $repoSsh
+foreach ($pkg in $pkgs) {
+    Write-Host "Installing $pkg via winget..."
+    winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent
 }
 
-if (Confirm-Step "Install AI CLIs now?") {
-  Write-Host "Codex: powershell -ExecutionPolicy ByPass -c `"irm https://chatgpt.com/codex/install.ps1 | iex`""
-  Write-Host "Antigravity: irm https://antigravity.google/cli/install.ps1 | iex"
-  Write-Host "Claude: irm https://claude.ai/install.ps1 | iex"
-  Write-Host "Droid: irm https://app.factory.ai/cli/windows | iex"
-  Write-Host "OpenCode: npm install -g opencode-ai"
+if ($null -ne $data.ai_clis.clis) {
+    Write-Host "Installing AI CLIs..."
+    foreach ($cli in $data.ai_clis.clis.PSObject.Properties) {
+        $cmd = $cli.Value.install.windows
+        if ($null -ne $cmd) {
+            Write-Host "Running AI CLI installer for $($cli.Name)..."
+            Invoke-Expression $cmd
+        }
+    }
 }
+
+Write-Host "Bootstrap complete."

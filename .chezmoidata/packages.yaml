@@ -1,148 +1,183 @@
 packages:
-  system:
-    fedora:
-      - git
-      - curl
-      - wget
-      - unzip
-      - zsh
-      - bash
-      - neovim
-      - tmux
-      - btop
-      - ripgrep
-      - fd-find
-      - fzf
-      - jq
-      - bat
-      - eza
-      - lazygit
-      - gh
-      - docker
-      - flatpak
-      - mise
-      - pipx
-      - uv
-      - maven
-      - gradle
-      - python3
-      - python3-pip
-    debian:
-      - git
-      - curl
-      - wget
-      - unzip
-      - zsh
-      - bash
-      - neovim
-      - tmux
-      - btop
-      - ripgrep
-      - fd-find
-      - fzf
-      - jq
-      - bat
-      - eza
-      - lazygit
-      - gh
-      - docker.io
-      - flatpak
-      - mise
-      - pipx
-      - uv
-      - maven
-      - gradle
-      - python3
-      - python3-pip
-    arch:
-      - git
-      - curl
-      - wget
-      - unzip
-      - zsh
-      - bash
-      - neovim
-      - tmux
-      - btop
-      - ripgrep
-      - fd
-      - fzf
-      - jq
-      - bat
-      - eza
-      - lazygit
-      - github-cli
-      - docker
-      - flatpak
-      - mise
-      - python
-      - python-pip
-      - uv
-      - maven
-      - gradle
-  homebrew:
-    brews:
-      - git
-      - curl
-      - wget
-      - unzip
-      - zsh
-      - bash
-      - neovim
-      - tmux
-      - btop
-      - ripgrep
-      - fd
-      - fzf
-      - jq
-      - bat
-      - eza
-      - lazygit
-      - gh
-      - mise
-      - pipx
-      - uv
-      - maven
-      - gradle
-    casks:
-      - docker
-      - visual-studio-code
-      - google-chrome
-      - ghostty
-      - obsidian
-      - postman
-      - discord
-      - telegram
-  windows:
-    packages:
-      - Git.Git
-      - OpenJS.NodeJS.LTS
-      - Microsoft.OpenJDK.21
-      - GoLang.Go
-      - Python.Python.3.13
-      - Neovim.Neovim
-      - BurntSushi.ripgrep.MSVC
-      - sharkdp.fd
-      - junegunn.fzf
-      - jqlang.jq
-      - sharkdp.bat
-      - eza-community.eza
-      - JesseDuffield.lazygit
-      - GitHub.cli
-      - Docker.DockerDesktop
-      - jdx.mise
-      - astral-sh.uv
-      - Microsoft.VisualStudioCode
-      - Google.Chrome
-      - Obsidian.Obsidian
-      - Postman.Postman
-      - Discord.Discord
-      - Telegram.TelegramDesktop
-  flatpak:
-    linux:
-      - com.visualstudio.code
-      - org.chromium.Chromium
-      - md.obsidian.Obsidian
-      - com.getpostman.Postman
-      - com.discordapp.Discord
-      - org.telegram.desktop
+  common:
+    system:
+      fedora:
+        - git
+        - curl
+        - wget
+        - unzip
+        - zsh
+        - bash
+        - neovim
+        - tmux
+        - btop
+        - ripgrep
+        - fd-find
+        - fzf
+        - jq
+        - bat
+        - eza
+        - lazygit
+        - gh
+        - flatpak
+        - mise
+      debian:
+        - git
+        - curl
+        - wget
+        - unzip
+        - zsh
+        - bash
+        - neovim
+        - tmux
+        - btop
+        - ripgrep
+        - fd-find
+        - fzf
+        - jq
+        - bat
+        - eza
+        - lazygit
+        - gh
+        - flatpak
+        - mise
+      arch:
+        - git
+        - curl
+        - wget
+        - unzip
+        - zsh
+        - bash
+        - neovim
+        - tmux
+        - btop
+        - ripgrep
+        - fd
+        - fzf
+        - jq
+        - bat
+        - eza
+        - lazygit
+        - github-cli
+        - flatpak
+        - mise
+    homebrew:
+      brews:
+        - git
+        - curl
+        - wget
+        - unzip
+        - zsh
+        - bash
+        - neovim
+        - tmux
+        - btop
+        - ripgrep
+        - fd
+        - fzf
+        - jq
+        - bat
+        - eza
+        - lazygit
+        - gh
+        - mise
+      casks:
+        - google-chrome
+        - jetbrains-toolbox
+    windows:
+      packages:
+        - Git.Git
+        - OpenJS.NodeJS.LTS
+        - GoLang.Go
+        - Python.Python.3.13
+        - Neovim.Neovim
+        - BurntSushi.ripgrep.MSVC
+        - sharkdp.fd
+        - junegunn.fzf
+        - jqlang.jq
+        - sharkdp.bat
+        - eza-community.eza
+        - JesseDuffield.lazygit
+        - GitHub.cli
+        - jdx.mise
+        - Google.Chrome
+        - JetBrains.Toolbox
+    flatpak:
+      linux:
+        - org.chromium.Chromium
+  personal:
+    system:
+      fedora:
+        - docker
+      debian:
+        - docker.io
+      arch:
+        - docker
+    homebrew:
+      casks:
+        - discord
+        - telegram
+        - obsidian
+        - postman
+        - docker
+        - visual-studio-code
+        - ghostty
+    windows:
+      packages:
+        - Discord.Discord
+        - Telegram.TelegramDesktop
+        - Obsidian.Obsidian
+        - Postman.Postman
+        - Docker.DockerDesktop
+        - Microsoft.VisualStudioCode
+    flatpak:
+      linux:
+        - com.discordapp.Discord
+        - org.telegram.desktop
+        - md.obsidian.Obsidian
+        - com.getpostman.Postman
+        - com.visualstudio.code
+  work:
+    system:
+      fedora:
+        - pipx
+        - uv
+        - maven
+        - gradle
+        - python3
+        - python3-pip
+        - docker
+      debian:
+        - pipx
+        - uv
+        - maven
+        - gradle
+        - python3
+        - python3-pip
+        - docker.io
+      arch:
+        - python
+        - python-pip
+        - uv
+        - maven
+        - gradle
+        - docker
+    homebrew:
+      brews:
+        - pipx
+        - uv
+        - maven
+        - gradle
+      casks:
+        - docker
+        - visual-studio-code
+        - ghostty
+    windows:
+      packages:
+        - Microsoft.OpenJDK.21
+        - astral-sh.uv
+        - Docker.DockerDesktop
+        - Microsoft.VisualStudioCode
+    flatpak:
+      linux:
+        - com.visualstudio.code
