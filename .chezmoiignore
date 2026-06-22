@@ -4,6 +4,9 @@ bootstrap.sh
 bootstrap.ps1
 packages/**
 
+# Generated per-machine config written by chezmoi templates.
+.gitconfig.local
+
 .env
 .env.*
 .ssh/id_*
@@ -19,7 +22,8 @@ packages/**
 .config/opencode/node_modules/**
 .config/opencode/**/auth*
 .config/opencode/**/session*
-.config/monitors.xml
+.config/monitors.xml~
+.config/monitors.xml.bak-*
 .config/dconf/user
 .config/org.gnome.Ptyxis/session.gvariant
 

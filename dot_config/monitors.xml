@@ -1,0 +1,33 @@
+<monitors version="2">
+  <configuration>
+    <layoutmode>logical</layoutmode>
+    <logicalmonitor>
+      <x>0</x>
+      <y>0</y>
+      <scale>1</scale>
+      <primary>yes</primary>
+      <monitor>
+        <monitorspec>
+          <connector>HDMI-1</connector>
+          <vendor>GSM</vendor>
+          <product>LG ULTRAGEAR</product>
+          <serial>208NTFA39067</serial>
+        </monitorspec>
+        <mode>
+          <width>2560</width>
+          <height>1440</height>
+          <rate>119.998</rate>
+        </mode>
+        <colormode>bt2100</colormode>
+      </monitor>
+    </logicalmonitor>
+    <disabled>
+      <monitorspec>
+        <connector>eDP-1</connector>
+        <vendor>BOE</vendor>
+        <product>0x0a5a</product>
+        <serial>0x00000000</serial>
+      </monitorspec>
+    </disabled>
+  </configuration>
+</monitors>
