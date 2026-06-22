@@ -59,3 +59,21 @@ jobs:
           echo "Idempotency test failed, changes were made on the second run"
           exit 1
         fi
+
+  test-arch:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+    - name: Install dependencies
+      run: pacman -Syu --noconfirm git sudo curl
+    - uses: actions/checkout@v4
+    - name: Run Bootstrap (Arch)
+      run: ./bootstrap.sh --profile personal
+    - name: Check Idempotency (Arch)
+      run: |
+        ./bootstrap.sh --profile personal | tee output.log
+        if grep -qE "changed=[1-9]" output.log; then
+          echo "Idempotency test failed, changes were made on the second run"
+          exit 1
+        fi
