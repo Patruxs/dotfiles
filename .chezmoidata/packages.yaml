@@ -97,12 +97,9 @@ packages:
         - org.chromium.Chromium
   personal:
     system:
-      fedora:
-        - docker
-      debian:
-        - docker.io
-      arch:
-        - docker
+      fedora: []
+      debian: []
+      arch: []
     homebrew:
       casks:
         - discord
@@ -131,27 +128,21 @@ packages:
     system:
       fedora:
         - pipx
-        - uv
         - maven
         - gradle
         - python3
         - python3-pip
-        - docker
       debian:
         - pipx
-        - uv
         - maven
         - gradle
         - python3
         - python3-pip
-        - docker.io
       arch:
         - python
         - python-pip
-        - uv
         - maven
         - gradle
-        - docker
     homebrew:
       brews:
         - pipx
