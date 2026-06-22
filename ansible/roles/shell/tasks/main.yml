@@ -6,6 +6,7 @@
   become: yes
   when: ansible_system == 'Linux'
   ignore_errors: yes
+  changed_when: false
 
 - name: Set zsh as default shell (macOS)
   user:
@@ -14,3 +15,4 @@
   become: yes
   when: ansible_os_family == 'Darwin'
   ignore_errors: yes
+  changed_when: false

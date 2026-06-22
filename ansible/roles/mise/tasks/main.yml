@@ -1,7 +1,7 @@
 ---
 - name: Run mise install
-  command: mise install
+  shell: ~/.local/bin/mise install
   args:
-    chdir: "{{ lookup('env', 'HOME') }}"
-  ignore_errors: yes
+    chdir: "{{ chezmoi_dir }}"
   changed_when: false
+  ignore_errors: yes
