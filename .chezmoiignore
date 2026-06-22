@@ -42,3 +42,4 @@ packages/**
 {{- if ne .chezmoi.os "windows" }}
 .AppData/**
 {{- end }}
+test/
