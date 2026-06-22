@@ -1,0 +1,68 @@
+---
+- name: Check whether lazygit is already installed
+  command: lazygit --version
+  register: lazygit_check
+  changed_when: false
+  failed_when: false
+  when: ansible_system == 'Linux' and (ansible_os_family == 'Debian' or ansible_distribution == 'Fedora')
+
+- name: Fail on unsupported lazygit architecture
+  fail:
+    msg: "Unsupported architecture for lazygit upstream binary: {{ ansible_architecture }}"
+  when: >
+    ansible_system == 'Linux' and
+    (ansible_os_family == 'Debian' or ansible_distribution == 'Fedora') and
+    lazygit_check is defined and
+    lazygit_check.rc != 0 and
+    ansible_architecture not in ['x86_64', 'amd64', 'aarch64', 'arm64']
+
+- name: Install lazygit on Debian and Fedora from the upstream release
+  when: >
+    ansible_system == 'Linux' and
+    (ansible_os_family == 'Debian' or ansible_distribution == 'Fedora') and
+    lazygit_check is defined and
+    lazygit_check.rc != 0
+  block:
+    - name: Fetch latest lazygit release metadata
+      uri:
+        url: https://api.github.com/repos/jesseduffield/lazygit/releases/latest
+        return_content: yes
+      register: lazygit_release
+
+    - name: Set lazygit download facts
+      set_fact:
+        lazygit_version: "{{ lazygit_release.json.tag_name | regex_replace('^v', '') }}"
+        lazygit_arch: "{{ 'arm64' if ansible_architecture in ['aarch64', 'arm64'] else 'x86_64' }}"
+
+    - name: Create temporary directory for lazygit download
+      tempfile:
+        state: directory
+        prefix: lazygit-
+      register: lazygit_tmpdir
+
+    - name: Download lazygit tarball
+      get_url:
+        url: "https://github.com/jesseduffield/lazygit/releases/download/v{{ lazygit_version }}/lazygit_{{ lazygit_version }}_Linux_{{ lazygit_arch }}.tar.gz"
+        dest: "{{ lazygit_tmpdir.path }}/lazygit.tar.gz"
+        mode: "0644"
+
+    - name: Extract lazygit tarball
+      unarchive:
+        src: "{{ lazygit_tmpdir.path }}/lazygit.tar.gz"
+        dest: "{{ lazygit_tmpdir.path }}"
+        remote_src: yes
+
+    - name: Install lazygit binary
+      copy:
+        src: "{{ lazygit_tmpdir.path }}/lazygit"
+        dest: /usr/local/bin/lazygit
+        mode: "0755"
+        remote_src: yes
+      become: yes
+
+  always:
+    - name: Remove temporary lazygit download directory
+      file:
+        path: "{{ lazygit_tmpdir.path }}"
+        state: absent
+      when: lazygit_tmpdir is defined and lazygit_tmpdir.path is defined

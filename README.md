@@ -1,6 +1,6 @@
 # dotfiles
 
-Public chezmoi repo for shell config, Git config, selected app config, package bootstrapping, mise runtimes, VS Code settings/extensions, GNOME settings, Docker daemon settings, and a safe SSH config.
+Public chezmoi repo for shell config, Git config, selected app config, package bootstrapping, Lazygit and GitButler setup, VS Code settings/extensions, GNOME settings, Docker daemon settings, and a safe SSH config.
 
 This repo is configured for chezmoi `symlink` mode. On `chezmoi apply`, eligible managed files are linked back to the source directory instead of being copied.
 
@@ -95,7 +95,7 @@ What this means:
 - Regular non-templated managed files are symlinked into `$HOME` on `chezmoi apply`.
 - Templates, `private_` files, encrypted files, executable files, and directories are still managed normally by chezmoi and are not symlinked.
 - If a program edits a symlinked config file, it is editing the tracked source file in this repo.
-- Files that used to need templates for live syncing now point at tracked backing files in [.live/](/home/pat/.local/share/chezmoi/.live): shell dotfiles, `~/.ssh/config`, `mise`, and Docker.
+- Files that used to need templates for live syncing now point at tracked backing files in [.live/](/home/pat/.local/share/chezmoi/.live): shell dotfiles, `~/.ssh/config`, and Docker.
 - `~/.gitconfig` stays symlinked to the tracked shared config and includes a generated `~/.gitconfig.local` for per-machine `user.name` and `user.email`.
 
 Useful checks:
@@ -117,12 +117,12 @@ What this repo does:
 Setup:
 - Automatically detects OS and installs Chezmoi and Ansible if missing.
 - Installs system packages and desktop apps using native package managers (dnf, apt, pacman, Homebrew, Winget) and Flatpak.
-- Configures `mise` for developer runtimes (Node.js, Python, Go, Java, etc.) and installs AI CLIs.
+- Installs Lazygit and GitButler during setup without managing either app's config files.
 - Applies system configurations like GNOME `dconf` settings, Docker daemon, SSH host aliases, and user `systemd` services.
 - Renders templates and symlinks user dotfiles (Zsh, Git, Ghostty) into `$HOME`.
 
 Store:
-- Ansible logic including playbooks, roles (base, packages, mise, flatpak, gnome, shell, docker), and profile variables.
+- Ansible logic including playbooks, roles (base, packages, git_tools, flatpak, gnome, shell, docker), and profile variables.
 - Package definitions in `.chezmoidata/packages.yaml` grouped by common, personal, and work profiles.
 - Dotfile templates (`*.tmpl`), ignore rules, and configuration sources.
 - Bootstrap scripts (`bootstrap.sh`, `bootstrap.ps1`) to trigger the setup flow.

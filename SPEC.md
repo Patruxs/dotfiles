@@ -16,7 +16,7 @@ This repo already automates a meaningful part of machine setup through `chezmoi`
 - Installs packages on macOS with Homebrew
 - Installs packages on Windows with `winget`
 - Installs Linux GUI apps with Flatpak
-- Installs runtimes and developer tools via `mise`
+- Installs Git tooling such as `lazygit` and `GitButler`
 - Applies GNOME `dconf` settings on supported Linux desktops
 - Enables a user `systemd` service for `auto-headphone-switch`
 - Installs optional AI CLIs
@@ -198,7 +198,7 @@ ansible/
   roles/
     base
     packages
-    mise
+    git_tools
     flatpak
     gnome
     ai_tools

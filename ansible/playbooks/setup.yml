@@ -57,7 +57,7 @@
   roles:
     - base
     - packages
-    - mise
+    - git_tools
     - flatpak
     - gnome
     - ai_tools

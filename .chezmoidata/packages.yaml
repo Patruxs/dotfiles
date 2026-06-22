@@ -50,7 +50,6 @@ packages:
         - lazygit
         - github-cli
         - flatpak
-        - mise
     homebrew:
       brews:
         - git
@@ -70,9 +69,9 @@ packages:
         - eza
         - lazygit
         - gh
-        - mise
       casks:
         - google-chrome
+        - gitbutler
         - jetbrains-toolbox
     windows:
       packages:
@@ -88,12 +87,13 @@ packages:
         - sharkdp.bat
         - eza-community.eza
         - JesseDuffield.lazygit
+        - GitButler.GitButler
         - GitHub.cli
-        - jdx.mise
         - Google.Chrome
         - JetBrains.Toolbox
     flatpak:
       linux:
+        - com.gitbutler.gitbutler
         - org.chromium.Chromium
   personal:
     system:
