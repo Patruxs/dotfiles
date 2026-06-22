@@ -1,8 +1,8 @@
-$ErrorActionPreference = "Stop"
-
 param(
     [string]$ProfileName = ""
 )
+
+$ErrorActionPreference = "Stop"
 $repoHttps = "https://github.com/Patruxs/dotfiles.git"
 $chezmoiSource = Join-Path $HOME ".local/share/chezmoi"
 $profileCacheFile = Join-Path $HOME ".dotfiles_profile"
