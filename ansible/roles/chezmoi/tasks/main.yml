@@ -1,6 +1,8 @@
 ---
 - name: Run chezmoi apply
-  command: chezmoi apply -v
+  command: chezmoi apply --force -v
   environment:
     PROFILE: "{{ profile }}"
   ignore_errors: yes
+  register: chezmoi_result
+  changed_when: chezmoi_result.stdout | length > 0

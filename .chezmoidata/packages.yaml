@@ -12,15 +12,10 @@ packages:
         - tmux
         - btop
         - ripgrep
-        - fd-find
         - fzf
         - jq
         - bat
-        - eza
-        - lazygit
-        - gh
         - flatpak
-        - mise
       debian:
         - git
         - curl
@@ -32,15 +27,10 @@ packages:
         - tmux
         - btop
         - ripgrep
-        - fd-find
         - fzf
         - jq
         - bat
-        - eza
-        - lazygit
-        - gh
         - flatpak
-        - mise
       arch:
         - git
         - curl

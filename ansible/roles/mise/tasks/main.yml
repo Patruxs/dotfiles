@@ -4,3 +4,4 @@
   args:
     chdir: "{{ lookup('env', 'HOME') }}"
   ignore_errors: yes
+  changed_when: false

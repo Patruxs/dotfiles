@@ -46,7 +46,7 @@ if (-not (Test-Path (Join-Path $chezmoiSource ".git"))) {
 $profile = Get-Profile
 Write-Host "Using profile: $profile"
 
-chezmoi apply -v
+chezmoi apply --force -v
 
 Write-Host "Installing packages for $profile profile..."
 $dataJson = chezmoi data
