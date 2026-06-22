@@ -82,4 +82,5 @@ if [ -n "$profile" ]; then
   extra_vars="-e profile=$profile"
 fi
 
-ansible-playbook "$chezmoi_dir/ansible/playbooks/setup.yml" $extra_vars
+cd "$chezmoi_dir"
+ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook "ansible/playbooks/setup.yml" $extra_vars
