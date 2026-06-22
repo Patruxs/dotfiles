@@ -3,6 +3,7 @@
   command: "pgrep -f gnome-session"
   register: gnome_running
   ignore_errors: yes
+  changed_when: false
   when: gnome_settings_enabled | default(false) and ansible_system == 'Linux'
 
 - name: Apply GNOME settings stub

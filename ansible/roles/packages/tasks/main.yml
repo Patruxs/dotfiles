@@ -60,3 +60,5 @@
     mv jetbrains-toolbox-*/jetbrains-toolbox ~/.local/share/JetBrains/Toolbox/bin/
     rm -rf jetbrains-toolbox-*
   when: ansible_system == 'Linux'
+  args:
+    creates: ~/.local/share/JetBrains/Toolbox/bin/jetbrains-toolbox
