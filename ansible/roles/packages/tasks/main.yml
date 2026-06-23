@@ -44,4 +44,5 @@
   include_tasks: linux-jetbrains-toolbox.yml
   when:
     - dotfiles_platform.system == 'Linux'
+    - install_jetbrains_toolbox | default(false)
     - not (dotfiles_ci | default(false))

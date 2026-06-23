@@ -2,3 +2,5 @@
 profile_name: personal
 gnome_settings_enabled: true
 install_ai_clis: true
+install_docker: true
+install_jetbrains_toolbox: true

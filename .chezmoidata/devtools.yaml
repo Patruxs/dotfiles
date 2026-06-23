@@ -9,3 +9,5 @@ devtools:
     uv: latest
     maven: latest
     gradle: latest
+  npm_global_packages:
+    - playwright

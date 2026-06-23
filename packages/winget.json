@@ -12,10 +12,10 @@
       "Packages": [
         { "PackageIdentifier": "Git.Git" },
         { "PackageIdentifier": "OpenJS.NodeJS.LTS" },
-        { "PackageIdentifier": "Microsoft.OpenJDK.21" },
         { "PackageIdentifier": "GoLang.Go" },
         { "PackageIdentifier": "Python.Python.3.13" },
         { "PackageIdentifier": "Neovim.Neovim" },
+        { "PackageIdentifier": "BrechtSanders.WinLibs.POSIX.UCRT" },
         { "PackageIdentifier": "BurntSushi.ripgrep.MSVC" },
         { "PackageIdentifier": "sharkdp.fd" },
         { "PackageIdentifier": "junegunn.fzf" },
@@ -23,16 +23,24 @@
         { "PackageIdentifier": "sharkdp.bat" },
         { "PackageIdentifier": "eza-community.eza" },
         { "PackageIdentifier": "JesseDuffield.lazygit" },
-        { "PackageIdentifier": "GitButler.GitButler" },
         { "PackageIdentifier": "GitHub.cli" },
-        { "PackageIdentifier": "Docker.DockerDesktop" },
-        { "PackageIdentifier": "astral-sh.uv" },
+        { "PackageIdentifier": "Warp.Warp" },
         { "PackageIdentifier": "Microsoft.VisualStudioCode" },
-        { "PackageIdentifier": "Google.Chrome" },
+        { "PackageIdentifier": "GitButler.GitButler" },
+        { "PackageIdentifier": "Docker.DockerDesktop" },
         { "PackageIdentifier": "Obsidian.Obsidian" },
+        { "PackageIdentifier": "Oracle.VirtualBox" },
+        { "PackageIdentifier": "JetBrains.Toolbox" },
+        { "PackageIdentifier": "Zoom.Zoom" },
+        { "PackageIdentifier": "Spotify.Spotify" },
+        { "PackageIdentifier": "Microsoft.Edge" },
         { "PackageIdentifier": "Postman.Postman" },
-        { "PackageIdentifier": "Discord.Discord" },
-        { "PackageIdentifier": "Telegram.TelegramDesktop" }
+        { "PackageIdentifier": "Telegram.TelegramDesktop" },
+        { "PackageIdentifier": "ONLYOFFICE.DesktopEditors" },
+        { "PackageIdentifier": "OBSProject.OBSStudio" },
+        { "PackageIdentifier": "Anki.Anki" },
+        { "PackageIdentifier": "Termius.Termius" },
+        { "PackageIdentifier": "Amazon.Kiro" }
       ]
     }
   ]

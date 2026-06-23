@@ -79,10 +79,24 @@ if ($null -ne $data.packages.common.windows.packages) {
 if ($null -ne $data.packages.$profile.windows.packages) {
     $pkgs += $data.packages.$profile.windows.packages
 }
+$pkgs = $pkgs | Select-Object -Unique
 
 foreach ($pkg in $pkgs) {
     Write-Host "Installing $pkg via winget..."
     winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent
+}
+
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+if ($null -ne $data.devtools.npm_global_packages -and (Get-Command npm -ErrorAction SilentlyContinue)) {
+    Write-Host "Installing global npm development tools..."
+    foreach ($pkg in $data.devtools.npm_global_packages) {
+        $npmTool = npm list -g $pkg --depth=0 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Installing npm package $pkg..."
+            npm install -g $pkg
+        }
+    }
 }
 
 if ($null -ne $data.ai_clis.clis) {

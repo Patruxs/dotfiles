@@ -12,6 +12,14 @@ packages:
         - tmux
         - btop
         - ripgrep
+        - nodejs
+        - npm
+        - python3
+        - python3-pip
+        - gcc
+        - go
+        - gh
+        - moby-engine
         - fzf
         - jq
         - bat
@@ -27,6 +35,14 @@ packages:
         - tmux
         - btop
         - ripgrep
+        - nodejs
+        - npm
+        - python3
+        - python3-pip
+        - gcc
+        - golang-go
+        - gh
+        - docker.io
         - fzf
         - jq
         - bat
@@ -42,6 +58,13 @@ packages:
         - tmux
         - btop
         - ripgrep
+        - nodejs
+        - npm
+        - python
+        - python-pip
+        - gcc
+        - go
+        - docker
         - fd
         - fzf
         - jq
@@ -49,6 +72,7 @@ packages:
         - eza
         - lazygit
         - github-cli
+        - ghostty
         - flatpak
     homebrew:
       brews:
@@ -69,10 +93,17 @@ packages:
         - eza
         - lazygit
         - gh
+        - node
+        - python
+        - go
+        - gcc
       casks:
-        - google-chrome
+        - warp
+        - visual-studio-code
         - gitbutler
-        - jetbrains-toolbox
+        - ghostty
+        - docker-desktop
+        - obsidian
     windows:
       packages:
         - Git.Git
@@ -80,6 +111,7 @@ packages:
         - GoLang.Go
         - Python.Python.3.13
         - Neovim.Neovim
+        - BrechtSanders.WinLibs.POSIX.UCRT
         - BurntSushi.ripgrep.MSVC
         - sharkdp.fd
         - junegunn.fzf
@@ -87,78 +119,74 @@ packages:
         - sharkdp.bat
         - eza-community.eza
         - JesseDuffield.lazygit
-        - GitButler.GitButler
         - GitHub.cli
-        - Google.Chrome
-        - JetBrains.Toolbox
+        - Warp.Warp
+        - Microsoft.VisualStudioCode
+        - GitButler.GitButler
+        - Docker.DockerDesktop
+        - Obsidian.Obsidian
     flatpak:
       linux:
         - com.gitbutler.gitbutler
-        - org.chromium.Chromium
+        - com.visualstudio.code
+        - md.obsidian.Obsidian
   personal:
+    system:
+      fedora:
+        - nvtop
+      debian:
+        - nvtop
+      arch:
+        - nvtop
+    homebrew:
+      casks:
+        - telegram
+        - zoom
+        - spotify
+        - postman
+        - onlyoffice
+        - obs
+        - microsoft-edge
+        - anki
+        - termius
+        - kiro
+        - virtualbox
+        - jetbrains-toolbox
+    windows:
+      packages:
+        - Oracle.VirtualBox
+        - JetBrains.Toolbox
+        - Zoom.Zoom
+        - Telegram.TelegramDesktop
+        - Spotify.Spotify
+        - Postman.Postman
+        - ONLYOFFICE.DesktopEditors
+        - OBSProject.OBSStudio
+        - Microsoft.Edge
+        - Anki.Anki
+        - Termius.Termius
+        - Amazon.Kiro
+    flatpak:
+      linux:
+        - org.telegram.desktop
+        - us.zoom.Zoom
+        - com.spotify.Client
+        - com.getpostman.Postman
+        - org.onlyoffice.desktopeditors
+        - com.obsproject.Studio
+        - com.microsoft.Edge
+        - net.ankiweb.Anki
+        - com.termius.Termius
+        - io.github.kolunmi.Bazaar
+  work:
     system:
       fedora: []
       debian: []
       arch: []
     homebrew:
-      casks:
-        - discord
-        - telegram
-        - obsidian
-        - postman
-        - docker
-        - visual-studio-code
-        - ghostty
+      brews: []
+      casks: []
     windows:
-      packages:
-        - Discord.Discord
-        - Telegram.TelegramDesktop
-        - Obsidian.Obsidian
-        - Postman.Postman
-        - Docker.DockerDesktop
-        - Microsoft.VisualStudioCode
+      packages: []
     flatpak:
-      linux:
-        - com.discordapp.Discord
-        - org.telegram.desktop
-        - md.obsidian.Obsidian
-        - com.getpostman.Postman
-        - com.visualstudio.code
-  work:
-    system:
-      fedora:
-        - pipx
-        - maven
-        - gradle
-        - python3
-        - python3-pip
-      debian:
-        - pipx
-        - maven
-        - gradle
-        - python3
-        - python3-pip
-      arch:
-        - python
-        - python-pip
-        - maven
-        - gradle
-    homebrew:
-      brews:
-        - pipx
-        - uv
-        - maven
-        - gradle
-      casks:
-        - docker
-        - visual-studio-code
-        - ghostty
-    windows:
-      packages:
-        - Microsoft.OpenJDK.21
-        - astral-sh.uv
-        - Docker.DockerDesktop
-        - Microsoft.VisualStudioCode
-    flatpak:
-      linux:
-        - com.visualstudio.code
+      linux: []

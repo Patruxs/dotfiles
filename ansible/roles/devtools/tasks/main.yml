@@ -1,0 +1,27 @@
+---
+- name: Load devtools data
+  include_vars:
+    file: "{{ chezmoi_dir }}/.chezmoidata/devtools.yaml"
+    name: devtools_data
+  when:
+    - not (dotfiles_ci | default(false))
+
+- name: Check whether npm is available
+  command: npm --version
+  register: devtools_npm_check
+  changed_when: false
+  failed_when: false
+  when:
+    - dotfiles_platform.system != 'Windows'
+    - not (dotfiles_ci | default(false))
+
+- name: Install global npm development tools
+  shell: "npm list --global --depth=0 {{ item }} >/dev/null 2>&1 || npm install --global {{ item }}"
+  args:
+    executable: /bin/bash
+  loop: "{{ devtools_data.devtools.npm_global_packages | default([]) }}"
+  when:
+    - dotfiles_platform.system != 'Windows'
+    - not (dotfiles_ci | default(false))
+    - devtools_npm_check.rc == 0
+  changed_when: false

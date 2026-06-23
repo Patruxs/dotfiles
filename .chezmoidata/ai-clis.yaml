@@ -12,12 +12,6 @@ ai_clis:
         unix: curl -fsSL https://antigravity.google/cli/install.sh | bash
         windows: irm https://antigravity.google/cli/install.ps1 | iex
       login: Run `agy` and follow the browser or terminal auth flow.
-    claude:
-      command: claude
-      install:
-        unix: curl -fsSL https://claude.ai/install.sh | bash
-        windows: irm https://claude.ai/install.ps1 | iex
-      login: Run `claude` and follow the sign-in flow.
     droid:
       command: droid
       install:
