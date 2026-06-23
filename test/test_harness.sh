@@ -45,6 +45,13 @@ else
     log_info "Ansible syntax check passed."
 fi
 
+log_info "Running bootstrap sudo detection regression test..."
+./test/bootstrap_sudo_detection.sh || {
+    log_err "Bootstrap sudo detection regression test failed."
+    exit 1
+}
+log_info "Bootstrap sudo detection regression test passed."
+
 # 2. Chezmoi Dry Run
 log_info "Running Chezmoi Dry Run (verifies templates render without errors)..."
 chezmoi apply --dry-run || {

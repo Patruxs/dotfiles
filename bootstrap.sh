@@ -100,7 +100,7 @@ validate_sudo_password() {
 }
 
 have_passwordless_sudo() {
-  sudo -n true >/dev/null 2>&1
+  sudo -k -n true >/dev/null 2>&1
 }
 
 ensure_linux_sudo_access() {
