@@ -28,6 +28,7 @@ packages:
         - git
         - curl
         - wget
+        - gnupg
         - unzip
         - zsh
         - bash
@@ -72,7 +73,6 @@ packages:
         - eza
         - lazygit
         - github-cli
-        - ghostty
         - flatpak
     homebrew:
       brews:

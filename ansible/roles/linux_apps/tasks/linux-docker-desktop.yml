@@ -1,0 +1,82 @@
+---
+- name: Check whether Docker Desktop is already installed on Debian-based Linux
+  command:
+    argv:
+      - dpkg-query
+      - -W
+      - -f=${Status}
+      - docker-desktop
+  register: docker_desktop_check_debian
+  changed_when: false
+  failed_when: false
+  when:
+    - dotfiles_platform.distro_key == 'debian'
+    - dotfiles_platform.distribution == 'Ubuntu'
+    - dotfiles_platform.distribution_version in ['24.04', '26.04']
+    - dotfiles_platform.architecture in ['x86_64', 'amd64']
+
+- name: Check whether Docker Desktop is already installed on Fedora
+  command: rpm -q docker-desktop
+  register: docker_desktop_check_fedora
+  changed_when: false
+  failed_when: false
+  when:
+    - dotfiles_platform.distro_key == 'fedora'
+    - (dotfiles_platform.distribution_major_version | int) >= 43
+    - dotfiles_platform.architecture in ['x86_64', 'amd64']
+
+- name: Check whether Docker Desktop is already installed on Arch Linux
+  command: pacman -Q docker-desktop
+  register: docker_desktop_check_arch
+  changed_when: false
+  failed_when: false
+  when:
+    - dotfiles_platform.distro_key == 'arch'
+    - dotfiles_platform.architecture in ['x86_64', 'amd64']
+
+- name: Install Docker Desktop on Ubuntu
+  become: yes
+  shell: |
+    set -euo pipefail
+    tmpdir="$(mktemp -d)"
+    trap 'rm -rf "$tmpdir"' EXIT
+    curl -fsSL https://desktop.docker.com/linux/main/amd64/docker-desktop-amd64.deb -o "$tmpdir/docker-desktop-amd64.deb"
+    apt-get update
+    apt-get install -y "$tmpdir/docker-desktop-amd64.deb"
+  args:
+    executable: /bin/bash
+  when:
+    - dotfiles_platform.distro_key == 'debian'
+    - dotfiles_platform.distribution == 'Ubuntu'
+    - dotfiles_platform.distribution_version in ['24.04', '26.04']
+    - dotfiles_platform.architecture in ['x86_64', 'amd64']
+    - docker_desktop_check_debian.rc != 0
+
+- name: Install Docker Desktop on Fedora
+  become: yes
+  command:
+    argv:
+      - dnf
+      - install
+      - -y
+      - https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.rpm
+  when:
+    - dotfiles_platform.distro_key == 'fedora'
+    - (dotfiles_platform.distribution_major_version | int) >= 43
+    - dotfiles_platform.architecture in ['x86_64', 'amd64']
+    - docker_desktop_check_fedora.rc != 0
+
+- name: Install Docker Desktop on Arch Linux
+  become: yes
+  shell: |
+    set -euo pipefail
+    tmpdir="$(mktemp -d)"
+    trap 'rm -rf "$tmpdir"' EXIT
+    curl -fsSL https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.pkg.tar.zst -o "$tmpdir/docker-desktop-x86_64.pkg.tar.zst"
+    pacman -U --noconfirm "$tmpdir/docker-desktop-x86_64.pkg.tar.zst"
+  args:
+    executable: /bin/bash
+  when:
+    - dotfiles_platform.distro_key == 'arch'
+    - dotfiles_platform.architecture in ['x86_64', 'amd64']
+    - docker_desktop_check_arch.rc != 0

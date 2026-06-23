@@ -1,0 +1,7 @@
+---
+- name: Install Linux native desktop apps
+  include_tasks: "linux-{{ item }}.yml"
+  loop: "{{ linux_native_apps | default([]) }}"
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - not (dotfiles_ci | default(false))

@@ -1,0 +1,62 @@
+---
+- name: Check whether Warp is already installed
+  command: warp-terminal --version
+  register: warp_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Warp on Debian-based Linux
+  become: yes
+  shell: |
+    set -euo pipefail
+    warp_repo_arch="{{ 'amd64' if dotfiles_platform.architecture in ['x86_64', 'amd64'] else 'arm64' }}"
+    install -d -m 0755 /etc/apt/keyrings
+    if [ ! -f /etc/apt/keyrings/warpdotdev.gpg ]; then
+      wget -qO- https://releases.warp.dev/linux/keys/warp.asc | gpg --dearmor > /tmp/warpdotdev.gpg
+      install -D -o root -g root -m 0644 /tmp/warpdotdev.gpg /etc/apt/keyrings/warpdotdev.gpg
+      rm -f /tmp/warpdotdev.gpg
+    fi
+    printf '%s\n' "deb [arch=${warp_repo_arch} signed-by=/etc/apt/keyrings/warpdotdev.gpg] https://releases.warp.dev/linux/deb stable main" > /etc/apt/sources.list.d/warpdotdev.list
+    apt-get update
+    apt-get install -y warp-terminal
+  args:
+    executable: /bin/bash
+  when:
+    - warp_check.rc != 0
+    - dotfiles_platform.distro_key == 'debian'
+
+- name: Install Warp on Fedora
+  become: yes
+  shell: |
+    set -euo pipefail
+    rpm --import https://releases.warp.dev/linux/keys/warp.asc
+    printf '%s\n' \
+      '[warpdotdev]' \
+      'name=warpdotdev' \
+      'baseurl=https://releases.warp.dev/linux/rpm/stable' \
+      'enabled=1' \
+      'gpgcheck=1' \
+      'gpgkey=https://releases.warp.dev/linux/keys/warp.asc' \
+      > /etc/yum.repos.d/warpdotdev.repo
+    dnf install -y warp-terminal
+  args:
+    executable: /bin/bash
+  when:
+    - warp_check.rc != 0
+    - dotfiles_platform.distro_key == 'fedora'
+
+- name: Install Warp on Arch Linux
+  become: yes
+  shell: |
+    set -euo pipefail
+    if ! grep -q '^\[warpdotdev\]' /etc/pacman.conf; then
+      printf '\n%s\n%s\n' '[warpdotdev]' 'Server = https://releases.warp.dev/linux/pacman/$repo/$arch' >> /etc/pacman.conf
+    fi
+    pacman-key -r "linux-maintainers@warp.dev"
+    pacman-key --lsign-key "linux-maintainers@warp.dev"
+    pacman -Sy --noconfirm warp-terminal
+  args:
+    executable: /bin/bash
+  when:
+    - warp_check.rc != 0
+    - dotfiles_platform.distro_key == 'arch'
