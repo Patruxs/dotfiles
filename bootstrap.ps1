@@ -15,6 +15,11 @@ function Show-Banner {
   Write-Host "▓▓▓▓   ▓▓▓    ▓   ▓     ▓▓▓ ▓▓▓▓▓ ▓▓▓▓▓ ▓▓▓▓"
 }
 
+function Show-WelcomeScreen {
+  Clear-Host
+  Show-Banner
+}
+
 function Get-Profile {
   if (-not [string]::IsNullOrWhiteSpace($ProfileName)) {
     if ($ProfileName -match "^(personal|work)$") {
@@ -51,7 +56,7 @@ if (-not (Test-Path (Join-Path $chezmoiSource ".git"))) {
   chezmoi init $repoHttps
 }
 
-Show-Banner
+Show-WelcomeScreen
 $profile = Get-Profile
 Write-Host "Using profile: $profile"
 

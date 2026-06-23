@@ -14,6 +14,22 @@ print_banner() {
 EOF
 }
 
+show_welcome_screen() {
+  local tty_device
+
+  if [ -e /dev/tty ]; then
+    tty_device="/dev/tty"
+    if have clear; then
+      clear >"$tty_device"
+    else
+      printf '\033c' >"$tty_device"
+    fi
+    print_banner >"$tty_device"
+  else
+    print_banner
+  fi
+}
+
 OS="$(uname -s)"
 DISTRO=""
 if [ "$OS" = "Linux" ] && [ -f /etc/os-release ]; then
@@ -167,7 +183,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-print_banner
+show_welcome_screen
 
 if [ -z "$profile" ]; then
   choose_profile
