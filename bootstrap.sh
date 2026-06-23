@@ -395,6 +395,7 @@ fi
 ensure_ansible_collections
 
 cd "$chezmoi_dir"
+export DOTFILES_CHEZMOI_DIR="$chezmoi_dir"
 ansible_args=(-i "localhost," "ansible/playbooks/setup.yml")
 if [ -n "$profile" ]; then
   ansible_args+=(-e "profile=$profile")

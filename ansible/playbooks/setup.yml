@@ -5,7 +5,7 @@
   gather_facts: yes
 
   vars:
-    chezmoi_dir: "{{ lookup('env', 'HOME') }}/.local/share/chezmoi"
+    chezmoi_dir: "{{ lookup('env', 'DOTFILES_CHEZMOI_DIR') | default(lookup('env', 'HOME') ~ '/.local/share/chezmoi', true) }}"
     dotfiles_ci: "{{ (((lookup('env', 'DOTFILES_CI') | default('', true)) or (lookup('env', 'CI') | default('', true))) | string | lower) in ['1', 'true', 'yes'] }}"
     dotfiles_sudo_password_file: "{{ lookup('env', 'DOTFILES_SUDO_PASSWORD_FILE') | default('', true) }}"
 
