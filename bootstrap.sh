@@ -94,11 +94,8 @@ run_sudo() {
 
 create_become_password_file() {
   become_password_file="$(mktemp)"
-  chmod 700 "$become_password_file"
-  cat >"$become_password_file" <<EOF
-#!/usr/bin/env bash
-printf '%s\n' "$(printf '%s' "$sudo_password" | sed "s/'/'\\\\''/g")"
-EOF
+  chmod 600 "$become_password_file"
+  printf '%s\n' "$sudo_password" >"$become_password_file"
 }
 
 refresh_repo() {
