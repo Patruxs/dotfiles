@@ -13,6 +13,7 @@ docker_task_main="$repo_root/ansible/roles/docker/tasks/main.yml"
 git_tools_task_main="$repo_root/ansible/roles/git_tools/tasks/main.yml"
 setup_playbook="$repo_root/ansible/playbooks/setup.yml"
 chezmoi_bootstrap_script="$repo_root/.chezmoiscripts/run_once_before_00-bootstrap.sh.tmpl"
+workflow_file="$repo_root/.github/workflows/ci.yml"
 
 search_file() {
   local pattern="$1"
@@ -95,13 +96,13 @@ if ! search_file "not \\(dotfiles_ci \\| default\\(false\\)\\)" "$git_tools_task
   exit 1
 fi
 
-if ! search_file 'Skipping system package refresh in CI\.' "$repo_root/bootstrap.sh"; then
-  echo "expected bootstrap.sh to skip full system upgrades during CI"
+if ! search_file 'Skipping system package refresh in lightweight CI mode\.' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to reserve system package refresh skipping for lightweight CI mode"
   exit 1
 fi
 
-if ! search_file 'Skipping dotfiles repo refresh in CI\.' "$repo_root/bootstrap.sh"; then
-  echo "expected bootstrap.sh to skip repo refresh in CI"
+if ! search_file 'Using checked-out dotfiles repo without refreshing it\.' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to preserve the checked-out repo without refreshing it in automation"
   exit 1
 fi
 
@@ -110,13 +111,23 @@ if ! search_file 'script_dir' "$repo_root/bootstrap.sh"; then
   exit 1
 fi
 
-if ! search_file 'Skipping package installs in CI\.' "$windows_bootstrap"; then
-  echo "expected bootstrap.ps1 to skip winget installs during CI"
+if ! search_file 'Test-IsAutomation' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to distinguish automation from lightweight CI mode"
   exit 1
 fi
 
-if ! search_file 'Skipping chezmoi self-upgrade in CI\.' "$windows_bootstrap"; then
-  echo "expected bootstrap.ps1 to skip chezmoi self-upgrade in CI"
+if ! search_file 'Test-UsingCheckedOutSource' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to reuse the checked-out repo source during automation"
+  exit 1
+fi
+
+if ! search_file 'Skipping package installs in lightweight CI mode\.' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to reserve winget skipping for lightweight CI mode"
+  exit 1
+fi
+
+if ! search_file 'Skipping chezmoi self-upgrade in lightweight CI mode\.' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to reserve chezmoi self-upgrade skipping for lightweight CI mode"
   exit 1
 fi
 
@@ -140,8 +151,28 @@ if ! search_file 'chezmoi data --source \$chezmoiSource' "$windows_bootstrap"; t
   exit 1
 fi
 
+if ! search_file 'Assert-LastExitCode "winget import"' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to fail when winget import returns a non-zero exit code"
+  exit 1
+fi
+
+if ! search_file 'Assert-LastExitCode "npm install -g \$pkg@latest"' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to fail when npm global installs return a non-zero exit code"
+  exit 1
+fi
+
+if ! search_file 'Assert-LastExitCode "\$\(\$cli.Name\) installer"' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to fail when AI CLI installers return a non-zero exit code"
+  exit 1
+fi
+
 if ! search_file 'DOTFILES_CHEZMOI_DIR' "$setup_playbook"; then
   echo "expected setup.yml to honor DOTFILES_CHEZMOI_DIR during CI"
+  exit 1
+fi
+
+if search_file "lookup\\('env', 'CI'\\)" "$setup_playbook"; then
+  echo "expected setup.yml to use DOTFILES_CI only for lightweight CI mode"
   exit 1
 fi
 
@@ -197,6 +228,41 @@ fi
 
 if ! search_file 'Record installed lazygit version' "$lazygit_task"; then
   echo "expected lazygit install to record the installed version"
+  exit 1
+fi
+
+if search_file 'DOTFILES_CI:' "$workflow_file"; then
+  echo "expected ci.yml to run the full install path by default"
+  exit 1
+fi
+
+if ! search_file 'GITHUB_TOKEN:' "$workflow_file"; then
+  echo "expected ci.yml to expose GITHUB_TOKEN for installer metadata lookups"
+  exit 1
+fi
+
+if ! search_file 'profile: \[personal, work\]' "$workflow_file"; then
+  echo "expected ci.yml to exercise both personal and work profiles"
+  exit 1
+fi
+
+if ! search_file './bootstrap\.sh --profile \$\{\{ matrix\.profile \}\}' "$workflow_file"; then
+  echo "expected ci.yml to pass matrix.profile through bootstrap.sh"
+  exit 1
+fi
+
+if ! search_file '\.\\bootstrap\.ps1 -ProfileName \$\{\{ matrix\.profile \}\}' "$workflow_file"; then
+  echo "expected ci.yml to pass matrix.profile through bootstrap.ps1"
+  exit 1
+fi
+
+if ! search_file 'Check Idempotency' "$workflow_file"; then
+  echo "expected ci.yml to include idempotency checks"
+  exit 1
+fi
+
+if ! search_file 'chezmoi diff --source "\$PWD"' "$workflow_file"; then
+  echo "expected ci.yml to verify managed-file idempotency with chezmoi diff"
   exit 1
 fi
 

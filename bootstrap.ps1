@@ -9,16 +9,25 @@ $chezmoiSource = Join-Path $HOME ".local/share/chezmoi"
 $profileCacheFile = Join-Path $HOME ".dotfiles_profile"
 
 function Test-IsCi {
-  $ciValue = if ($env:DOTFILES_CI) { $env:DOTFILES_CI } else { $env:CI }
+  $ciValue = $env:DOTFILES_CI
   return $ciValue -match "^(1|true|yes)$"
 }
 
-if (
-  (Test-IsCi) -and
-  $null -ne $scriptDir -and
-  (Test-Path (Join-Path $scriptDir ".git")) -and
-  (Test-Path (Join-Path $scriptDir "packages/winget.json"))
-) {
+function Test-IsAutomation {
+  $ciValue = if ($env:GITHUB_ACTIONS) { $env:GITHUB_ACTIONS } elseif ($env:CI) { $env:CI } else { $env:DOTFILES_CI }
+  return $ciValue -match "^(1|true|yes)$"
+}
+
+function Test-UsingCheckedOutSource {
+  return (
+    (Test-IsAutomation) -and
+    $null -ne $scriptDir -and
+    (Test-Path (Join-Path $scriptDir ".git")) -and
+    (Test-Path (Join-Path $scriptDir "packages/winget.json"))
+  )
+}
+
+if (Test-UsingCheckedOutSource) {
   $chezmoiSource = $scriptDir
 }
 
@@ -81,8 +90,8 @@ function Get-Profile {
 }
 
 function Refresh-Repo {
-  if (Test-IsCi) {
-    Write-Host "Skipping dotfiles repo refresh in CI."
+  if (Test-UsingCheckedOutSource) {
+    Write-Host "Using checked-out dotfiles repo without refreshing it."
     return
   }
 
@@ -126,6 +135,7 @@ function Install-WingetPackages {
     foreach ($pkg in $PackageIds) {
       Write-Host "Installing or updating $pkg via winget..."
       winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent --disable-interactivity
+      Assert-LastExitCode "winget install $pkg"
     }
     return
   }
@@ -136,6 +146,7 @@ function Install-WingetPackages {
     foreach ($pkg in $PackageIds) {
       Write-Host "Installing or updating $pkg via winget..."
       winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent --disable-interactivity
+      Assert-LastExitCode "winget install $pkg"
     }
     return
   }
@@ -152,6 +163,7 @@ function Install-WingetPackages {
   try {
     $manifest | ConvertTo-Json -Depth 8 | Set-Content -Path $tempWingetManifest -Encoding utf8
     winget import --import-file $tempWingetManifest --ignore-unavailable --ignore-versions --accept-source-agreements --accept-package-agreements --disable-interactivity
+    Assert-LastExitCode "winget import"
   } finally {
     Remove-Item $tempWingetManifest -ErrorAction SilentlyContinue
   }
@@ -162,7 +174,7 @@ if (-not (Get-Command chezmoi -ErrorAction SilentlyContinue)) {
   Assert-LastExitCode "winget install twpayne.chezmoi"
   $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 } elseif (Test-IsCi) {
-  Write-Host "Skipping chezmoi self-upgrade in CI."
+  Write-Host "Skipping chezmoi self-upgrade in lightweight CI mode."
 } else {
   try {
     chezmoi upgrade
@@ -200,7 +212,7 @@ if ($null -ne $data.packages.$profile.windows.packages) {
 $pkgs = $pkgs | Select-Object -Unique
 
 if (Test-IsCi) {
-    Write-Host "Skipping package installs in CI."
+    Write-Host "Skipping package installs in lightweight CI mode."
 } else {
     Write-Host "Installing packages for $profile profile..."
     Install-WingetPackages -PackageIds $pkgs -TemplatePath $wingetTemplateFile
@@ -213,6 +225,7 @@ if ((-not (Test-IsCi)) -and $null -ne $data.devtools.npm_global_packages -and (G
     foreach ($pkg in $data.devtools.npm_global_packages) {
         Write-Host "Installing or updating npm package $pkg..."
         npm install -g "$pkg@latest"
+        Assert-LastExitCode "npm install -g $pkg@latest"
     }
 }
 
@@ -223,6 +236,7 @@ if ((-not (Test-IsCi)) -and $null -ne $data.ai_clis.clis) {
         if ($null -ne $cmd) {
             Write-Host "Running AI CLI installer for $($cli.Name)..."
             Invoke-Expression $cmd
+            Assert-LastExitCode "$($cli.Name) installer"
         }
     }
 }

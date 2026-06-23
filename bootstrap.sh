@@ -17,7 +17,7 @@ have() {
 }
 
 is_ci() {
-  case "${DOTFILES_CI:-${CI:-}}" in
+  case "${DOTFILES_CI:-}" in
     1|true|TRUE|yes|YES)
       return 0
       ;;
@@ -27,10 +27,25 @@ is_ci() {
   esac
 }
 
-resolve_chezmoi_dir() {
-  if is_ci &&
+is_automation() {
+  case "${GITHUB_ACTIONS:-${CI:-${DOTFILES_CI:-}}}" in
+    1|true|TRUE|yes|YES)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+using_checked_out_source() {
+  is_automation &&
     [ -d "$script_dir/.git" ] &&
-    [ -f "$script_dir/ansible/playbooks/setup.yml" ]; then
+    [ -f "$script_dir/ansible/playbooks/setup.yml" ]
+}
+
+resolve_chezmoi_dir() {
+  if using_checked_out_source; then
     chezmoi_dir="$script_dir"
   fi
 }
@@ -157,8 +172,8 @@ create_become_password_file() {
 }
 
 refresh_repo() {
-  if is_ci; then
-    echo "Skipping dotfiles repo refresh in CI."
+  if using_checked_out_source; then
+    echo "Using checked-out dotfiles repo without refreshing it."
     return
   fi
 
@@ -212,7 +227,7 @@ update_system() {
   fi
 
   if is_ci; then
-    echo "Skipping system package refresh in CI."
+    echo "Skipping system package refresh in lightweight CI mode."
     return
   fi
 
@@ -378,7 +393,7 @@ if ! have chezmoi; then
   fetch_to_stdout "https://get.chezmoi.io/lb" | sh -s -- -b "$HOME/.local/bin"
   export PATH="$HOME/.local/bin:$PATH"
 elif is_ci; then
-  echo "Skipping chezmoi self-upgrade in CI."
+  echo "Skipping chezmoi self-upgrade in lightweight CI mode."
 else
   chezmoi upgrade || echo "Warning: could not self-upgrade chezmoi. Continuing with the current version."
 fi

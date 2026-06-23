@@ -9,28 +9,44 @@ on:
 
 jobs:
   ubuntu-latest:
+    name: Ubuntu (${{ matrix.profile }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [personal, work]
     env:
-      DOTFILES_CI: "1"
+      GITHUB_TOKEN: ${{ github.token }}
     
     steps:
     - uses: actions/checkout@v5
     
     - name: Run Bootstrap
-      run: ./bootstrap.sh --profile personal
+      run: ./bootstrap.sh --profile ${{ matrix.profile }}
         
     - name: Check Idempotency
       run: |
-        ./bootstrap.sh --profile personal | tee output.log
+        ./bootstrap.sh --profile ${{ matrix.profile }} | tee output.log
         if grep -qE "changed=[1-9]" output.log; then
           echo "Idempotency test failed, changes were made on the second run"
           exit 1
         fi
+        chezmoi diff --source "$PWD" > chezmoi.diff
+        if [ -s chezmoi.diff ]; then
+          cat chezmoi.diff
+          echo "Idempotency test failed, chezmoi diff reported changes after the second run"
+          exit 1
+        fi
 
   macos-latest:
+    name: macOS (${{ matrix.profile }})
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [personal, work]
     env:
-      DOTFILES_CI: "1"
+      GITHUB_TOKEN: ${{ github.token }}
       HOMEBREW_NO_AUTO_UPDATE: "1"
       HOMEBREW_NO_ENV_HINTS: "1"
       HOMEBREW_NO_INSTALL_CLEANUP: "1"
@@ -38,63 +54,108 @@ jobs:
     steps:
     - uses: actions/checkout@v5
     - name: Run Bootstrap
-      run: ./bootstrap.sh --profile personal
+      run: ./bootstrap.sh --profile ${{ matrix.profile }}
     - name: Check Idempotency
       run: |
-        ./bootstrap.sh --profile personal | tee output.log
+        ./bootstrap.sh --profile ${{ matrix.profile }} | tee output.log
         if grep -qE "changed=[1-9]" output.log; then
           echo "Idempotency test failed, changes were made on the second run"
           exit 1
         fi
+        chezmoi diff --source "$PWD" > chezmoi.diff
+        if [ -s chezmoi.diff ]; then
+          cat chezmoi.diff
+          echo "Idempotency test failed, chezmoi diff reported changes after the second run"
+          exit 1
+        fi
 
   windows-latest:
+    name: Windows (${{ matrix.profile }})
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [personal, work]
     env:
-      DOTFILES_CI: "1"
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
     - uses: actions/checkout@v5
     - name: Run Bootstrap
-      run: .\bootstrap.ps1 -ProfileName personal
+      run: .\bootstrap.ps1 -ProfileName ${{ matrix.profile }}
+    - name: Check Idempotency
+      shell: pwsh
+      run: |
+        .\bootstrap.ps1 -ProfileName ${{ matrix.profile }}
+        $diff = chezmoi diff --source "$PWD"
+        if ($LASTEXITCODE -ne 0) {
+          throw "chezmoi diff failed with exit code $LASTEXITCODE."
+        }
+        if (-not [string]::IsNullOrWhiteSpace($diff)) {
+          $diff | Write-Host
+          throw "Idempotency test failed, chezmoi diff reported changes after the second run."
+        }
     - name: Run CI Bootstrap Regression Checks
       shell: bash
       run: ./test/ci_bootstrap_regressions.sh
 
   fedora-latest:
+    name: Fedora (${{ matrix.profile }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [personal, work]
     container:
       image: fedora:latest
     env:
-      DOTFILES_CI: "1"
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
     - name: Install dependencies
       run: dnf install -y git sudo curl
     - uses: actions/checkout@v5
     - name: Run Bootstrap (Fedora)
-      run: ./bootstrap.sh --profile personal
+      run: ./bootstrap.sh --profile ${{ matrix.profile }}
     - name: Check Idempotency (Fedora)
       run: |
-        ./bootstrap.sh --profile personal | tee output.log
+        ./bootstrap.sh --profile ${{ matrix.profile }} | tee output.log
         if grep -qE "changed=[1-9]" output.log; then
           echo "Idempotency test failed, changes were made on the second run"
           exit 1
         fi
+        chezmoi diff --source "$PWD" > chezmoi.diff
+        if [ -s chezmoi.diff ]; then
+          cat chezmoi.diff
+          echo "Idempotency test failed, chezmoi diff reported changes after the second run"
+          exit 1
+        fi
 
   arch-latest:
+    name: Arch (${{ matrix.profile }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [personal, work]
     container:
       image: archlinux:latest
     env:
-      DOTFILES_CI: "1"
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
     - name: Install dependencies
       run: pacman -Syu --noconfirm git sudo curl
     - uses: actions/checkout@v5
     - name: Run Bootstrap (Arch)
-      run: ./bootstrap.sh --profile personal
+      run: ./bootstrap.sh --profile ${{ matrix.profile }}
     - name: Check Idempotency (Arch)
       run: |
-        ./bootstrap.sh --profile personal | tee output.log
+        ./bootstrap.sh --profile ${{ matrix.profile }} | tee output.log
         if grep -qE "changed=[1-9]" output.log; then
           echo "Idempotency test failed, changes were made on the second run"
+          exit 1
+        fi
+        chezmoi diff --source "$PWD" > chezmoi.diff
+        if [ -s chezmoi.diff ]; then
+          cat chezmoi.diff
+          echo "Idempotency test failed, chezmoi diff reported changes after the second run"
           exit 1
         fi
