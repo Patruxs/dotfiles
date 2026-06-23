@@ -4,7 +4,7 @@
     name: "{{ lookup('env', 'USER') }}"
     shell: /usr/bin/zsh
   become: yes
-  when: ansible_system == 'Linux'
+  when: ansible_facts["system"] == 'Linux'
   ignore_errors: yes
   changed_when: false
 
@@ -13,6 +13,6 @@
     name: "{{ lookup('env', 'USER') }}"
     shell: /bin/zsh
   become: yes
-  when: ansible_os_family == 'Darwin'
+  when: ansible_facts["os_family"] == 'Darwin'
   ignore_errors: yes
   changed_when: false

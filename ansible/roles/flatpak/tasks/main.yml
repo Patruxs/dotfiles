@@ -1,7 +1,7 @@
 ---
 - name: Ensure Flathub remote is configured
   command: flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-  when: ansible_system == 'Linux'
+  when: ansible_facts["system"] == 'Linux'
   become: yes
   changed_when: false
 
@@ -11,6 +11,6 @@
     state: present
     method: system
   loop: "{{ (chezmoi_data.packages.common.flatpak.linux | default([])) + (chezmoi_data.packages[profile].flatpak.linux | default([])) }}"
-  when: ansible_system == 'Linux'
+  when: ansible_facts["system"] == 'Linux'
   become: yes
   ignore_errors: yes

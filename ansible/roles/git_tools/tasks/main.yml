@@ -4,22 +4,22 @@
   register: lazygit_check
   changed_when: false
   failed_when: false
-  when: ansible_system == 'Linux' and (ansible_os_family == 'Debian' or ansible_distribution == 'Fedora')
+  when: ansible_facts["system"] == 'Linux' and (ansible_facts["os_family"] == 'Debian' or ansible_facts["distribution"] == 'Fedora')
 
 - name: Fail on unsupported lazygit architecture
   fail:
-    msg: "Unsupported architecture for lazygit upstream binary: {{ ansible_architecture }}"
+    msg: "Unsupported architecture for lazygit upstream binary: {{ ansible_facts['architecture'] }}"
   when: >
-    ansible_system == 'Linux' and
-    (ansible_os_family == 'Debian' or ansible_distribution == 'Fedora') and
+    ansible_facts["system"] == 'Linux' and
+    (ansible_facts["os_family"] == 'Debian' or ansible_facts["distribution"] == 'Fedora') and
     lazygit_check is defined and
     lazygit_check.rc != 0 and
-    ansible_architecture not in ['x86_64', 'amd64', 'aarch64', 'arm64']
+    ansible_facts["architecture"] not in ['x86_64', 'amd64', 'aarch64', 'arm64']
 
 - name: Install lazygit on Debian and Fedora from the upstream release
   when: >
-    ansible_system == 'Linux' and
-    (ansible_os_family == 'Debian' or ansible_distribution == 'Fedora') and
+    ansible_facts["system"] == 'Linux' and
+    (ansible_facts["os_family"] == 'Debian' or ansible_facts["distribution"] == 'Fedora') and
     lazygit_check is defined and
     lazygit_check.rc != 0
   block:
@@ -32,7 +32,7 @@
     - name: Set lazygit download facts
       set_fact:
         lazygit_version: "{{ lazygit_release.json.tag_name | regex_replace('^v', '') }}"
-        lazygit_arch: "{{ 'arm64' if ansible_architecture in ['aarch64', 'arm64'] else 'x86_64' }}"
+        lazygit_arch: "{{ 'arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else 'x86_64' }}"
 
     - name: Create temporary directory for lazygit download
       tempfile:

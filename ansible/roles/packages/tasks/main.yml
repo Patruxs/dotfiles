@@ -1,7 +1,7 @@
 ---
 - name: Determine distribution key
   set_fact:
-    distro_key: "{{ 'fedora' if ansible_distribution == 'Fedora' else 'debian' if ansible_os_family == 'Debian' else 'arch' if ansible_os_family == 'Archlinux' else '' }}"
+    distro_key: "{{ 'fedora' if ansible_facts['distribution'] == 'Fedora' else 'debian' if ansible_facts['os_family'] == 'Debian' else 'arch' if ansible_facts['os_family'] == 'Archlinux' else '' }}"
 
 - name: Merge package lists
   set_fact:
@@ -15,14 +15,14 @@
     state: present
     update_cache: yes
   become: yes
-  when: ansible_os_family == 'Debian' and distro_key != ''
+  when: ansible_facts["os_family"] == 'Debian' and distro_key != ''
 
 - name: Install system packages (Fedora)
   dnf:
     name: "{{ system_packages }}"
     state: present
   become: yes
-  when: ansible_distribution == 'Fedora' and distro_key != ''
+  when: ansible_facts["distribution"] == 'Fedora' and distro_key != ''
 
 - name: Install system packages (Archlinux)
   pacman:
@@ -30,21 +30,21 @@
     state: present
     update_cache: yes
   become: yes
-  when: ansible_os_family == 'Archlinux' and distro_key != ''
+  when: ansible_facts["os_family"] == 'Archlinux' and distro_key != ''
 
 - name: Install Homebrew packages (macOS)
   homebrew:
     name: "{{ item }}"
     state: present
   loop: "{{ homebrew_brews }}"
-  when: ansible_os_family == 'Darwin'
+  when: ansible_facts["os_family"] == 'Darwin'
 
 - name: Install Homebrew Casks (macOS)
   homebrew_cask:
     name: "{{ item }}"
     state: present
   loop: "{{ homebrew_casks }}"
-  when: ansible_os_family == 'Darwin'
+  when: ansible_facts["os_family"] == 'Darwin'
 
 - name: Install Jetbrains Toolbox (Linux)
   shell: |
@@ -59,5 +59,5 @@
     tar -xzf jetbrains-toolbox-*.tar.gz
     mv jetbrains-toolbox-*/jetbrains-toolbox ~/.local/share/JetBrains/Toolbox/bin/
     rm -rf jetbrains-toolbox-*
-  when: ansible_system == 'Linux'
+  when: ansible_facts["system"] == 'Linux'
   changed_when: false

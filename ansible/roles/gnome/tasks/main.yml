@@ -4,9 +4,9 @@
   register: gnome_running
   ignore_errors: yes
   changed_when: false
-  when: gnome_settings_enabled | default(false) and ansible_system == 'Linux'
+  when: gnome_settings_enabled | default(false) and ansible_facts["system"] == 'Linux'
 
 - name: Apply GNOME settings stub
   debug:
     msg: "GNOME settings would be applied here via dconf load or a chezmoi script."
-  when: gnome_settings_enabled | default(false) and ansible_system == 'Linux' and gnome_running.rc == 0
+  when: gnome_settings_enabled | default(false) and ansible_facts["system"] == 'Linux' and gnome_running.rc == 0

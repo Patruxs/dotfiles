@@ -5,5 +5,5 @@
     enabled: yes
     state: started
   become: yes
-  when: install_docker | default(false) and ansible_system == 'Linux'
+  when: install_docker | default(false) and ansible_facts["system"] == 'Linux'
   ignore_errors: yes
