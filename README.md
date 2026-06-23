@@ -14,6 +14,8 @@ Linux:
 bash -o pipefail -c 'if command -v curl >/dev/null 2>&1; then curl -fsSL https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh | bash; elif command -v wget >/dev/null 2>&1; then wget -qO- https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh | bash; elif command -v apt-get >/dev/null 2>&1; then sudo apt-get update && sudo apt-get install -y curl && curl -fsSL https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh | bash; else echo "Install curl or wget first."; exit 1; fi'
 ```
 
+On Linux, `bootstrap.sh` updates the system first on Ubuntu/Debian, Fedora, and Arch/Manjaro before installing the dotfiles packages.
+
 macOS:
 
 ```sh

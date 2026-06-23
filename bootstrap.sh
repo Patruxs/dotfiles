@@ -45,6 +45,16 @@ have() {
   command -v "$1" >/dev/null 2>&1
 }
 
+require_tty_device() {
+  if [ -r /dev/tty ] && [ -w /dev/tty ]; then
+    printf '%s\n' "/dev/tty"
+    return 0
+  fi
+
+  echo "An interactive terminal is required for this setup."
+  exit 1
+}
+
 refresh_repo() {
   if ! have git; then
     return
@@ -74,10 +84,10 @@ install_packages() {
         sudo dnf install -y "$@"
         ;;
       debian|ubuntu)
-        sudo apt-get update && sudo apt-get install -y "$@"
+        sudo apt-get install -y "$@"
         ;;
       arch|manjaro)
-        sudo pacman -Sy --noconfirm --needed "$@"
+        sudo pacman -S --noconfirm --needed "$@"
         ;;
       *)
         echo "Unsupported Linux distro: $DISTRO"
@@ -88,6 +98,30 @@ install_packages() {
     echo "Unsupported OS: $OS"
     exit 1
   fi
+}
+
+update_system() {
+  if [ "$OS" != "Linux" ]; then
+    return
+  fi
+
+  echo "Updating system packages before setup..."
+  case "$DISTRO" in
+    fedora)
+      sudo dnf upgrade --refresh -y
+      ;;
+    debian|ubuntu)
+      sudo apt-get update
+      sudo apt-get upgrade -y
+      ;;
+    arch|manjaro)
+      sudo pacman -Syu --noconfirm
+      ;;
+    *)
+      echo "Unsupported Linux distro: $DISTRO"
+      exit 1
+      ;;
+  esac
 }
 
 fetch_to_stdout() {
@@ -133,8 +167,8 @@ choose_profile() {
     return
   fi
 
-  if has_interactive_tty && [ -r /dev/tty ] && [ -w /dev/tty ]; then
-    tty_device="/dev/tty"
+  if has_interactive_tty; then
+    tty_device="$(require_tty_device)"
   else
     echo "No interactive terminal found."
     echo "Run again with --profile personal, --profile work, or DOTFILES_PROFILE=personal."
@@ -168,30 +202,6 @@ choose_profile() {
   done
 }
 
-# Ask for the administrator password upfront
-sudo -v
-# Keep-alive: update existing sudo time stamp until this script has finished
-while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
-
-ensure_download_tool
-ensure_git
-
-if ! have chezmoi; then
-  mkdir -p "$HOME/.local/bin"
-  fetch_to_stdout "https://get.chezmoi.io/lb" | sh -s -- -b "$HOME/.local/bin"
-  export PATH="$HOME/.local/bin:$PATH"
-fi
-
-if [ ! -d "$chezmoi_dir/.git" ]; then
-  chezmoi init "$repo"
-else
-  refresh_repo
-fi
-
-if ! have ansible-playbook; then
-  install_ansible
-fi
-
 profile=""
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -221,10 +231,41 @@ case "$profile" in
     ;;
 esac
 
-extra_vars=""
-if [ -n "$profile" ]; then
-  extra_vars="-e profile=$profile"
+# Ask for the administrator password upfront
+sudo -v
+# Keep-alive: update existing sudo time stamp until this script has finished
+while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+
+update_system
+
+ensure_download_tool
+ensure_git
+
+if ! have chezmoi; then
+  mkdir -p "$HOME/.local/bin"
+  fetch_to_stdout "https://get.chezmoi.io/lb" | sh -s -- -b "$HOME/.local/bin"
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+
+if [ ! -d "$chezmoi_dir/.git" ]; then
+  chezmoi init "$repo"
+else
+  refresh_repo
+fi
+
+if ! have ansible-playbook; then
+  install_ansible
 fi
 
 cd "$chezmoi_dir"
-ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook -i "localhost," "ansible/playbooks/setup.yml" $extra_vars
+ansible_args=(-i "localhost," "ansible/playbooks/setup.yml")
+if [ -n "$profile" ]; then
+  ansible_args+=(-e "profile=$profile")
+fi
+
+if [ "$OS" = "Linux" ]; then
+  echo "Ansible will prompt once for your sudo password to run privileged setup tasks."
+  ansible_args=(--ask-become-pass "${ansible_args[@]}")
+fi
+
+ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook "${ansible_args[@]}" <"$(require_tty_device)"
