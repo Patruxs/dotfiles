@@ -311,6 +311,7 @@ if [ -n "$profile" ]; then
 fi
 
 if [ "$OS" = "Linux" ]; then
+  export DOTFILES_SUDO_PASSWORD_FILE="$become_password_file"
   ansible_args=(--become-password-file "$become_password_file" "${ansible_args[@]}")
 fi
 

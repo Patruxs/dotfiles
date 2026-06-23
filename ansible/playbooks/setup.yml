@@ -7,6 +7,7 @@
   vars:
     chezmoi_dir: "{{ lookup('env', 'HOME') }}/.local/share/chezmoi"
     dotfiles_ci: "{{ lookup('env', 'CI') | default('false') | lower in ['1', 'true', 'yes'] }}"
+    dotfiles_sudo_password_file: "{{ lookup('env', 'DOTFILES_SUDO_PASSWORD_FILE') | default('', true) }}"
 
   pre_tasks:
     - name: Check saved profile and ask for confirmation
@@ -78,6 +79,14 @@
       include_vars:
         file: "{{ chezmoi_dir }}/.chezmoidata/packages.yaml"
         name: chezmoi_data
+
+    - name: Fail clearly when Linux privileged automation password is unavailable
+      fail:
+        msg: "DOTFILES_SUDO_PASSWORD_FILE was not provided. Re-run bootstrap.sh from an interactive terminal."
+      when:
+        - ansible_facts["system"] == "Linux"
+        - not (dotfiles_ci | default(false))
+        - dotfiles_sudo_password_file == ""
 
   roles:
     - base

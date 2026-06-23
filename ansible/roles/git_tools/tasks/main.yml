@@ -53,12 +53,19 @@
         remote_src: yes
 
     - name: Install lazygit binary
-      copy:
-        src: "{{ lazygit_tmpdir.path }}/lazygit"
-        dest: /usr/local/bin/lazygit
-        mode: "0755"
-        remote_src: yes
-      become: yes
+      command:
+        argv:
+          - sudo
+          - -S
+          - -p
+          - ""
+          - install
+          - -m
+          - "0755"
+          - "{{ lazygit_tmpdir.path }}/lazygit"
+          - /usr/local/bin/lazygit
+      stdin: "{{ lookup('file', dotfiles_sudo_password_file) }}"
+      no_log: true
 
   always:
     - name: Remove temporary lazygit download directory

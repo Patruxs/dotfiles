@@ -33,27 +33,34 @@
       }}
 
 - name: Install system packages (Debian/Ubuntu)
-  apt:
-    name: "{{ system_packages }}"
-    state: present
-    update_cache: yes
-  become: yes
-  when: ansible_facts["os_family"] == 'Debian' and distro_key != ''
+  command:
+    argv: "{{ ['sudo', '-S', '-p', '', 'apt-get', 'install', '-y'] + system_packages }}"
+  stdin: "{{ lookup('file', dotfiles_sudo_password_file) }}"
+  no_log: true
+  when:
+    - ansible_facts["os_family"] == 'Debian'
+    - distro_key != ''
+    - system_packages | length > 0
 
 - name: Install system packages (Fedora)
-  dnf:
-    name: "{{ system_packages }}"
-    state: present
-  become: yes
-  when: ansible_facts["distribution"] == 'Fedora' and distro_key != ''
+  command:
+    argv: "{{ ['sudo', '-S', '-p', '', 'dnf', 'install', '-y'] + system_packages }}"
+  stdin: "{{ lookup('file', dotfiles_sudo_password_file) }}"
+  no_log: true
+  when:
+    - ansible_facts["distribution"] == 'Fedora'
+    - distro_key != ''
+    - system_packages | length > 0
 
 - name: Install system packages (Archlinux)
-  pacman:
-    name: "{{ system_packages }}"
-    state: present
-    update_cache: yes
-  become: yes
-  when: ansible_facts["os_family"] == 'Archlinux' and distro_key != ''
+  command:
+    argv: "{{ ['sudo', '-S', '-p', '', 'pacman', '-S', '--noconfirm', '--needed'] + system_packages }}"
+  stdin: "{{ lookup('file', dotfiles_sudo_password_file) }}"
+  no_log: true
+  when:
+    - ansible_facts["os_family"] == 'Archlinux'
+    - distro_key != ''
+    - system_packages | length > 0
 
 - name: Install Homebrew packages (macOS)
   homebrew:

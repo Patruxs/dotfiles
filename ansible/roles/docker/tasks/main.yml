@@ -1,9 +1,16 @@
 ---
 - name: Enable Docker service (Linux)
-  systemd:
-    name: docker
-    enabled: yes
-    state: started
-  become: yes
+  command:
+    argv:
+      - sudo
+      - -S
+      - -p
+      - ""
+      - systemctl
+      - enable
+      - --now
+      - docker
+  stdin: "{{ lookup('file', dotfiles_sudo_password_file) }}"
+  no_log: true
   when: install_docker | default(false) and ansible_facts["system"] == 'Linux'
   ignore_errors: yes
