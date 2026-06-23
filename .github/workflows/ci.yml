@@ -60,6 +60,23 @@ jobs:
           exit 1
         fi
 
+  test-ubuntu-no-curl:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:latest
+    steps:
+    - name: Install dependencies
+      run: apt-get update && apt-get install -y git sudo bash ca-certificates
+    - uses: actions/checkout@v4
+    - name: Verify curl is absent before bootstrap
+      run: |
+        if command -v curl >/dev/null 2>&1; then
+          echo "curl should not be preinstalled in this test container"
+          exit 1
+        fi
+    - name: Run Bootstrap without curl
+      run: ./bootstrap.sh --profile personal
+
   test-arch:
     runs-on: ubuntu-latest
     container:
