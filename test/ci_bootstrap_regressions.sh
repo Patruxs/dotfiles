@@ -155,8 +155,13 @@ if ! search_file '--source' "$repo_root/ansible/roles/chezmoi/tasks/main.yml"; t
   exit 1
 fi
 
-if ! search_file_literal '{{- if ne .chezmoi.os "windows" }}' "$chezmoi_bootstrap_script"; then
-  echo "expected chezmoi bootstrap script to skip Bash execution on Windows"
+if ! search_file_literal '{{- if ne .chezmoi.os "windows" -}}' "$chezmoi_bootstrap_script"; then
+  echo "expected chezmoi bootstrap script to skip Bash execution on Windows and trim the newline before the Unix shebang"
+  exit 1
+fi
+
+if ! awk 'NR == 2 { exit($0 == "#!/usr/bin/env bash" ? 0 : 1) }' "$chezmoi_bootstrap_script"; then
+  echo "expected chezmoi bootstrap script template to place the shebang immediately after the opening conditional"
   exit 1
 fi
 
