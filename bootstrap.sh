@@ -3,6 +3,28 @@ set -euo pipefail
 
 repo="https://github.com/Patruxs/dotfiles.git"
 chezmoi_dir="$HOME/.local/share/chezmoi"
+OS="$(uname -s)"
+DISTRO=""
+
+if [ "$OS" = "Linux" ] && [ -f /etc/os-release ]; then
+  . /etc/os-release
+  DISTRO="$ID"
+fi
+
+have() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+is_ci() {
+  case "${DOTFILES_CI:-${CI:-}}" in
+    1|true|TRUE|yes|YES)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
 
 print_banner() {
   cat <<'EOF'
@@ -32,17 +54,6 @@ show_welcome_screen() {
   else
     print_banner
   fi
-}
-
-OS="$(uname -s)"
-DISTRO=""
-if [ "$OS" = "Linux" ] && [ -f /etc/os-release ]; then
-  . /etc/os-release
-  DISTRO="$ID"
-fi
-
-have() {
-  command -v "$1" >/dev/null 2>&1
 }
 
 sudo_password=""
@@ -88,8 +99,46 @@ validate_sudo_password() {
   fi
 }
 
-run_sudo() {
-  printf '%s\n' "$sudo_password" | sudo -S -p '' "$@"
+have_passwordless_sudo() {
+  sudo -n true >/dev/null 2>&1
+}
+
+ensure_linux_sudo_access() {
+  if [ "$OS" != "Linux" ]; then
+    return
+  fi
+
+  if ! have sudo; then
+    echo "sudo is required for Linux setup."
+    exit 1
+  fi
+
+  if have_passwordless_sudo; then
+    return
+  fi
+
+  if is_ci; then
+    echo "CI Linux setup requires passwordless sudo."
+    exit 1
+  fi
+
+  prompt_sudo_password
+  validate_sudo_password
+  create_become_password_file
+}
+
+run_privileged() {
+  if [ "$OS" != "Linux" ]; then
+    "$@"
+    return
+  fi
+
+  if [ -n "$sudo_password" ]; then
+    printf '%s\n' "$sudo_password" | sudo -S -p '' "$@"
+    return
+  fi
+
+  sudo "$@"
 }
 
 create_become_password_file() {
@@ -124,13 +173,13 @@ install_packages() {
   elif [ "$OS" = "Linux" ]; then
     case "$DISTRO" in
       fedora)
-        run_sudo dnf install -y "$@"
+        run_privileged dnf install -y "$@"
         ;;
       debian|ubuntu)
-        run_sudo apt-get install -y "$@"
+        run_privileged apt-get install -y "$@"
         ;;
       arch|manjaro)
-        run_sudo pacman -S --noconfirm --needed "$@"
+        run_privileged pacman -S --noconfirm --needed "$@"
         ;;
       *)
         echo "Unsupported Linux distro: $DISTRO"
@@ -151,14 +200,14 @@ update_system() {
   echo "Updating system packages before setup..."
   case "$DISTRO" in
     fedora)
-      run_sudo dnf upgrade --refresh -y
+      run_privileged dnf upgrade --refresh -y
       ;;
     debian|ubuntu)
-      run_sudo apt-get update
-      run_sudo apt-get upgrade -y
+      run_privileged apt-get update
+      run_privileged apt-get upgrade -y
       ;;
     arch|manjaro)
-      run_sudo pacman -Syu --noconfirm
+      run_privileged pacman -Syu --noconfirm
       ;;
     *)
       echo "Unsupported Linux distro: $DISTRO"
@@ -249,8 +298,16 @@ profile=""
 while [[ $# -gt 0 ]]; do
   case $1 in
     --profile)
+      if [[ $# -lt 2 ]]; then
+        echo "--profile requires a value."
+        exit 1
+      fi
       profile="$2"
       shift 2
+      ;;
+    --help|-h)
+      echo "Usage: $0 [--profile personal|work]"
+      exit 0
       ;;
     *)
       shift
@@ -276,9 +333,7 @@ esac
 
 trap cleanup_sensitive_state EXIT
 
-prompt_sudo_password
-validate_sudo_password
-create_become_password_file
+ensure_linux_sudo_access
 
 update_system
 
@@ -307,7 +362,7 @@ if [ -n "$profile" ]; then
   ansible_args+=(-e "profile=$profile")
 fi
 
-if [ "$OS" = "Linux" ]; then
+if [ "$OS" = "Linux" ] && [ -n "$become_password_file" ]; then
   export DOTFILES_SUDO_PASSWORD_FILE="$become_password_file"
   ansible_args=(--become-password-file "$become_password_file" "${ansible_args[@]}")
 fi

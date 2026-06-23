@@ -1,0 +1,8 @@
+---
+- name: Set zsh as default shell (Linux)
+  become: yes
+  user:
+    name: "{{ ansible_facts['user_id'] }}"
+    shell: /usr/bin/zsh
+  ignore_errors: yes
+  changed_when: false

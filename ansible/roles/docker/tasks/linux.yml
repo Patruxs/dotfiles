@@ -1,0 +1,8 @@
+---
+- name: Enable Docker service (Linux)
+  become: yes
+  systemd:
+    name: docker
+    enabled: yes
+    state: started
+  ignore_errors: yes

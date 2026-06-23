@@ -1,23 +1,19 @@
 ---
-- name: Determine distribution key
-  set_fact:
-    distro_key: "{{ 'fedora' if ansible_facts['distribution'] == 'Fedora' else 'debian' if ansible_facts['os_family'] == 'Debian' else 'arch' if ansible_facts['os_family'] == 'Archlinux' else '' }}"
-
 - name: Merge package lists
   set_fact:
     system_packages: >-
       {{
         (
-          (chezmoi_data.packages.common.system[distro_key] | default([])) +
-          (chezmoi_data.packages[profile].system[distro_key] | default([]))
+          (chezmoi_data.packages.common.system[dotfiles_platform.distro_key] | default([])) +
+          (chezmoi_data.packages[profile].system[dotfiles_platform.distro_key] | default([]))
         )
         | reject('equalto', 'flatpak')
         | list
         if dotfiles_ci | default(false)
         else
         (
-          (chezmoi_data.packages.common.system[distro_key] | default([])) +
-          (chezmoi_data.packages[profile].system[distro_key] | default([]))
+          (chezmoi_data.packages.common.system[dotfiles_platform.distro_key] | default([])) +
+          (chezmoi_data.packages[profile].system[dotfiles_platform.distro_key] | default([]))
         )
       }}
     homebrew_brews: "{{ (chezmoi_data.packages.common.homebrew.brews | default([])) + (chezmoi_data.packages[profile].homebrew.brews | default([])) }}"
@@ -32,64 +28,20 @@
         )
       }}
 
-- name: Install system packages (Debian/Ubuntu)
-  command:
-    argv: "{{ ['sudo', '-S', '-p', '', 'apt-get', 'install', '-y'] + system_packages }}"
-    stdin: "{{ lookup('file', dotfiles_sudo_password_file) }}"
-  no_log: true
+- name: Install Linux system packages
+  include_tasks: "linux-{{ dotfiles_platform.distro_key }}.yml"
   when:
-    - ansible_facts["os_family"] == 'Debian'
-    - distro_key != ''
+    - dotfiles_platform.system == 'Linux'
+    - dotfiles_platform.distro_key != ''
     - system_packages | length > 0
 
-- name: Install system packages (Fedora)
-  command:
-    argv: "{{ ['sudo', '-S', '-p', '', 'dnf', 'install', '-y'] + system_packages }}"
-    stdin: "{{ lookup('file', dotfiles_sudo_password_file) }}"
-  no_log: true
+- name: Install Homebrew packages
+  include_tasks: macos.yml
   when:
-    - ansible_facts["distribution"] == 'Fedora'
-    - distro_key != ''
-    - system_packages | length > 0
+    - dotfiles_platform.os_family == 'Darwin'
 
-- name: Install system packages (Archlinux)
-  command:
-    argv: "{{ ['sudo', '-S', '-p', '', 'pacman', '-S', '--noconfirm', '--needed'] + system_packages }}"
-    stdin: "{{ lookup('file', dotfiles_sudo_password_file) }}"
-  no_log: true
+- name: Install JetBrains Toolbox helper
+  include_tasks: linux-jetbrains-toolbox.yml
   when:
-    - ansible_facts["os_family"] == 'Archlinux'
-    - distro_key != ''
-    - system_packages | length > 0
-
-- name: Install Homebrew packages (macOS)
-  homebrew:
-    name: "{{ item }}"
-    state: present
-  loop: "{{ homebrew_brews }}"
-  when: ansible_facts["os_family"] == 'Darwin'
-
-- name: Install Homebrew Casks (macOS)
-  homebrew_cask:
-    name: "{{ item }}"
-    state: present
-  loop: "{{ homebrew_casks }}"
-  when: ansible_facts["os_family"] == 'Darwin'
-
-- name: Install Jetbrains Toolbox (Linux)
-  shell: |
-    if command -v jetbrains-toolbox >/dev/null 2>&1 || [ -f ~/.local/share/JetBrains/Toolbox/bin/jetbrains-toolbox ]; then
-      exit 0
-    fi
-    URL=$(curl -s 'https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release' | grep -oP '"linux":\{.*?"link":"\K[^"]+')
-    if [ -z "$URL" ]; then exit 1; fi
-    mkdir -p ~/.local/share/JetBrains/Toolbox/bin
-    cd /tmp
-    curl -fsSLO "$URL"
-    tar -xzf jetbrains-toolbox-*.tar.gz
-    mv jetbrains-toolbox-*/jetbrains-toolbox ~/.local/share/JetBrains/Toolbox/bin/
-    rm -rf jetbrains-toolbox-*
-  when:
-    - ansible_facts["system"] == 'Linux'
+    - dotfiles_platform.system == 'Linux'
     - not (dotfiles_ci | default(false))
-  changed_when: false

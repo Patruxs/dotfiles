@@ -1,0 +1,12 @@
+---
+- name: Install Homebrew packages (macOS)
+  homebrew:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ homebrew_brews }}"
+
+- name: Install Homebrew casks (macOS)
+  homebrew_cask:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ homebrew_casks }}"

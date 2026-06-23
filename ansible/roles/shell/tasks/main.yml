@@ -1,30 +1,12 @@
 ---
-- name: Set zsh as default shell (Linux)
-  command:
-    argv:
-      - sudo
-      - -S
-      - -p
-      - ""
-      - usermod
-      - -s
-      - /usr/bin/zsh
-      - "{{ ansible_facts['user_id'] }}"
-    stdin: "{{ lookup('file', dotfiles_sudo_password_file) }}"
-  no_log: true
+- name: Configure Linux shell defaults
+  include_tasks: linux.yml
   when:
-    - ansible_facts["system"] == 'Linux'
+    - dotfiles_platform.system == 'Linux'
     - not (dotfiles_ci | default(false))
-  ignore_errors: yes
-  changed_when: false
 
-- name: Set zsh as default shell (macOS)
-  user:
-    name: "{{ ansible_facts['user_id'] }}"
-    shell: /bin/zsh
-  become: yes
+- name: Configure macOS shell defaults
+  include_tasks: macos.yml
   when:
-    - ansible_facts["os_family"] == 'Darwin'
+    - dotfiles_platform.os_family == 'Darwin'
     - not (dotfiles_ci | default(false))
-  ignore_errors: yes
-  changed_when: false

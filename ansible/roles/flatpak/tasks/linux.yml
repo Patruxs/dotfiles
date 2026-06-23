@@ -1,0 +1,24 @@
+---
+- name: Ensure Flathub remote is configured
+  become: yes
+  command:
+    argv:
+      - flatpak
+      - remote-add
+      - --if-not-exists
+      - flathub
+      - https://flathub.org/repo/flathub.flatpakrepo
+  changed_when: false
+
+- name: Install flatpak packages
+  become: yes
+  command:
+    argv:
+      - flatpak
+      - install
+      - --system
+      - --noninteractive
+      - flathub
+      - "{{ item }}"
+  loop: "{{ (chezmoi_data.packages.common.flatpak.linux | default([])) + (chezmoi_data.packages[profile].flatpak.linux | default([])) }}"
+  ignore_errors: yes

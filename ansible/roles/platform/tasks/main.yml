@@ -1,0 +1,9 @@
+---
+- name: Derive platform facts
+  set_fact:
+    dotfiles_platform:
+      system: "{{ ansible_facts['system'] }}"
+      os_family: "{{ ansible_facts['os_family'] }}"
+      distribution: "{{ ansible_facts['distribution'] | default('') }}"
+      architecture: "{{ ansible_facts['architecture'] | default('') }}"
+      distro_key: "{{ 'fedora' if ansible_facts['distribution'] == 'Fedora' else 'debian' if ansible_facts['os_family'] == 'Debian' else 'arch' if ansible_facts['os_family'] == 'Archlinux' else '' }}"

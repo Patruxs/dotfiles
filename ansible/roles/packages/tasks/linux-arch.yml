@@ -1,0 +1,5 @@
+---
+- name: Install system packages (Archlinux)
+  become: yes
+  command:
+    argv: "{{ ['pacman', '-S', '--noconfirm', '--needed'] + system_packages }}"

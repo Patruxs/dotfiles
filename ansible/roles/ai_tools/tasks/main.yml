@@ -8,11 +8,11 @@
     - not (dotfiles_ci | default(false))
 
 - name: Install AI CLIs (Unix)
-  shell: "{{ item.value.install.unix }}"
-  loop: "{{ ai_clis_data.ai_clis.clis | dict2items }}"
+  include_tasks: unix.yml
+  loop: "{{ (ai_clis_data.ai_clis.clis | default({})) | dict2items }}"
+  loop_control:
+    loop_var: ai_cli
   when:
     - install_ai_clis | default(false)
-    - ansible_facts["system"] != 'Windows'
+    - dotfiles_platform.system != 'Windows'
     - not (dotfiles_ci | default(false))
-  ignore_errors: yes
-  changed_when: false

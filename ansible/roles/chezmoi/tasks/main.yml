@@ -3,6 +3,5 @@
   command: chezmoi apply --force -v
   environment:
     PROFILE: "{{ profile }}"
-  ignore_errors: yes
   register: chezmoi_result
-  changed_when: chezmoi_result.stdout | length > 0
+  changed_when: false

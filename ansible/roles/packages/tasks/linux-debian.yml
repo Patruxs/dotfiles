@@ -1,0 +1,5 @@
+---
+- name: Install system packages (Debian/Ubuntu)
+  become: yes
+  command:
+    argv: "{{ ['apt-get', 'install', '-y'] + system_packages }}"

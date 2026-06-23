@@ -6,6 +6,14 @@ This repo is configured for chezmoi `symlink` mode. On `chezmoi apply`, eligible
 
 Not managed: secrets, tokens, auth/session state, SSH keys, Docker auth, GitHub CLI auth, browser profiles, VS Code state, monitor layouts, binary dconf, caches.
 
+## Architecture
+
+The setup flow keeps one public entrypoint and splits platform-specific work behind it:
+- `bootstrap.sh` is the shared Unix entrypoint and detects Linux distro vs macOS at runtime.
+- `ansible/playbooks/setup.yml` orchestrates the setup and loads a derived `dotfiles_platform` fact for roles.
+- Roles keep shared behavior in `main.yml` and fan out into OS-specific task files such as `linux-debian.yml`, `linux-fedora.yml`, `linux-arch.yml`, and `macos.yml`.
+- Package definitions stay in `.chezmoidata/packages.yaml` so platform differences live in data before code.
+
 ## Setup
 
 Linux:
@@ -14,7 +22,7 @@ Linux:
 bash -o pipefail -c 'if command -v curl >/dev/null 2>&1; then curl -fsSL https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh | bash; elif command -v wget >/dev/null 2>&1; then wget -qO- https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh | bash; elif command -v apt-get >/dev/null 2>&1; then sudo apt-get update && sudo apt-get install -y curl && curl -fsSL https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh | bash; else echo "Install curl or wget first."; exit 1; fi'
 ```
 
-On Linux, `bootstrap.sh` prompts once for your sudo password, stores it in a temporary file with restricted permissions for the current run, uses it for the bootstrap update/install steps, then passes that same file to Ansible for privileged tasks.
+On Linux, `bootstrap.sh` reuses passwordless sudo when available. Otherwise it prompts once for your sudo password, stores it in a temporary file with restricted permissions for the current run, uses it for the bootstrap update/install steps, then passes that same file to Ansible for privileged tasks.
 
 macOS:
 

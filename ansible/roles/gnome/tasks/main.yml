@@ -1,12 +1,6 @@
 ---
-- name: Check if GNOME is running
-  command: "pgrep -f gnome-session"
-  register: gnome_running
-  failed_when: false
-  changed_when: false
-  when: gnome_settings_enabled | default(false) and ansible_facts["system"] == 'Linux'
-
-- name: Apply GNOME settings stub
-  debug:
-    msg: "GNOME settings would be applied here via dconf load or a chezmoi script."
-  when: gnome_settings_enabled | default(false) and ansible_facts["system"] == 'Linux' and gnome_running.rc == 0
+- name: Configure GNOME settings
+  include_tasks: linux.yml
+  when:
+    - gnome_settings_enabled | default(false)
+    - dotfiles_platform.system == 'Linux'

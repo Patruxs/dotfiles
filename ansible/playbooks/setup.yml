@@ -6,10 +6,17 @@
 
   vars:
     chezmoi_dir: "{{ lookup('env', 'HOME') }}/.local/share/chezmoi"
-    dotfiles_ci: "{{ lookup('env', 'CI') | default('false') | lower in ['1', 'true', 'yes'] }}"
+    dotfiles_ci: "{{ (((lookup('env', 'DOTFILES_CI') | default('', true)) or (lookup('env', 'CI') | default('', true))) | string | lower) in ['1', 'true', 'yes'] }}"
     dotfiles_sudo_password_file: "{{ lookup('env', 'DOTFILES_SUDO_PASSWORD_FILE') | default('', true) }}"
 
   pre_tasks:
+    - name: Check for passwordless sudo on Linux
+      command: sudo -n true
+      register: dotfiles_passwordless_sudo
+      changed_when: false
+      failed_when: false
+      when: ansible_facts["system"] == "Linux"
+
     - name: Check saved profile and ask for confirmation
       pause:
         prompt: "Current profile is {{ ansible_facts['dotfiles_profile'] }}. Continue? [Y/n]"
@@ -82,13 +89,15 @@
 
     - name: Fail clearly when Linux privileged automation password is unavailable
       fail:
-        msg: "DOTFILES_SUDO_PASSWORD_FILE was not provided. Re-run bootstrap.sh from an interactive terminal."
+        msg: "DOTFILES_SUDO_PASSWORD_FILE was not provided and passwordless sudo is unavailable. Re-run bootstrap.sh from an interactive terminal."
       when:
         - ansible_facts["system"] == "Linux"
         - not (dotfiles_ci | default(false))
         - dotfiles_sudo_password_file == ""
+        - dotfiles_passwordless_sudo.rc != 0
 
   roles:
+    - platform
     - base
     - packages
     - git_tools
