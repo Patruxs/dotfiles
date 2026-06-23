@@ -7,6 +7,14 @@ $repoHttps = "https://github.com/Patruxs/dotfiles.git"
 $chezmoiSource = Join-Path $HOME ".local/share/chezmoi"
 $profileCacheFile = Join-Path $HOME ".dotfiles_profile"
 
+function Show-Banner {
+  Write-Host "▓▓▓▓   ▓▓▓  ▓▓▓▓▓ ▓▓▓▓▓ ▓▓▓ ▓     ▓▓▓▓▓  ▓▓▓▓"
+  Write-Host "▓   ▓ ▓   ▓   ▓   ▓      ▓  ▓     ▓     ▓"
+  Write-Host "▓   ▓ ▓   ▓   ▓   ▓▓▓▓   ▓  ▓     ▓▓▓▓   ▓▓▓"
+  Write-Host "▓   ▓ ▓   ▓   ▓   ▓      ▓  ▓     ▓         ▓"
+  Write-Host "▓▓▓▓   ▓▓▓    ▓   ▓     ▓▓▓ ▓▓▓▓▓ ▓▓▓▓▓ ▓▓▓▓"
+}
+
 function Get-Profile {
   if (-not [string]::IsNullOrWhiteSpace($ProfileName)) {
     if ($ProfileName -match "^(personal|work)$") {
@@ -43,6 +51,7 @@ if (-not (Test-Path (Join-Path $chezmoiSource ".git"))) {
   chezmoi init $repoHttps
 }
 
+Show-Banner
 $profile = Get-Profile
 Write-Host "Using profile: $profile"
 

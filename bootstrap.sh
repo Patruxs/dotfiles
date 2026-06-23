@@ -4,6 +4,16 @@ set -euo pipefail
 repo="https://github.com/Patruxs/dotfiles.git"
 chezmoi_dir="$HOME/.local/share/chezmoi"
 
+print_banner() {
+  cat <<'EOF'
+▓▓▓▓   ▓▓▓  ▓▓▓▓▓ ▓▓▓▓▓ ▓▓▓ ▓     ▓▓▓▓▓  ▓▓▓▓
+▓   ▓ ▓   ▓   ▓   ▓      ▓  ▓     ▓     ▓
+▓   ▓ ▓   ▓   ▓   ▓▓▓▓   ▓  ▓     ▓▓▓▓   ▓▓▓
+▓   ▓ ▓   ▓   ▓   ▓      ▓  ▓     ▓         ▓
+▓▓▓▓   ▓▓▓    ▓   ▓     ▓▓▓ ▓▓▓▓▓ ▓▓▓▓▓ ▓▓▓▓
+EOF
+}
+
 OS="$(uname -s)"
 DISTRO=""
 if [ "$OS" = "Linux" ] && [ -f /etc/os-release ]; then
@@ -78,6 +88,50 @@ install_ansible() {
   install_packages ansible
 }
 
+choose_profile() {
+  local tty_device
+  local choice
+
+  if [ -n "${DOTFILES_PROFILE:-}" ]; then
+    profile="${DOTFILES_PROFILE}"
+    return
+  fi
+
+  if [ -e /dev/tty ]; then
+    tty_device="/dev/tty"
+  else
+    echo "No interactive terminal found."
+    echo "Run again with --profile personal, --profile work, or DOTFILES_PROFILE=personal."
+    exit 1
+  fi
+
+  while true; do
+    {
+      echo
+      echo "Choose your setup profile:"
+      echo "  1) personal"
+      echo "  2) work"
+      printf "Enter choice [1-2]: "
+    } >"$tty_device"
+
+    IFS= read -r choice <"$tty_device" || true
+
+    case "$choice" in
+      1|personal|Personal|PERSONAL)
+        profile="personal"
+        return
+        ;;
+      2|work|Work|WORK)
+        profile="work"
+        return
+        ;;
+      *)
+        echo "Invalid choice. Please enter 1 or 2." >"$tty_device"
+        ;;
+    esac
+  done
+}
+
 # Ask for the administrator password upfront
 sudo -v
 # Keep-alive: update existing sudo time stamp until this script has finished
@@ -112,6 +166,22 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+print_banner
+
+if [ -z "$profile" ]; then
+  choose_profile
+fi
+
+case "$profile" in
+  personal|work)
+    ;;
+  *)
+    echo "Invalid profile: $profile"
+    echo "Use --profile personal or --profile work."
+    exit 1
+    ;;
+esac
 
 extra_vars=""
 if [ -n "$profile" ]; then

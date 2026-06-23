@@ -26,10 +26,11 @@ Windows PowerShell:
 irm https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.ps1 | iex
 ```
 
-Fast mode:
+Pick a profile without the menu:
 
 ```sh
-DOTFILES_AUTO_INSTALL=1 bash bootstrap.sh
+bash bootstrap.sh --profile personal
+DOTFILES_PROFILE=work bash bootstrap.sh
 ```
 
 ## Use

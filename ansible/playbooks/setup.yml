@@ -12,23 +12,33 @@
       pause:
         prompt: "Current profile is {{ dotfiles_profile }}. Continue? [Y/n]"
       register: confirm_profile
-      when: profile is not defined and dotfiles_profile is defined
+      when: profile is not defined and dotfiles_profile is defined and ansible_env.TERM is defined
 
     - name: Set profile from saved fact if confirmed
       set_fact:
         profile: "{{ dotfiles_profile }}"
       when: profile is not defined and confirm_profile is defined and not confirm_profile.skipped | default(false) and confirm_profile.user_input | default('y') | lower in ['y', 'yes', '']
 
+    - name: Reuse saved profile in non-interactive mode
+      set_fact:
+        profile: "{{ dotfiles_profile }}"
+      when: profile is not defined and dotfiles_profile is defined and ansible_env.TERM is not defined
+
     - name: Prompt for profile if not provided or saved/confirmed
       pause:
         prompt: "Select profile (personal or work)"
       register: prompt_profile
-      when: profile is not defined
+      when: profile is not defined and ansible_env.TERM is defined
 
     - name: Set profile fact from prompt
       set_fact:
         profile: "{{ prompt_profile.user_input }}"
       when: profile is not defined and prompt_profile is defined and not prompt_profile.skipped | default(false)
+
+    - name: Fail clearly when no profile is available in non-interactive mode
+      fail:
+        msg: "No profile was provided. Re-run bootstrap.sh and choose a profile, or pass -e profile=personal|work."
+      when: profile is not defined and ansible_env.TERM is not defined
 
     - name: Fail if invalid profile
       fail:
