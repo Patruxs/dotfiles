@@ -35,12 +35,20 @@ $wingetTemplateFile = Join-Path $chezmoiSource "packages/winget.json"
 
 function Assert-LastExitCode {
   param(
-    [string]$CommandName
+    [string]$CommandName,
+    [switch]$AllowWingetNoApplicableUpgrade
   )
 
-  if ($LASTEXITCODE -ne 0) {
-    throw "$CommandName failed with exit code $LASTEXITCODE."
+  if ($LASTEXITCODE -eq 0) {
+    return
   }
+
+  if ($AllowWingetNoApplicableUpgrade -and ([uint32]$LASTEXITCODE -eq 0x8A15002B)) {
+    Write-Host "$CommandName reported no available upgrade. Continuing."
+    return
+  }
+
+  throw "$CommandName failed with exit code $LASTEXITCODE."
 }
 
 function Show-Banner {
@@ -171,7 +179,7 @@ function Install-WingetPackages {
 
 if (-not (Get-Command chezmoi -ErrorAction SilentlyContinue)) {
   winget install --id twpayne.chezmoi -e --accept-source-agreements --accept-package-agreements
-  Assert-LastExitCode "winget install twpayne.chezmoi"
+  Assert-LastExitCode "winget install twpayne.chezmoi" -AllowWingetNoApplicableUpgrade
   $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 } elseif (Test-IsCi) {
   Write-Host "Skipping chezmoi self-upgrade in lightweight CI mode."

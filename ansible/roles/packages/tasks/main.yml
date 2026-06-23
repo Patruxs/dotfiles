@@ -10,6 +10,10 @@
       {{
         ['docker.io']
         if dotfiles_platform.distro_key == 'debian'
+        else ['moby-engine']
+        if dotfiles_platform.distro_key == 'fedora'
+        else ['docker']
+        if dotfiles_platform.distro_key == 'arch'
         else []
       }}
     merged_system_packages: >-

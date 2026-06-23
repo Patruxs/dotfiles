@@ -6,6 +6,7 @@
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)"
   args:
     executable: /bin/bash
+  changed_when: false
   when:
     - dotfiles_platform.distro_key == 'debian'
 
@@ -17,6 +18,7 @@
     dnf install -y ghostty
   args:
     executable: /bin/bash
+  changed_when: false
   when:
     - dotfiles_platform.distro_key == 'fedora'
 
@@ -29,5 +31,6 @@
       - --noconfirm
       - --needed
       - ghostty
+  changed_when: false
   when:
     - dotfiles_platform.distro_key == 'arch'

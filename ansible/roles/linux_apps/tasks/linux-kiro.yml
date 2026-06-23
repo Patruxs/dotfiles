@@ -41,5 +41,6 @@
       > /usr/local/share/applications/kiro.desktop
   args:
     executable: /bin/bash
+  changed_when: false
   when:
     - dotfiles_platform.architecture in ['x86_64', 'amd64']

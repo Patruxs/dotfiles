@@ -1,5 +1,11 @@
 ---
 - name: Install or update Docker Desktop on Ubuntu
+  vars:
+    docker_ubuntu_release: >-
+      {{
+        ansible_facts['distribution_release']
+        | default(lookup('pipe', '. /etc/os-release && printf %s "$VERSION_CODENAME"'))
+      }}
   when:
     - dotfiles_platform.distro_key == 'debian'
     - dotfiles_platform.distribution == 'Ubuntu'
@@ -11,12 +17,14 @@
         state: directory
         prefix: docker-desktop-
       register: docker_desktop_tmpdir_debian
+      changed_when: false
 
     - name: Download Docker Desktop Debian package
       get_url:
         url: https://desktop.docker.com/linux/main/amd64/docker-desktop-amd64.deb
         dest: "{{ docker_desktop_tmpdir_debian.path }}/docker-desktop-amd64.deb"
         mode: "0644"
+      changed_when: false
 
     - name: Ensure APT keyrings directory exists
       become: yes
@@ -35,7 +43,7 @@
     - name: Add Docker APT repository
       become: yes
       apt_repository:
-        repo: "deb [arch={{ 'amd64' if dotfiles_platform.architecture in ['x86_64', 'amd64'] else 'arm64' }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        repo: "deb [arch={{ 'amd64' if dotfiles_platform.architecture in ['x86_64', 'amd64'] else 'arm64' }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ docker_ubuntu_release }} stable"
         filename: docker
         state: present
         update_cache: yes
@@ -61,6 +69,7 @@
       file:
         path: "{{ docker_desktop_tmpdir_debian.path }}"
         state: absent
+      changed_when: false
       when: docker_desktop_tmpdir_debian is defined and docker_desktop_tmpdir_debian.path is defined
 
 - name: Install or update Docker Desktop on Fedora
@@ -74,12 +83,14 @@
         state: directory
         prefix: docker-desktop-
       register: docker_desktop_tmpdir_fedora
+      changed_when: false
 
     - name: Download Docker Desktop Fedora package
       get_url:
         url: https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.rpm
         dest: "{{ docker_desktop_tmpdir_fedora.path }}/docker-desktop-x86_64.rpm"
         mode: "0644"
+      changed_when: false
 
     - name: Add Docker DNF repository
       become: yes
@@ -110,6 +121,7 @@
       file:
         path: "{{ docker_desktop_tmpdir_fedora.path }}"
         state: absent
+      changed_when: false
       when: docker_desktop_tmpdir_fedora is defined and docker_desktop_tmpdir_fedora.path is defined
 
 - name: Install or update Docker Desktop on Arch Linux
@@ -122,12 +134,14 @@
         state: directory
         prefix: docker-desktop-
       register: docker_desktop_tmpdir_arch
+      changed_when: false
 
     - name: Download Docker Desktop Arch package
       get_url:
         url: https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.pkg.tar.zst
         dest: "{{ docker_desktop_tmpdir_arch.path }}/docker-desktop-x86_64.pkg.tar.zst"
         mode: "0644"
+      changed_when: false
 
     - name: Install Docker Desktop Arch prerequisites
       become: yes
@@ -154,4 +168,5 @@
       file:
         path: "{{ docker_desktop_tmpdir_arch.path }}"
         state: absent
+      changed_when: false
       when: docker_desktop_tmpdir_arch is defined and docker_desktop_tmpdir_arch.path is defined

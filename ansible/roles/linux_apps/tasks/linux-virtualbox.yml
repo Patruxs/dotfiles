@@ -7,6 +7,7 @@
     apt-get install -y virtualbox virtualbox-dkms virtualbox-qt
   args:
     executable: /bin/bash
+  changed_when: false
   when:
     - dotfiles_platform.distro_key == 'debian'
 
@@ -18,6 +19,7 @@
     dnf install -y VirtualBox akmod-VirtualBox
   args:
     executable: /bin/bash
+  changed_when: false
   when:
     - dotfiles_platform.distro_key == 'fedora'
 
@@ -31,6 +33,7 @@
       - --needed
       - virtualbox
       - virtualbox-host-modules-arch
+  changed_when: false
   when:
     - dotfiles_platform.distro_key == 'arch'
     - dotfiles_platform.architecture in ['x86_64', 'amd64']

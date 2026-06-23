@@ -3,8 +3,8 @@ ai_clis:
     codex:
       command: codex
       install:
-        unix: curl -fsSL https://chatgpt.com/codex/install.sh | sh
-        windows: irm https://chatgpt.com/codex/install.ps1 | iex
+        unix: curl -fsSL https://github.com/openai/codex/releases/latest/download/install.sh | sh
+        windows: irm https://github.com/openai/codex/releases/latest/download/install.ps1 | iex
       login: Run `codex` and sign in with ChatGPT or an API key.
     agy:
       command: agy
@@ -21,6 +21,6 @@ ai_clis:
     opencode:
       command: opencode
       install:
-        unix: curl -fsSL https://opencode.ai/install | bash
+        unix: npm install -g opencode-ai
         windows: npm install -g opencode-ai
       login: Run `opencode`, then use `/connect`.

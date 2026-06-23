@@ -176,6 +176,21 @@ if ! search_file 'Assert-LastExitCode "winget import"' "$windows_bootstrap"; the
   exit 1
 fi
 
+if ! search_file 'AllowWingetNoApplicableUpgrade' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to recognize the winget no-available-upgrade exit path"
+  exit 1
+fi
+
+if ! search_file '0x8A15002B' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to handle winget''s no-available-upgrade exit code"
+  exit 1
+fi
+
+if ! search_file 'Assert-LastExitCode "winget install twpayne\.chezmoi" -AllowWingetNoApplicableUpgrade' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to tolerate winget''s no-available-upgrade result for chezmoi during idempotency checks"
+  exit 1
+fi
+
 if ! search_file 'Assert-LastExitCode "npm install -g \$pkg@latest"' "$windows_bootstrap"; then
   echo "expected bootstrap.ps1 to fail when npm global installs return a non-zero exit code"
   exit 1

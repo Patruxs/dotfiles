@@ -15,6 +15,7 @@
     apt-get install -y warp-terminal
   args:
     executable: /bin/bash
+  changed_when: false
   when:
     - dotfiles_platform.distro_key == 'debian'
 
@@ -34,6 +35,7 @@
     dnf install -y warp-terminal
   args:
     executable: /bin/bash
+  changed_when: false
   when:
     - dotfiles_platform.distro_key == 'fedora'
 
@@ -53,5 +55,6 @@
     pacman -Sy --noconfirm --needed warp-terminal
   args:
     executable: /bin/bash
+  changed_when: false
   when:
     - dotfiles_platform.distro_key == 'arch'
