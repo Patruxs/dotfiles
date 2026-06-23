@@ -1,11 +1,12 @@
 ---
 - name: Merge package lists
-  set_fact:
+  vars:
     ci_excluded_system_packages:
       - flatpak
       - docker
       - docker.io
       - moby-engine
+  set_fact:
     system_packages: >-
       {{
         (
