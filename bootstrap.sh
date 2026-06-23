@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo="https://github.com/Patruxs/dotfiles.git"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 chezmoi_dir="$HOME/.local/share/chezmoi"
 OS="$(uname -s)"
 DISTRO=""
@@ -24,6 +25,14 @@ is_ci() {
       return 1
       ;;
   esac
+}
+
+resolve_chezmoi_dir() {
+  if is_ci &&
+    [ -d "$script_dir/.git" ] &&
+    [ -f "$script_dir/ansible/playbooks/setup.yml" ]; then
+    chezmoi_dir="$script_dir"
+  fi
 }
 
 print_banner() {
@@ -148,6 +157,11 @@ create_become_password_file() {
 }
 
 refresh_repo() {
+  if is_ci; then
+    echo "Skipping dotfiles repo refresh in CI."
+    return
+  fi
+
   if ! have git; then
     return
   fi
@@ -194,6 +208,11 @@ install_packages() {
 
 update_system() {
   if [ "$OS" != "Linux" ]; then
+    return
+  fi
+
+  if is_ci; then
+    echo "Skipping system package refresh in CI."
     return
   fi
 
@@ -329,6 +348,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 show_welcome_screen
+resolve_chezmoi_dir
 
 if [ -z "$profile" ]; then
   choose_profile
@@ -357,6 +377,8 @@ if ! have chezmoi; then
   mkdir -p "$HOME/.local/bin"
   fetch_to_stdout "https://get.chezmoi.io/lb" | sh -s -- -b "$HOME/.local/bin"
   export PATH="$HOME/.local/bin:$PATH"
+elif is_ci; then
+  echo "Skipping chezmoi self-upgrade in CI."
 else
   chezmoi upgrade || echo "Warning: could not self-upgrade chezmoi. Continuing with the current version."
 fi

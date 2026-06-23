@@ -9,6 +9,8 @@ arch_packages_task="$repo_root/ansible/roles/packages/tasks/linux-arch.yml"
 macos_packages_task="$repo_root/ansible/roles/packages/tasks/macos.yml"
 lazygit_task="$repo_root/ansible/roles/git_tools/tasks/linux-lazygit.yml"
 windows_bootstrap="$repo_root/bootstrap.ps1"
+docker_task_main="$repo_root/ansible/roles/docker/tasks/main.yml"
+git_tools_task_main="$repo_root/ansible/roles/git_tools/tasks/main.yml"
 
 if ! rg -q "^  vars:$" "$packages_task"; then
   echo "expected Merge package lists task to declare task-local vars"
@@ -56,6 +58,46 @@ fi
 
 if ! rg -q 'Refresh-Repo' "$windows_bootstrap"; then
   echo "expected bootstrap.ps1 to refresh an existing dotfiles checkout"
+  exit 1
+fi
+
+if ! rg -q "not \\(dotfiles_ci \\| default\\(false\\)\\)" "$docker_task_main"; then
+  echo "expected docker role to skip service management during CI"
+  exit 1
+fi
+
+if ! rg -q "not \\(dotfiles_ci \\| default\\(false\\)\\)" "$git_tools_task_main"; then
+  echo "expected lazygit role to skip upstream installs during CI"
+  exit 1
+fi
+
+if ! rg -q 'Skipping system package refresh in CI\.' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to skip full system upgrades during CI"
+  exit 1
+fi
+
+if ! rg -q 'Skipping dotfiles repo refresh in CI\.' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to skip repo refresh in CI"
+  exit 1
+fi
+
+if ! rg -q 'script_dir' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to resolve the checked-out repo during CI"
+  exit 1
+fi
+
+if ! rg -q 'Skipping package installs in CI\.' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to skip winget installs during CI"
+  exit 1
+fi
+
+if ! rg -q 'Skipping chezmoi self-upgrade in CI\.' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to skip chezmoi self-upgrade in CI"
+  exit 1
+fi
+
+if ! rg -q '\$scriptDir' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to reuse the checked-out repo during CI"
   exit 1
 fi
 

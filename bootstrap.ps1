@@ -4,8 +4,24 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoHttps = "https://github.com/Patruxs/dotfiles.git"
+$scriptDir = if ($PSScriptRoot) { $PSScriptRoot } elseif ($PSCommandPath) { Split-Path -Parent $PSCommandPath } else { $null }
 $chezmoiSource = Join-Path $HOME ".local/share/chezmoi"
 $profileCacheFile = Join-Path $HOME ".dotfiles_profile"
+
+function Test-IsCi {
+  $ciValue = if ($env:DOTFILES_CI) { $env:DOTFILES_CI } else { $env:CI }
+  return $ciValue -match "^(1|true|yes)$"
+}
+
+if (
+  (Test-IsCi) -and
+  $null -ne $scriptDir -and
+  (Test-Path (Join-Path $scriptDir ".git")) -and
+  (Test-Path (Join-Path $scriptDir "packages/winget.json"))
+) {
+  $chezmoiSource = $scriptDir
+}
+
 $wingetTemplateFile = Join-Path $chezmoiSource "packages/winget.json"
 
 function Show-Banner {
@@ -55,6 +71,11 @@ function Get-Profile {
 }
 
 function Refresh-Repo {
+  if (Test-IsCi) {
+    Write-Host "Skipping dotfiles repo refresh in CI."
+    return
+  }
+
   if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     return
   }
@@ -129,6 +150,8 @@ function Install-WingetPackages {
 if (-not (Get-Command chezmoi -ErrorAction SilentlyContinue)) {
   winget install --id twpayne.chezmoi -e --accept-source-agreements --accept-package-agreements
   $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+} elseif (Test-IsCi) {
+  Write-Host "Skipping chezmoi self-upgrade in CI."
 } else {
   try {
     chezmoi upgrade
@@ -161,12 +184,16 @@ if ($null -ne $data.packages.$profile.windows.packages) {
 }
 $pkgs = $pkgs | Select-Object -Unique
 
-Write-Host "Installing packages for $profile profile..."
-Install-WingetPackages -PackageIds $pkgs -TemplatePath $wingetTemplateFile
+if (Test-IsCi) {
+    Write-Host "Skipping package installs in CI."
+} else {
+    Write-Host "Installing packages for $profile profile..."
+    Install-WingetPackages -PackageIds $pkgs -TemplatePath $wingetTemplateFile
+}
 
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
-if ($null -ne $data.devtools.npm_global_packages -and (Get-Command npm -ErrorAction SilentlyContinue)) {
+if ((-not (Test-IsCi)) -and $null -ne $data.devtools.npm_global_packages -and (Get-Command npm -ErrorAction SilentlyContinue)) {
     Write-Host "Installing or updating global npm development tools..."
     foreach ($pkg in $data.devtools.npm_global_packages) {
         Write-Host "Installing or updating npm package $pkg..."
@@ -174,7 +201,7 @@ if ($null -ne $data.devtools.npm_global_packages -and (Get-Command npm -ErrorAct
     }
 }
 
-if ($null -ne $data.ai_clis.clis) {
+if ((-not (Test-IsCi)) -and $null -ne $data.ai_clis.clis) {
     Write-Host "Installing AI CLIs..."
     foreach ($cli in $data.ai_clis.clis.PSObject.Properties) {
         $cmd = $cli.Value.install.windows

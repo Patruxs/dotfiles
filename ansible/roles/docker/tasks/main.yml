@@ -4,3 +4,4 @@
   when:
     - install_docker | default(false)
     - dotfiles_platform.system == 'Linux'
+    - not (dotfiles_ci | default(false))
