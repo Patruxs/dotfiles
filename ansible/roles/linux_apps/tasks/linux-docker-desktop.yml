@@ -18,6 +18,39 @@
         dest: "{{ docker_desktop_tmpdir_debian.path }}/docker-desktop-amd64.deb"
         mode: "0644"
 
+    - name: Ensure APT keyrings directory exists
+      become: yes
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Add Docker APT repository signing key
+      become: yes
+      get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Add Docker APT repository
+      become: yes
+      apt_repository:
+        repo: "deb [arch={{ 'amd64' if dotfiles_platform.architecture in ['x86_64', 'amd64'] else 'arm64' }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        filename: docker
+        state: present
+        update_cache: yes
+
+    - name: Install Docker Desktop Ubuntu prerequisites
+      become: yes
+      ansible.builtin.apt:
+        name:
+          - docker-ce-cli
+          - pass
+          - desktop-file-utils
+          - qemu-system-x86
+          - uidmap
+        state: present
+
     - name: Install Docker Desktop Debian package
       become: yes
       ansible.builtin.apt:
@@ -48,6 +81,25 @@
         dest: "{{ docker_desktop_tmpdir_fedora.path }}/docker-desktop-x86_64.rpm"
         mode: "0644"
 
+    - name: Add Docker DNF repository
+      become: yes
+      get_url:
+        url: https://download.docker.com/linux/fedora/docker-ce.repo
+        dest: /etc/yum.repos.d/docker-ce.repo
+        mode: "0644"
+
+    - name: Install Docker Desktop Fedora prerequisites
+      become: yes
+      ansible.builtin.dnf:
+        name:
+          - docker-ce-cli
+          - pass
+          - desktop-file-utils
+          - gtk3-devel
+          - qemu-system-x86
+          - shadow-utils
+        state: present
+
     - name: Install Docker Desktop Fedora package
       become: yes
       ansible.builtin.dnf:
@@ -76,6 +128,21 @@
         url: https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.pkg.tar.zst
         dest: "{{ docker_desktop_tmpdir_arch.path }}/docker-desktop-x86_64.pkg.tar.zst"
         mode: "0644"
+
+    - name: Install Docker Desktop Arch prerequisites
+      become: yes
+      community.general.pacman:
+        name:
+          - curl
+          - qemu-desktop
+          - libseccomp
+          - libcap-ng
+          - pass
+          - desktop-file-utils
+          - gtk3
+          - libx11
+          - shadow
+        state: present
 
     - name: Install Docker Desktop Arch package
       become: yes

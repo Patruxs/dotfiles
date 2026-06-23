@@ -6,21 +6,32 @@
       - docker
       - docker.io
       - moby-engine
+    docker_desktop_conflicting_system_packages: >-
+      {{
+        ['docker.io']
+        if dotfiles_platform.distro_key == 'debian'
+        else []
+      }}
+    merged_system_packages: >-
+      {{
+        (chezmoi_data.packages.common.system[dotfiles_platform.distro_key] | default([])) +
+        (chezmoi_data.packages[profile].system[dotfiles_platform.distro_key] | default([]))
+      }}
+    system_package_exclusions: >-
+      {{
+        (ci_excluded_system_packages if dotfiles_ci | default(false) else []) +
+        (
+          docker_desktop_conflicting_system_packages
+          if 'docker-desktop' in (linux_native_apps | default([]))
+          else []
+        )
+      }}
   set_fact:
     system_packages: >-
       {{
-        (
-          (chezmoi_data.packages.common.system[dotfiles_platform.distro_key] | default([])) +
-          (chezmoi_data.packages[profile].system[dotfiles_platform.distro_key] | default([]))
-        )
-        | reject('in', ci_excluded_system_packages)
+        merged_system_packages
+        | reject('in', system_package_exclusions)
         | list
-        if dotfiles_ci | default(false)
-        else
-        (
-          (chezmoi_data.packages.common.system[dotfiles_platform.distro_key] | default([])) +
-          (chezmoi_data.packages[profile].system[dotfiles_platform.distro_key] | default([]))
-        )
       }}
     homebrew_brews: "{{ (chezmoi_data.packages.common.homebrew.brews | default([])) + (chezmoi_data.packages[profile].homebrew.brews | default([])) }}"
     homebrew_casks: >-

@@ -26,14 +26,16 @@ jobs:
         
     - name: Check Idempotency
       run: |
-        ./bootstrap.sh --profile ${{ matrix.profile }} | tee output.log
-        if grep -qE "changed=[1-9]" output.log; then
+        output_log="$(mktemp)"
+        chezmoi_diff="$(mktemp)"
+        ./bootstrap.sh --profile ${{ matrix.profile }} | tee "$output_log"
+        if grep -qE "changed=[1-9]" "$output_log"; then
           echo "Idempotency test failed, changes were made on the second run"
           exit 1
         fi
-        chezmoi diff --source "$PWD" > chezmoi.diff
-        if [ -s chezmoi.diff ]; then
-          cat chezmoi.diff
+        chezmoi diff --source "$PWD" > "$chezmoi_diff"
+        if [ -s "$chezmoi_diff" ]; then
+          cat "$chezmoi_diff"
           echo "Idempotency test failed, chezmoi diff reported changes after the second run"
           exit 1
         fi
@@ -57,14 +59,16 @@ jobs:
       run: ./bootstrap.sh --profile ${{ matrix.profile }}
     - name: Check Idempotency
       run: |
-        ./bootstrap.sh --profile ${{ matrix.profile }} | tee output.log
-        if grep -qE "changed=[1-9]" output.log; then
+        output_log="$(mktemp)"
+        chezmoi_diff="$(mktemp)"
+        ./bootstrap.sh --profile ${{ matrix.profile }} | tee "$output_log"
+        if grep -qE "changed=[1-9]" "$output_log"; then
           echo "Idempotency test failed, changes were made on the second run"
           exit 1
         fi
-        chezmoi diff --source "$PWD" > chezmoi.diff
-        if [ -s chezmoi.diff ]; then
-          cat chezmoi.diff
+        chezmoi diff --source "$PWD" > "$chezmoi_diff"
+        if [ -s "$chezmoi_diff" ]; then
+          cat "$chezmoi_diff"
           echo "Idempotency test failed, chezmoi diff reported changes after the second run"
           exit 1
         fi
@@ -117,14 +121,16 @@ jobs:
       run: ./bootstrap.sh --profile ${{ matrix.profile }}
     - name: Check Idempotency (Fedora)
       run: |
-        ./bootstrap.sh --profile ${{ matrix.profile }} | tee output.log
-        if grep -qE "changed=[1-9]" output.log; then
+        output_log="$(mktemp)"
+        chezmoi_diff="$(mktemp)"
+        ./bootstrap.sh --profile ${{ matrix.profile }} | tee "$output_log"
+        if grep -qE "changed=[1-9]" "$output_log"; then
           echo "Idempotency test failed, changes were made on the second run"
           exit 1
         fi
-        chezmoi diff --source "$PWD" > chezmoi.diff
-        if [ -s chezmoi.diff ]; then
-          cat chezmoi.diff
+        chezmoi diff --source "$PWD" > "$chezmoi_diff"
+        if [ -s "$chezmoi_diff" ]; then
+          cat "$chezmoi_diff"
           echo "Idempotency test failed, chezmoi diff reported changes after the second run"
           exit 1
         fi
@@ -148,14 +154,16 @@ jobs:
       run: ./bootstrap.sh --profile ${{ matrix.profile }}
     - name: Check Idempotency (Arch)
       run: |
-        ./bootstrap.sh --profile ${{ matrix.profile }} | tee output.log
-        if grep -qE "changed=[1-9]" output.log; then
+        output_log="$(mktemp)"
+        chezmoi_diff="$(mktemp)"
+        ./bootstrap.sh --profile ${{ matrix.profile }} | tee "$output_log"
+        if grep -qE "changed=[1-9]" "$output_log"; then
           echo "Idempotency test failed, changes were made on the second run"
           exit 1
         fi
-        chezmoi diff --source "$PWD" > chezmoi.diff
-        if [ -s chezmoi.diff ]; then
-          cat chezmoi.diff
+        chezmoi diff --source "$PWD" > "$chezmoi_diff"
+        if [ -s "$chezmoi_diff" ]; then
+          cat "$chezmoi_diff"
           echo "Idempotency test failed, chezmoi diff reported changes after the second run"
           exit 1
         fi

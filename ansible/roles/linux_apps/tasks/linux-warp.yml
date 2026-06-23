@@ -41,6 +41,10 @@
   become: yes
   shell: |
     set -euo pipefail
+    if ! pacman-key --list-secret-keys 2>/dev/null | grep -q '^sec'; then
+      pacman-key --init
+      pacman-key --populate archlinux
+    fi
     if ! grep -q '^\[warpdotdev\]' /etc/pacman.conf; then
       printf '\n%s\n%s\n' '[warpdotdev]' 'Server = https://releases.warp.dev/linux/pacman/$repo/$arch' >> /etc/pacman.conf
     fi

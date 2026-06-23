@@ -54,8 +54,28 @@ for package in flatpak docker docker.io moby-engine; do
   fi
 done
 
-if ! search_file "reject\\('in', ci_excluded_system_packages\\)" "$packages_task"; then
-  echo "expected CI package filtering to use ci_excluded_system_packages"
+if ! search_file "ci_excluded_system_packages if dotfiles_ci" "$packages_task"; then
+  echo "expected CI package filtering to contribute ci_excluded_system_packages to the merged exclusions"
+  exit 1
+fi
+
+if ! search_file "reject\\('in', system_package_exclusions\\)" "$packages_task"; then
+  echo "expected package filtering to use the merged system package exclusions list"
+  exit 1
+fi
+
+if ! search_file "^    docker_desktop_conflicting_system_packages:" "$packages_task"; then
+  echo "expected Docker Desktop conflict exclusions in package task vars"
+  exit 1
+fi
+
+if ! search_file "docker\\.io" "$packages_task"; then
+  echo "expected docker.io to be excluded when Docker Desktop is selected on Debian-based Linux"
+  exit 1
+fi
+
+if ! search_file "'docker-desktop' in \\(linux_native_apps \\| default\\(\\[\\]\\)\\)" "$packages_task"; then
+  echo "expected package merge to detect Docker Desktop profile selection"
   exit 1
 fi
 
@@ -171,6 +191,26 @@ if ! search_file 'DOTFILES_CHEZMOI_DIR' "$setup_playbook"; then
   exit 1
 fi
 
+if ! search_file 'docker-ce-cli' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+  echo "expected Docker Desktop installers to provision docker-ce-cli"
+  exit 1
+fi
+
+if ! search_file 'download\.docker\.com/linux/ubuntu' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+  echo "expected Ubuntu Docker Desktop installer to add the official Docker apt repository"
+  exit 1
+fi
+
+if ! search_file 'download\.docker\.com/linux/fedora/docker-ce\.repo' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+  echo "expected Fedora Docker Desktop installer to add the official Docker dnf repository"
+  exit 1
+fi
+
+if ! search_file 'pacman-key --init' "$repo_root/ansible/roles/linux_apps/tasks/linux-warp.yml"; then
+  echo "expected Arch Warp installer to initialize the pacman keyring when needed"
+  exit 1
+fi
+
 if search_file "lookup\\('env', 'CI'\\)" "$setup_playbook"; then
   echo "expected setup.yml to use DOTFILES_CI only for lightweight CI mode"
   exit 1
@@ -263,6 +303,16 @@ fi
 
 if ! search_file 'chezmoi diff --source "\$PWD"' "$workflow_file"; then
   echo "expected ci.yml to verify managed-file idempotency with chezmoi diff"
+  exit 1
+fi
+
+if ! search_file 'output_log="\$\(mktemp\)"' "$workflow_file"; then
+  echo "expected ci.yml to write idempotency logs outside the repo source tree"
+  exit 1
+fi
+
+if ! search_file 'chezmoi_diff="\$\(mktemp\)"' "$workflow_file"; then
+  echo "expected ci.yml to write chezmoi diff output outside the repo source tree"
   exit 1
 fi
 

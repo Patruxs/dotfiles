@@ -61,7 +61,24 @@ log_info "CI bootstrap regression checks passed."
 
 # 2. Chezmoi Dry Run
 log_info "Running Chezmoi Dry Run (verifies templates render without errors)..."
-chezmoi apply --dry-run || {
+tmpdir="$(mktemp -d)"
+cleanup_tmpdir() {
+    rm -rf "$tmpdir"
+}
+trap cleanup_tmpdir EXIT
+
+mkdir -p "$tmpdir/home" "$tmpdir/cache"
+
+chezmoi apply \
+    --dry-run \
+    --force \
+    --no-tty \
+    --mode symlink \
+    --source "$REPO_ROOT" \
+    --destination "$tmpdir/home" \
+    --cache "$tmpdir/cache" \
+    --persistent-state "$tmpdir/chezmoi-state.boltdb" \
+    --override-data '{"git":{"name":"CI User","email":"ci@example.com"}}' || {
     log_err "Chezmoi dry run failed. Check template syntax."
     exit 1
 }
