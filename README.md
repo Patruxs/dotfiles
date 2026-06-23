@@ -50,7 +50,7 @@ chezmoi cat-config | rg '^mode = "symlink"$'
 Run setup manually:
 
 ```sh
-ansible-playbook ansible/playbooks/setup.yml
+ansible-playbook -i "localhost," --ask-become-pass ansible/playbooks/setup.yml -e profile=personal
 ```
 
 This runs the main orchestration playbook to install packages and configure the system.

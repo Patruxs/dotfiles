@@ -45,6 +45,22 @@ have() {
   command -v "$1" >/dev/null 2>&1
 }
 
+refresh_repo() {
+  if ! have git; then
+    return
+  fi
+
+  if git -C "$chezmoi_dir" diff --quiet --ignore-submodules HEAD -- 2>/dev/null &&
+    git -C "$chezmoi_dir" diff --quiet --ignore-submodules --cached -- 2>/dev/null; then
+    echo "Refreshing dotfiles repo..."
+    git -C "$chezmoi_dir" pull --ff-only --quiet || {
+      echo "Warning: could not fast-forward the existing dotfiles checkout. Continuing with the local copy."
+    }
+  else
+    echo "Skipping dotfiles repo refresh because the local checkout has uncommitted changes."
+  fi
+}
+
 install_packages() {
   if [ "$OS" = "Darwin" ]; then
     if ! have brew; then
@@ -168,6 +184,8 @@ fi
 
 if [ ! -d "$chezmoi_dir/.git" ]; then
   chezmoi init "$repo"
+else
+  refresh_repo
 fi
 
 if ! have ansible-playbook; then
