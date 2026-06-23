@@ -209,4 +209,4 @@ if [ -n "$profile" ]; then
 fi
 
 cd "$chezmoi_dir"
-ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook "ansible/playbooks/setup.yml" $extra_vars
+ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook -i "localhost," "ansible/playbooks/setup.yml" $extra_vars
