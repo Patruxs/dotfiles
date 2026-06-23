@@ -1,6 +1,15 @@
 ---
 - name: Check whether lazygit is already installed
-  command: lazygit --version
+  shell: |
+    set -eu
+    lazygit_local_binary="{{ lookup('env', 'HOME') }}/.local/bin/lazygit"
+    if [ -x "$lazygit_local_binary" ]; then
+      "$lazygit_local_binary" --version
+    else
+      lazygit --version
+    fi
+  args:
+    executable: /bin/bash
   register: lazygit_check
   changed_when: false
   failed_when: false

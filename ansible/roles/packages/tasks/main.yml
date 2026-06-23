@@ -1,13 +1,18 @@
 ---
 - name: Merge package lists
   set_fact:
+    ci_excluded_system_packages:
+      - flatpak
+      - docker
+      - docker.io
+      - moby-engine
     system_packages: >-
       {{
         (
           (chezmoi_data.packages.common.system[dotfiles_platform.distro_key] | default([])) +
           (chezmoi_data.packages[profile].system[dotfiles_platform.distro_key] | default([]))
         )
-        | reject('equalto', 'flatpak')
+        | reject('in', ci_excluded_system_packages)
         | list
         if dotfiles_ci | default(false)
         else

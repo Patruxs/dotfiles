@@ -52,6 +52,13 @@ log_info "Running bootstrap sudo detection regression test..."
 }
 log_info "Bootstrap sudo detection regression test passed."
 
+log_info "Running CI bootstrap regression checks..."
+./test/ci_bootstrap_regressions.sh || {
+    log_err "CI bootstrap regression checks failed."
+    exit 1
+}
+log_info "CI bootstrap regression checks passed."
+
 # 2. Chezmoi Dry Run
 log_info "Running Chezmoi Dry Run (verifies templates render without errors)..."
 chezmoi apply --dry-run || {
