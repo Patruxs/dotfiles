@@ -1,11 +1,24 @@
 ---
-- name: Check if GNOME is running
-  command: pgrep -f gnome-session
+- name: Load GNOME dconf data
+  include_vars:
+    file: "{{ chezmoi_dir }}/.chezmoidata/gnome_dconf.yaml"
+    name: gnome_dconf_data
+
+- name: Check if a GNOME session is running
+  command:
+    argv:
+      - pgrep
+      - -f
+      - gnome-shell|gnome-session-binary|gnome-session
   register: gnome_running
   failed_when: false
   changed_when: false
 
-- name: Apply GNOME settings stub
-  debug:
-    msg: "GNOME settings would be applied here via dconf load or a chezmoi script."
-  when: gnome_running.rc == 0
+- name: Apply GNOME dconf settings
+  community.general.dconf:
+    key: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+  loop: "{{ gnome_dconf_data.gnome_dconf.entries | default([]) }}"
+  when:
+    - gnome_running.rc == 0

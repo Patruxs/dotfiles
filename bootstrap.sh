@@ -250,6 +250,23 @@ install_ansible() {
   install_packages ansible
 }
 
+ensure_ansible_collections() {
+  local requirements_file
+
+  requirements_file="$chezmoi_dir/ansible/collections/requirements.yml"
+
+  if [ ! -f "$requirements_file" ] || ! have ansible-galaxy; then
+    return
+  fi
+
+  if ansible-galaxy collection list community.general >/dev/null 2>&1; then
+    return
+  fi
+
+  echo "Installing required Ansible collections..."
+  ansible-galaxy collection install -r "$requirements_file"
+}
+
 choose_profile() {
   local tty_device
   local choice
@@ -355,6 +372,7 @@ fi
 if ! have ansible-playbook; then
   install_ansible
 fi
+ensure_ansible_collections
 
 cd "$chezmoi_dir"
 ansible_args=(-i "localhost," "ansible/playbooks/setup.yml")

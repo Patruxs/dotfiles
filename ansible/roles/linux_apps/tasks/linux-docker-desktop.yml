@@ -35,48 +35,94 @@
     - dotfiles_platform.architecture in ['x86_64', 'amd64']
 
 - name: Install Docker Desktop on Ubuntu
-  become: yes
-  shell: |
-    set -euo pipefail
-    tmpdir="$(mktemp -d)"
-    trap 'rm -rf "$tmpdir"' EXIT
-    curl -fsSL https://desktop.docker.com/linux/main/amd64/docker-desktop-amd64.deb -o "$tmpdir/docker-desktop-amd64.deb"
-    apt-get update
-    apt-get install -y "$tmpdir/docker-desktop-amd64.deb"
-  args:
-    executable: /bin/bash
   when:
     - dotfiles_platform.distro_key == 'debian'
     - dotfiles_platform.distribution == 'Ubuntu'
     - dotfiles_platform.distribution_version in ['24.04', '26.04']
     - dotfiles_platform.architecture in ['x86_64', 'amd64']
     - docker_desktop_check_debian.rc != 0
+  block:
+    - name: Create temporary directory for Docker Desktop Debian package
+      tempfile:
+        state: directory
+        prefix: docker-desktop-
+      register: docker_desktop_tmpdir_debian
+
+    - name: Download Docker Desktop Debian package
+      get_url:
+        url: https://desktop.docker.com/linux/main/amd64/docker-desktop-amd64.deb
+        dest: "{{ docker_desktop_tmpdir_debian.path }}/docker-desktop-amd64.deb"
+        mode: "0644"
+
+    - name: Install Docker Desktop Debian package
+      become: yes
+      ansible.builtin.apt:
+        deb: "{{ docker_desktop_tmpdir_debian.path }}/docker-desktop-amd64.deb"
+        state: present
+  always:
+    - name: Remove temporary Docker Desktop Debian package directory
+      file:
+        path: "{{ docker_desktop_tmpdir_debian.path }}"
+        state: absent
+      when: docker_desktop_tmpdir_debian is defined and docker_desktop_tmpdir_debian.path is defined
 
 - name: Install Docker Desktop on Fedora
-  become: yes
-  command:
-    argv:
-      - dnf
-      - install
-      - -y
-      - https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.rpm
   when:
     - dotfiles_platform.distro_key == 'fedora'
     - (dotfiles_platform.distribution_major_version | int) >= 43
     - dotfiles_platform.architecture in ['x86_64', 'amd64']
     - docker_desktop_check_fedora.rc != 0
+  block:
+    - name: Create temporary directory for Docker Desktop Fedora package
+      tempfile:
+        state: directory
+        prefix: docker-desktop-
+      register: docker_desktop_tmpdir_fedora
+
+    - name: Download Docker Desktop Fedora package
+      get_url:
+        url: https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.rpm
+        dest: "{{ docker_desktop_tmpdir_fedora.path }}/docker-desktop-x86_64.rpm"
+        mode: "0644"
+
+    - name: Install Docker Desktop Fedora package
+      become: yes
+      ansible.builtin.dnf:
+        name: "{{ docker_desktop_tmpdir_fedora.path }}/docker-desktop-x86_64.rpm"
+        state: present
+  always:
+    - name: Remove temporary Docker Desktop Fedora package directory
+      file:
+        path: "{{ docker_desktop_tmpdir_fedora.path }}"
+        state: absent
+      when: docker_desktop_tmpdir_fedora is defined and docker_desktop_tmpdir_fedora.path is defined
 
 - name: Install Docker Desktop on Arch Linux
-  become: yes
-  shell: |
-    set -euo pipefail
-    tmpdir="$(mktemp -d)"
-    trap 'rm -rf "$tmpdir"' EXIT
-    curl -fsSL https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.pkg.tar.zst -o "$tmpdir/docker-desktop-x86_64.pkg.tar.zst"
-    pacman -U --noconfirm "$tmpdir/docker-desktop-x86_64.pkg.tar.zst"
-  args:
-    executable: /bin/bash
   when:
     - dotfiles_platform.distro_key == 'arch'
     - dotfiles_platform.architecture in ['x86_64', 'amd64']
     - docker_desktop_check_arch.rc != 0
+  block:
+    - name: Create temporary directory for Docker Desktop Arch package
+      tempfile:
+        state: directory
+        prefix: docker-desktop-
+      register: docker_desktop_tmpdir_arch
+
+    - name: Download Docker Desktop Arch package
+      get_url:
+        url: https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.pkg.tar.zst
+        dest: "{{ docker_desktop_tmpdir_arch.path }}/docker-desktop-x86_64.pkg.tar.zst"
+        mode: "0644"
+
+    - name: Install Docker Desktop Arch package
+      become: yes
+      community.general.pacman:
+        name: "{{ docker_desktop_tmpdir_arch.path }}/docker-desktop-x86_64.pkg.tar.zst"
+        state: present
+  always:
+    - name: Remove temporary Docker Desktop Arch package directory
+      file:
+        path: "{{ docker_desktop_tmpdir_arch.path }}"
+        state: absent
+      when: docker_desktop_tmpdir_arch is defined and docker_desktop_tmpdir_arch.path is defined

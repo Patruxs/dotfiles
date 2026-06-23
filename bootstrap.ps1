@@ -6,6 +6,7 @@ $ErrorActionPreference = "Stop"
 $repoHttps = "https://github.com/Patruxs/dotfiles.git"
 $chezmoiSource = Join-Path $HOME ".local/share/chezmoi"
 $profileCacheFile = Join-Path $HOME ".dotfiles_profile"
+$wingetTemplateFile = Join-Path $chezmoiSource "packages/winget.json"
 
 function Show-Banner {
   Write-Host "▓▓▓▓   ▓▓▓  ▓▓▓▓▓ ▓▓▓▓▓ ▓▓▓ ▓     ▓▓▓▓▓  ▓▓▓▓"
@@ -53,6 +54,52 @@ function Get-Profile {
   }
 }
 
+function Install-WingetPackages {
+  param(
+    [string[]]$PackageIds,
+    [string]$TemplatePath
+  )
+
+  if ($PackageIds.Count -eq 0) {
+    return
+  }
+
+  if (-not (Test-Path $TemplatePath)) {
+    Write-Warning "Winget import template not found at $TemplatePath. Falling back to sequential installs."
+    foreach ($pkg in $PackageIds) {
+      Write-Host "Installing $pkg via winget..."
+      winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent
+    }
+    return
+  }
+
+  $manifest = Get-Content $TemplatePath -Raw | ConvertFrom-Json
+  if ($null -eq $manifest.Sources -or $manifest.Sources.Count -eq 0) {
+    Write-Warning "Winget import template at $TemplatePath is missing Sources data. Falling back to sequential installs."
+    foreach ($pkg in $PackageIds) {
+      Write-Host "Installing $pkg via winget..."
+      winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent
+    }
+    return
+  }
+
+  $manifest.Sources[0].Packages = @(
+    $PackageIds | ForEach-Object {
+      [pscustomobject]@{
+        PackageIdentifier = $_
+      }
+    }
+  )
+
+  $tempWingetManifest = Join-Path ([System.IO.Path]::GetTempPath()) ("dotfiles-winget-{0}.json" -f ([System.Guid]::NewGuid().ToString()))
+  try {
+    $manifest | ConvertTo-Json -Depth 8 | Set-Content -Path $tempWingetManifest -Encoding utf8
+    winget import --import-file $tempWingetManifest --ignore-unavailable --no-upgrade --accept-source-agreements --accept-package-agreements
+  } finally {
+    Remove-Item $tempWingetManifest -ErrorAction SilentlyContinue
+  }
+}
+
 if (-not (Get-Command chezmoi -ErrorAction SilentlyContinue)) {
   winget install --id twpayne.chezmoi -e --accept-source-agreements --accept-package-agreements
   $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
@@ -68,7 +115,6 @@ Write-Host "Using profile: $profile"
 
 chezmoi apply --force -v
 
-Write-Host "Installing packages for $profile profile..."
 $dataJson = chezmoi data
 $data = $dataJson | ConvertFrom-Json
 
@@ -81,10 +127,8 @@ if ($null -ne $data.packages.$profile.windows.packages) {
 }
 $pkgs = $pkgs | Select-Object -Unique
 
-foreach ($pkg in $pkgs) {
-    Write-Host "Installing $pkg via winget..."
-    winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent
-}
+Write-Host "Installing packages for $profile profile..."
+Install-WingetPackages -PackageIds $pkgs -TemplatePath $wingetTemplateFile
 
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 

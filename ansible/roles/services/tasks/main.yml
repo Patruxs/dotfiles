@@ -1,0 +1,50 @@
+---
+- name: Set managed user service paths
+  set_fact:
+    managed_user_systemd_service: auto-headphone-switch.service
+    managed_user_systemd_service_path: "{{ lookup('env', 'HOME') }}/.config/systemd/user/auto-headphone-switch.service"
+    managed_user_runtime_dir: "{{ lookup('env', 'XDG_RUNTIME_DIR') | default('/run/user/' ~ lookup('pipe', 'id -u'), true) }}"
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - not (dotfiles_ci | default(false))
+
+- name: Check whether the managed user service exists
+  stat:
+    path: "{{ managed_user_systemd_service_path }}"
+  register: managed_user_systemd_service_stat
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - not (dotfiles_ci | default(false))
+
+- name: Check whether the user systemd runtime directory exists
+  stat:
+    path: "{{ managed_user_runtime_dir }}"
+  register: managed_user_runtime_dir_stat
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - not (dotfiles_ci | default(false))
+
+- name: Check whether the user systemd bus is available
+  stat:
+    path: "{{ managed_user_runtime_dir }}/bus"
+  register: managed_user_systemd_bus_stat
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - not (dotfiles_ci | default(false))
+
+- name: Enable and start managed user systemd services
+  ansible.builtin.systemd_service:
+    name: "{{ managed_user_systemd_service }}"
+    scope: user
+    daemon_reload: true
+    enabled: true
+    state: started
+  environment:
+    XDG_RUNTIME_DIR: "{{ managed_user_runtime_dir }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path={{ managed_user_runtime_dir }}/bus"
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - not (dotfiles_ci | default(false))
+    - managed_user_systemd_service_stat.stat.exists
+    - managed_user_runtime_dir_stat.stat.exists
+    - managed_user_systemd_bus_stat.stat.exists

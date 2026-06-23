@@ -5,6 +5,15 @@
   changed_when: false
   failed_when: false
 
+- name: Capture installed lazygit version
+  set_fact:
+    lazygit_installed_version: >-
+      {{
+        (lazygit_check.stdout | regex_search('[0-9]+\\.[0-9]+\\.[0-9]+'))
+        | default('', true)
+      }}
+    lazygit_requested_version: "{{ lazygit_version | default('latest') }}"
+
 - name: Fail on unsupported lazygit architecture
   fail:
     msg: "Unsupported architecture for lazygit upstream binary: {{ dotfiles_platform.architecture }}"
@@ -12,19 +21,80 @@
     - lazygit_check.rc != 0
     - dotfiles_platform.architecture not in ['x86_64', 'amd64', 'aarch64', 'arm64']
 
-- name: Install lazygit on Debian and Fedora from the upstream release
-  when: lazygit_check.rc != 0
-  block:
-    - name: Fetch latest lazygit release metadata
-      uri:
-        url: https://api.github.com/repos/jesseduffield/lazygit/releases/latest
-        return_content: yes
-      register: lazygit_release
+- name: Fetch latest lazygit release metadata
+  uri:
+    url: https://api.github.com/repos/jesseduffield/lazygit/releases/latest
+    return_content: yes
+    headers: "{{ lazygit_github_headers }}"
+  vars:
+    lazygit_github_token: "{{ lookup('env', 'GITHUB_TOKEN') | default('', true) }}"
+    lazygit_github_headers: >-
+      {{
+        {'Accept': 'application/vnd.github+json'}
+        | combine(
+            {'Authorization': 'Bearer ' ~ lazygit_github_token}
+            if (lazygit_github_token | length > 0)
+            else {}
+          )
+      }}
+  register: lazygit_release
+  failed_when: false
+  changed_when: false
+  when: lazygit_requested_version == 'latest'
 
-    - name: Set lazygit download facts
-      set_fact:
-        lazygit_version: "{{ lazygit_release.json.tag_name | regex_replace('^v', '') }}"
-        lazygit_arch: "{{ 'arm64' if dotfiles_platform.architecture in ['aarch64', 'arm64'] else 'x86_64' }}"
+- name: Fail when lazygit metadata is unavailable
+  fail:
+    msg: >-
+      Unable to resolve the latest lazygit release from GitHub (HTTP
+      {{ lazygit_release.status | default('unknown') }}). Set GITHUB_TOKEN to
+      avoid rate limits, or pin lazygit_version explicitly.
+  when:
+    - lazygit_requested_version == 'latest'
+    - lazygit_release.status | default(0) != 200
+    - not (dotfiles_ci | default(false))
+    - lazygit_check.rc != 0
+
+- name: Skip lazygit install when GitHub metadata is unavailable in CI
+  debug:
+    msg: >-
+      Skipping lazygit install because GitHub release metadata was unavailable
+      during CI (HTTP {{ lazygit_release.status | default('unknown') }}).
+  when:
+    - lazygit_requested_version == 'latest'
+    - lazygit_release.status | default(0) != 200
+    - dotfiles_ci | default(false)
+    - lazygit_check.rc != 0
+
+- name: Set lazygit download facts
+  set_fact:
+    lazygit_desired_version: >-
+      {{
+        lazygit_release.json.tag_name | regex_replace('^v', '')
+        if lazygit_requested_version == 'latest'
+        else lazygit_requested_version
+      }}
+    lazygit_arch: "{{ 'arm64' if dotfiles_platform.architecture in ['aarch64', 'arm64'] else 'x86_64' }}"
+  when:
+    - lazygit_requested_version != 'latest' or lazygit_release.status | default(0) == 200
+
+- name: Fail on unsupported lazygit architecture for updates
+  fail:
+    msg: "Unsupported architecture for lazygit upstream binary: {{ dotfiles_platform.architecture }}"
+  when:
+    - lazygit_desired_version is defined
+    - lazygit_installed_version != lazygit_desired_version
+    - dotfiles_platform.architecture not in ['x86_64', 'amd64', 'aarch64', 'arm64']
+
+- name: Install lazygit on Debian and Fedora from the upstream release
+  when:
+    - lazygit_desired_version is defined
+    - lazygit_installed_version != lazygit_desired_version
+  block:
+    - name: Ensure local binary directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.local/bin"
+        state: directory
+        mode: "0755"
 
     - name: Create temporary directory for lazygit download
       tempfile:
@@ -34,7 +104,7 @@
 
     - name: Download lazygit tarball
       get_url:
-        url: "https://github.com/jesseduffield/lazygit/releases/download/v{{ lazygit_version }}/lazygit_{{ lazygit_version }}_Linux_{{ lazygit_arch }}.tar.gz"
+        url: "https://github.com/jesseduffield/lazygit/releases/download/v{{ lazygit_desired_version }}/lazygit_{{ lazygit_desired_version }}_Linux_{{ lazygit_arch }}.tar.gz"
         dest: "{{ lazygit_tmpdir.path }}/lazygit.tar.gz"
         mode: "0644"
 
@@ -45,14 +115,11 @@
         remote_src: yes
 
     - name: Install lazygit binary
-      become: yes
-      command:
-        argv:
-          - install
-          - -m
-          - "0755"
-          - "{{ lazygit_tmpdir.path }}/lazygit"
-          - /usr/local/bin/lazygit
+      copy:
+        src: "{{ lazygit_tmpdir.path }}/lazygit"
+        dest: "{{ lookup('env', 'HOME') }}/.local/bin/lazygit"
+        mode: "0755"
+        remote_src: yes
 
   always:
     - name: Remove temporary lazygit download directory

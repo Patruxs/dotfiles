@@ -19,7 +19,7 @@ The setup flow keeps one public entrypoint and splits platform-specific work beh
 Linux:
 
 ```sh
-bash -o pipefail -c 'if command -v curl >/dev/null 2>&1; then curl -fsSL https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh | bash; elif command -v wget >/dev/null 2>&1; then wget -qO- https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh | bash; elif command -v apt-get >/dev/null 2>&1; then sudo apt-get update && sudo apt-get install -y curl && curl -fsSL https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh | bash; else echo "Install curl or wget first."; exit 1; fi'
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh)"
 ```
 
 On Linux, `bootstrap.sh` reuses passwordless sudo when available. Otherwise it prompts once for your sudo password, stores it in a temporary file with restricted permissions for the current run, uses it for the bootstrap update/install steps, then passes that same file to Ansible for privileged tasks.
@@ -60,7 +60,7 @@ chezmoi cat-config | rg '^mode = "symlink"$'
 Run setup manually:
 
 ```sh
-ansible-playbook -i "localhost," --ask-become-pass ansible/playbooks/setup.yml -e profile=personal
+ansible-galaxy collection install -r ansible/collections/requirements.yml && ansible-playbook -i "localhost," --ask-become-pass ansible/playbooks/setup.yml -e profile=personal
 ```
 
 This runs the main orchestration playbook to install packages and configure the system.

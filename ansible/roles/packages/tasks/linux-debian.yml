@@ -1,5 +1,6 @@
 ---
 - name: Install system packages (Debian/Ubuntu)
   become: yes
-  command:
-    argv: "{{ ['apt-get', 'install', '-y'] + system_packages }}"
+  ansible.builtin.apt:
+    name: "{{ system_packages }}"
+    state: present

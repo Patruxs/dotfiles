@@ -1,5 +1,6 @@
 ---
 - name: Install system packages (Fedora)
   become: yes
-  command:
-    argv: "{{ ['dnf', 'install', '-y'] + system_packages }}"
+  ansible.builtin.dnf:
+    name: "{{ system_packages }}"
+    state: present

@@ -1,4 +1,43 @@
 gnome_dconf:
+  entries:
+    - key: /org/gnome/desktop/input-sources/per-window
+      value: "false"
+    - key: /org/gnome/desktop/input-sources/sources
+      value: "[('xkb', 'us'), ('ibus', 'Bamboo::Us')]"
+    - key: /org/gnome/desktop/input-sources/xkb-options
+      value: "['lv3:ralt_switch']"
+    - key: /org/gnome/desktop/interface/clock-format
+      value: "'24h'"
+    - key: /org/gnome/desktop/interface/clock-show-date
+      value: "true"
+    - key: /org/gnome/desktop/interface/enable-hot-corners
+      value: "true"
+    - key: /org/gnome/desktop/interface/show-battery-percentage
+      value: "true"
+    - key: /org/gnome/desktop/peripherals/mouse/speed
+      value: "0.0"
+    - key: /org/gnome/desktop/peripherals/touchpad/speed
+      value: "-0.2649572649572649"
+    - key: /org/gnome/desktop/peripherals/touchpad/tap-to-click
+      value: "true"
+    - key: /org/gnome/desktop/peripherals/touchpad/two-finger-scrolling-enabled
+      value: "true"
+    - key: /org/gnome/settings-daemon/plugins/color/night-light-enabled
+      value: "true"
+    - key: /org/gnome/settings-daemon/plugins/color/night-light-schedule-automatic
+      value: "false"
+    - key: /org/gnome/settings-daemon/plugins/color/night-light-temperature
+      value: "uint32 4700"
+    - key: /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings
+      value: "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']"
+    - key: /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/binding
+      value: "'<Super>period'"
+    - key: /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/command
+      value: "'ibus emoji'"
+    - key: /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/name
+      value: "'Emoji Picker'"
+    - key: /org/gnome/settings-daemon/plugins/power/power-button-action
+      value: "'hibernate'"
   payload: |
     [desktop/input-sources]
     per-window=false

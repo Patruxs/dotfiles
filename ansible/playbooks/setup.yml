@@ -104,8 +104,9 @@
     - devtools
     - git_tools
     - flatpak
-    - gnome
     - ai_tools
     - docker
     - shell
     - chezmoi
+    - gnome
+    - services
