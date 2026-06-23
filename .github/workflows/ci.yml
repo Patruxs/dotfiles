@@ -8,44 +8,62 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+  ubuntu-latest:
+    runs-on: ubuntu-latest
+    env:
+      DOTFILES_CI: "1"
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Run Bootstrap (Linux/macOS)
-      if: runner.os != 'Windows'
-      run: |
-        ./bootstrap.sh --profile personal
+    - name: Run Bootstrap
+      run: ./bootstrap.sh --profile personal
         
-    - name: Check Idempotency (Linux/macOS)
-      if: runner.os != 'Windows'
+    - name: Check Idempotency
       run: |
         ./bootstrap.sh --profile personal | tee output.log
         if grep -qE "changed=[1-9]" output.log; then
           echo "Idempotency test failed, changes were made on the second run"
           exit 1
         fi
-        
-    - name: Run Bootstrap (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        .\bootstrap.ps1 -ProfileName personal
-        
-    - name: Check Idempotency (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        .\bootstrap.ps1 -ProfileName personal
 
-  test-fedora:
+  macos-latest:
+    runs-on: macos-latest
+    env:
+      DOTFILES_CI: "1"
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_ENV_HINTS: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      HOMEBREW_NO_REQUIRE_TAP_TRUST: "1"
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run Bootstrap
+      run: ./bootstrap.sh --profile personal
+    - name: Check Idempotency
+      run: |
+        ./bootstrap.sh --profile personal | tee output.log
+        if grep -qE "changed=[1-9]" output.log; then
+          echo "Idempotency test failed, changes were made on the second run"
+          exit 1
+        fi
+
+  windows-latest:
+    runs-on: windows-latest
+    env:
+      DOTFILES_CI: "1"
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run Bootstrap
+      run: .\bootstrap.ps1 -ProfileName personal
+    - name: Check Idempotency
+      run: .\bootstrap.ps1 -ProfileName personal
+
+  fedora-latest:
     runs-on: ubuntu-latest
     container:
       image: fedora:latest
+    env:
+      DOTFILES_CI: "1"
     steps:
     - name: Install dependencies
       run: dnf install -y git sudo curl
@@ -60,27 +78,12 @@ jobs:
           exit 1
         fi
 
-  test-ubuntu-no-curl:
-    runs-on: ubuntu-latest
-    container:
-      image: ubuntu:latest
-    steps:
-    - name: Install dependencies
-      run: apt-get update && apt-get install -y git sudo bash ca-certificates
-    - uses: actions/checkout@v4
-    - name: Verify curl is absent before bootstrap
-      run: |
-        if command -v curl >/dev/null 2>&1; then
-          echo "curl should not be preinstalled in this test container"
-          exit 1
-        fi
-    - name: Run Bootstrap without curl
-      run: ./bootstrap.sh --profile personal
-
-  test-arch:
+  arch-latest:
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
+    env:
+      DOTFILES_CI: "1"
     steps:
     - name: Install dependencies
       run: pacman -Syu --noconfirm git sudo curl

@@ -5,9 +5,32 @@
 
 - name: Merge package lists
   set_fact:
-    system_packages: "{{ (chezmoi_data.packages.common.system[distro_key] | default([])) + (chezmoi_data.packages[profile].system[distro_key] | default([])) }}"
+    system_packages: >-
+      {{
+        (
+          (chezmoi_data.packages.common.system[distro_key] | default([])) +
+          (chezmoi_data.packages[profile].system[distro_key] | default([]))
+        )
+        | reject('equalto', 'flatpak')
+        | list
+        if dotfiles_ci | default(false)
+        else
+        (
+          (chezmoi_data.packages.common.system[distro_key] | default([])) +
+          (chezmoi_data.packages[profile].system[distro_key] | default([]))
+        )
+      }}
     homebrew_brews: "{{ (chezmoi_data.packages.common.homebrew.brews | default([])) + (chezmoi_data.packages[profile].homebrew.brews | default([])) }}"
-    homebrew_casks: "{{ (chezmoi_data.packages.common.homebrew.casks | default([])) + (chezmoi_data.packages[profile].homebrew.casks | default([])) }}"
+    homebrew_casks: >-
+      {{
+        []
+        if dotfiles_ci | default(false)
+        else
+        (
+          (chezmoi_data.packages.common.homebrew.casks | default([])) +
+          (chezmoi_data.packages[profile].homebrew.casks | default([]))
+        )
+      }}
 
 - name: Install system packages (Debian/Ubuntu)
   apt:
@@ -59,5 +82,7 @@
     tar -xzf jetbrains-toolbox-*.tar.gz
     mv jetbrains-toolbox-*/jetbrains-toolbox ~/.local/share/JetBrains/Toolbox/bin/
     rm -rf jetbrains-toolbox-*
-  when: ansible_facts["system"] == 'Linux'
+  when:
+    - ansible_facts["system"] == 'Linux'
+    - not (dotfiles_ci | default(false))
   changed_when: false

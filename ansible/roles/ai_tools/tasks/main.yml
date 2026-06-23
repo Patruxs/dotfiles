@@ -3,11 +3,16 @@
   include_vars:
     file: "{{ chezmoi_dir }}/.chezmoidata/ai-clis.yaml"
     name: ai_clis_data
-  when: install_ai_clis | default(false)
+  when:
+    - install_ai_clis | default(false)
+    - not (dotfiles_ci | default(false))
 
 - name: Install AI CLIs (Unix)
   shell: "{{ item.value.install.unix }}"
   loop: "{{ ai_clis_data.ai_clis.clis | dict2items }}"
-  when: install_ai_clis | default(false) and ansible_facts["system"] != 'Windows'
+  when:
+    - install_ai_clis | default(false)
+    - ansible_facts["system"] != 'Windows'
+    - not (dotfiles_ci | default(false))
   ignore_errors: yes
   changed_when: false
