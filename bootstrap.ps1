@@ -16,7 +16,13 @@ function Show-Banner {
 }
 
 function Show-WelcomeScreen {
-  Clear-Host
+  if (-not [Console]::IsOutputRedirected -and -not [Console]::IsErrorRedirected) {
+    try {
+      Clear-Host
+    } catch {
+      # Ignore non-interactive hosts that do not expose a usable console handle.
+    }
+  }
   Show-Banner
 }
 

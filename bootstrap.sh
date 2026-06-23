@@ -14,13 +14,17 @@ print_banner() {
 EOF
 }
 
+has_interactive_tty() {
+  [ -t 0 ] || [ -t 1 ] || [ -t 2 ]
+}
+
 show_welcome_screen() {
   local tty_device
 
-  if [ -e /dev/tty ]; then
+  if has_interactive_tty && [ -r /dev/tty ] && [ -w /dev/tty ]; then
     tty_device="/dev/tty"
     if have clear; then
-      clear >"$tty_device"
+      clear >"$tty_device" 2>/dev/null || printf '\033c' >"$tty_device"
     else
       printf '\033c' >"$tty_device"
     fi
@@ -113,7 +117,7 @@ choose_profile() {
     return
   fi
 
-  if [ -e /dev/tty ]; then
+  if has_interactive_tty && [ -r /dev/tty ] && [ -w /dev/tty ]; then
     tty_device="/dev/tty"
   else
     echo "No interactive terminal found."
