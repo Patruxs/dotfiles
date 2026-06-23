@@ -3,4 +3,4 @@
   become: yes
   ansible.builtin.apt:
     name: "{{ system_packages }}"
-    state: present
+    state: latest

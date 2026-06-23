@@ -259,12 +259,8 @@ ensure_ansible_collections() {
     return
   fi
 
-  if ansible-galaxy collection list community.general >/dev/null 2>&1; then
-    return
-  fi
-
-  echo "Installing required Ansible collections..."
-  ansible-galaxy collection install -r "$requirements_file"
+  echo "Installing or updating required Ansible collections..."
+  ansible-galaxy collection install --upgrade -r "$requirements_file"
 }
 
 choose_profile() {
@@ -361,6 +357,8 @@ if ! have chezmoi; then
   mkdir -p "$HOME/.local/bin"
   fetch_to_stdout "https://get.chezmoi.io/lb" | sh -s -- -b "$HOME/.local/bin"
   export PATH="$HOME/.local/bin:$PATH"
+else
+  chezmoi upgrade || echo "Warning: could not self-upgrade chezmoi. Continuing with the current version."
 fi
 
 if [ ! -d "$chezmoi_dir/.git" ]; then

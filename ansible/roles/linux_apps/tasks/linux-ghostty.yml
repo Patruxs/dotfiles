@@ -1,11 +1,5 @@
 ---
-- name: Check whether Ghostty is already installed
-  command: ghostty --version
-  register: ghostty_check
-  changed_when: false
-  failed_when: false
-
-- name: Install Ghostty on Debian-based Linux
+- name: Install or update Ghostty on Debian-based Linux
   become: yes
   shell: |
     set -euo pipefail
@@ -13,10 +7,9 @@
   args:
     executable: /bin/bash
   when:
-    - ghostty_check.rc != 0
     - dotfiles_platform.distro_key == 'debian'
 
-- name: Install Ghostty on Fedora
+- name: Install or update Ghostty on Fedora
   become: yes
   shell: |
     set -euo pipefail
@@ -25,10 +18,9 @@
   args:
     executable: /bin/bash
   when:
-    - ghostty_check.rc != 0
     - dotfiles_platform.distro_key == 'fedora'
 
-- name: Install Ghostty on Arch Linux
+- name: Install or update Ghostty on Arch Linux
   become: yes
   command:
     argv:
@@ -38,5 +30,4 @@
       - --needed
       - ghostty
   when:
-    - ghostty_check.rc != 0
     - dotfiles_platform.distro_key == 'arch'

@@ -3,4 +3,4 @@
   become: yes
   ansible.builtin.dnf:
     name: "{{ system_packages }}"
-    state: present
+    state: latest

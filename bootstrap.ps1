@@ -54,6 +54,32 @@ function Get-Profile {
   }
 }
 
+function Refresh-Repo {
+  if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    return
+  }
+
+  Push-Location $chezmoiSource
+  try {
+    git diff --quiet --ignore-submodules HEAD -- 2>$null
+    $worktreeClean = ($LASTEXITCODE -eq 0)
+    git diff --quiet --ignore-submodules --cached -- 2>$null
+    $indexClean = ($LASTEXITCODE -eq 0)
+
+    if ($worktreeClean -and $indexClean) {
+      Write-Host "Refreshing dotfiles repo..."
+      git pull --ff-only --quiet
+      if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Could not fast-forward the existing dotfiles checkout. Continuing with the local copy."
+      }
+    } else {
+      Write-Host "Skipping dotfiles repo refresh because the local checkout has uncommitted changes."
+    }
+  } finally {
+    Pop-Location
+  }
+}
+
 function Install-WingetPackages {
   param(
     [string[]]$PackageIds,
@@ -67,8 +93,8 @@ function Install-WingetPackages {
   if (-not (Test-Path $TemplatePath)) {
     Write-Warning "Winget import template not found at $TemplatePath. Falling back to sequential installs."
     foreach ($pkg in $PackageIds) {
-      Write-Host "Installing $pkg via winget..."
-      winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent
+      Write-Host "Installing or updating $pkg via winget..."
+      winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent --disable-interactivity
     }
     return
   }
@@ -77,8 +103,8 @@ function Install-WingetPackages {
   if ($null -eq $manifest.Sources -or $manifest.Sources.Count -eq 0) {
     Write-Warning "Winget import template at $TemplatePath is missing Sources data. Falling back to sequential installs."
     foreach ($pkg in $PackageIds) {
-      Write-Host "Installing $pkg via winget..."
-      winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent
+      Write-Host "Installing or updating $pkg via winget..."
+      winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent --disable-interactivity
     }
     return
   }
@@ -94,7 +120,7 @@ function Install-WingetPackages {
   $tempWingetManifest = Join-Path ([System.IO.Path]::GetTempPath()) ("dotfiles-winget-{0}.json" -f ([System.Guid]::NewGuid().ToString()))
   try {
     $manifest | ConvertTo-Json -Depth 8 | Set-Content -Path $tempWingetManifest -Encoding utf8
-    winget import --import-file $tempWingetManifest --ignore-unavailable --no-upgrade --accept-source-agreements --accept-package-agreements
+    winget import --import-file $tempWingetManifest --ignore-unavailable --ignore-versions --accept-source-agreements --accept-package-agreements --disable-interactivity
   } finally {
     Remove-Item $tempWingetManifest -ErrorAction SilentlyContinue
   }
@@ -103,10 +129,18 @@ function Install-WingetPackages {
 if (-not (Get-Command chezmoi -ErrorAction SilentlyContinue)) {
   winget install --id twpayne.chezmoi -e --accept-source-agreements --accept-package-agreements
   $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+} else {
+  try {
+    chezmoi upgrade
+  } catch {
+    Write-Warning "Could not self-upgrade chezmoi. Continuing with the current version."
+  }
 }
 
 if (-not (Test-Path (Join-Path $chezmoiSource ".git"))) {
   chezmoi init $repoHttps
+} else {
+  Refresh-Repo
 }
 
 Show-WelcomeScreen
@@ -133,13 +167,10 @@ Install-WingetPackages -PackageIds $pkgs -TemplatePath $wingetTemplateFile
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
 if ($null -ne $data.devtools.npm_global_packages -and (Get-Command npm -ErrorAction SilentlyContinue)) {
-    Write-Host "Installing global npm development tools..."
+    Write-Host "Installing or updating global npm development tools..."
     foreach ($pkg in $data.devtools.npm_global_packages) {
-        $npmTool = npm list -g $pkg --depth=0 2>$null
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "Installing npm package $pkg..."
-            npm install -g $pkg
-        }
+        Write-Host "Installing or updating npm package $pkg..."
+        npm install -g "$pkg@latest"
     }
 }
 

@@ -1,11 +1,5 @@
 ---
-- name: Check whether Warp is already installed
-  command: warp-terminal --version
-  register: warp_check
-  changed_when: false
-  failed_when: false
-
-- name: Install Warp on Debian-based Linux
+- name: Install or update Warp on Debian-based Linux
   become: yes
   shell: |
     set -euo pipefail
@@ -22,10 +16,9 @@
   args:
     executable: /bin/bash
   when:
-    - warp_check.rc != 0
     - dotfiles_platform.distro_key == 'debian'
 
-- name: Install Warp on Fedora
+- name: Install or update Warp on Fedora
   become: yes
   shell: |
     set -euo pipefail
@@ -42,10 +35,9 @@
   args:
     executable: /bin/bash
   when:
-    - warp_check.rc != 0
     - dotfiles_platform.distro_key == 'fedora'
 
-- name: Install Warp on Arch Linux
+- name: Install or update Warp on Arch Linux
   become: yes
   shell: |
     set -euo pipefail
@@ -54,9 +46,8 @@
     fi
     pacman-key -r "linux-maintainers@warp.dev"
     pacman-key --lsign-key "linux-maintainers@warp.dev"
-    pacman -Sy --noconfirm warp-terminal
+    pacman -Sy --noconfirm --needed warp-terminal
   args:
     executable: /bin/bash
   when:
-    - warp_check.rc != 0
     - dotfiles_platform.distro_key == 'arch'

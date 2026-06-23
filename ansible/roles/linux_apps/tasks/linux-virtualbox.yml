@@ -1,11 +1,5 @@
 ---
-- name: Check whether VirtualBox is already installed
-  command: VirtualBox --help
-  register: virtualbox_check
-  changed_when: false
-  failed_when: false
-
-- name: Install VirtualBox on Debian-based Linux
+- name: Install or update VirtualBox on Debian-based Linux
   become: yes
   shell: |
     set -euo pipefail
@@ -14,10 +8,9 @@
   args:
     executable: /bin/bash
   when:
-    - virtualbox_check.rc != 0
     - dotfiles_platform.distro_key == 'debian'
 
-- name: Install VirtualBox on Fedora
+- name: Install or update VirtualBox on Fedora
   become: yes
   shell: |
     set -euo pipefail
@@ -26,10 +19,9 @@
   args:
     executable: /bin/bash
   when:
-    - virtualbox_check.rc != 0
     - dotfiles_platform.distro_key == 'fedora'
 
-- name: Install VirtualBox on Arch Linux
+- name: Install or update VirtualBox on Arch Linux
   become: yes
   command:
     argv:
@@ -40,6 +32,5 @@
       - virtualbox
       - virtualbox-host-modules-arch
   when:
-    - virtualbox_check.rc != 0
     - dotfiles_platform.distro_key == 'arch'
     - dotfiles_platform.architecture in ['x86_64', 'amd64']

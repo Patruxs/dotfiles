@@ -3,7 +3,10 @@
   shell: |
     set -eu
     lazygit_local_binary="{{ lookup('env', 'HOME') }}/.local/bin/lazygit"
-    if [ -x "$lazygit_local_binary" ]; then
+    lazygit_version_marker="{{ lookup('env', 'HOME') }}/.local/share/dotfiles/lazygit-version"
+    if [ -x "$lazygit_local_binary" ] && [ -r "$lazygit_version_marker" ]; then
+      printf 'version=%s\n' "$(tr -d '\r\n' < "$lazygit_version_marker")"
+    elif [ -x "$lazygit_local_binary" ]; then
       "$lazygit_local_binary" --version
     else
       lazygit --version
@@ -105,6 +108,12 @@
         state: directory
         mode: "0755"
 
+    - name: Ensure local metadata directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.local/share/dotfiles"
+        state: directory
+        mode: "0755"
+
     - name: Create temporary directory for lazygit download
       tempfile:
         state: directory
@@ -129,6 +138,12 @@
         dest: "{{ lookup('env', 'HOME') }}/.local/bin/lazygit"
         mode: "0755"
         remote_src: yes
+
+    - name: Record installed lazygit version
+      copy:
+        content: "{{ lazygit_desired_version }}\n"
+        dest: "{{ lookup('env', 'HOME') }}/.local/share/dotfiles/lazygit-version"
+        mode: "0644"
 
   always:
     - name: Remove temporary lazygit download directory

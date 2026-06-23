@@ -11,6 +11,6 @@
     name: "{{ item }}"
     method: user
     remote: flathub
-    state: present
+    state: latest
   loop: "{{ (chezmoi_data.packages.common.flatpak.linux | default([])) + (chezmoi_data.packages[profile].flatpak.linux | default([])) }}"
   ignore_errors: yes

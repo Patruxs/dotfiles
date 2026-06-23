@@ -1,17 +1,17 @@
 ---
-- name: Install JetBrains Toolbox (Linux)
+- name: Install or update JetBrains Toolbox (Linux)
   shell: |
-    if command -v jetbrains-toolbox >/dev/null 2>&1 || [ -f ~/.local/share/JetBrains/Toolbox/bin/jetbrains-toolbox ]; then
-      exit 0
-    fi
     URL=$(curl -s 'https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release' | grep -oP '"linux":\{.*?"link":"\K[^"]+')
     if [ -z "$URL" ]; then
       exit 1
     fi
     mkdir -p ~/.local/share/JetBrains/Toolbox/bin
     cd /tmp
+    rm -f jetbrains-toolbox-*.tar.gz
+    rm -rf jetbrains-toolbox-*
     curl -fsSLO "$URL"
     tar -xzf jetbrains-toolbox-*.tar.gz
     mv jetbrains-toolbox-*/jetbrains-toolbox ~/.local/share/JetBrains/Toolbox/bin/
+    rm -f jetbrains-toolbox-*.tar.gz
     rm -rf jetbrains-toolbox-*
   changed_when: false

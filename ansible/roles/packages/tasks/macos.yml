@@ -1,12 +1,15 @@
 ---
-- name: Install Homebrew packages (macOS)
-  homebrew:
-    name: "{{ item }}"
-    state: present
-  loop: "{{ homebrew_brews }}"
+- name: Install or update Homebrew packages (macOS)
+  community.general.homebrew:
+    name: "{{ homebrew_brews }}"
+    state: latest
+    update_homebrew: true
+  when: homebrew_brews | length > 0
 
-- name: Install Homebrew casks (macOS)
-  homebrew_cask:
-    name: "{{ item }}"
-    state: present
-  loop: "{{ homebrew_casks }}"
+- name: Install or update Homebrew casks (macOS)
+  community.general.homebrew_cask:
+    name: "{{ homebrew_casks }}"
+    state: latest
+    greedy: true
+    update_homebrew: true
+  when: homebrew_casks | length > 0

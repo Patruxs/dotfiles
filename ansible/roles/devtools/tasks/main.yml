@@ -15,11 +15,11 @@
     - dotfiles_platform.system != 'Windows'
     - not (dotfiles_ci | default(false))
 
-- name: Install global npm development tools
+- name: Install or update global npm development tools
   community.general.npm:
     name: "{{ item }}"
     global: true
-    state: present
+    state: latest
   loop: "{{ devtools_data.devtools.npm_global_packages | default([]) }}"
   environment:
     NPM_CONFIG_PREFIX: "{{ lookup('env', 'HOME') }}/.local"

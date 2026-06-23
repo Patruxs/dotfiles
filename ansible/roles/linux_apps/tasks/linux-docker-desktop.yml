@@ -1,46 +1,10 @@
 ---
-- name: Check whether Docker Desktop is already installed on Debian-based Linux
-  command:
-    argv:
-      - dpkg-query
-      - -W
-      - -f=${Status}
-      - docker-desktop
-  register: docker_desktop_check_debian
-  changed_when: false
-  failed_when: false
+- name: Install or update Docker Desktop on Ubuntu
   when:
     - dotfiles_platform.distro_key == 'debian'
     - dotfiles_platform.distribution == 'Ubuntu'
     - dotfiles_platform.distribution_version in ['24.04', '26.04']
     - dotfiles_platform.architecture in ['x86_64', 'amd64']
-
-- name: Check whether Docker Desktop is already installed on Fedora
-  command: rpm -q docker-desktop
-  register: docker_desktop_check_fedora
-  changed_when: false
-  failed_when: false
-  when:
-    - dotfiles_platform.distro_key == 'fedora'
-    - (dotfiles_platform.distribution_major_version | int) >= 43
-    - dotfiles_platform.architecture in ['x86_64', 'amd64']
-
-- name: Check whether Docker Desktop is already installed on Arch Linux
-  command: pacman -Q docker-desktop
-  register: docker_desktop_check_arch
-  changed_when: false
-  failed_when: false
-  when:
-    - dotfiles_platform.distro_key == 'arch'
-    - dotfiles_platform.architecture in ['x86_64', 'amd64']
-
-- name: Install Docker Desktop on Ubuntu
-  when:
-    - dotfiles_platform.distro_key == 'debian'
-    - dotfiles_platform.distribution == 'Ubuntu'
-    - dotfiles_platform.distribution_version in ['24.04', '26.04']
-    - dotfiles_platform.architecture in ['x86_64', 'amd64']
-    - docker_desktop_check_debian.rc != 0
   block:
     - name: Create temporary directory for Docker Desktop Debian package
       tempfile:
@@ -66,12 +30,11 @@
         state: absent
       when: docker_desktop_tmpdir_debian is defined and docker_desktop_tmpdir_debian.path is defined
 
-- name: Install Docker Desktop on Fedora
+- name: Install or update Docker Desktop on Fedora
   when:
     - dotfiles_platform.distro_key == 'fedora'
     - (dotfiles_platform.distribution_major_version | int) >= 43
     - dotfiles_platform.architecture in ['x86_64', 'amd64']
-    - docker_desktop_check_fedora.rc != 0
   block:
     - name: Create temporary directory for Docker Desktop Fedora package
       tempfile:
@@ -97,11 +60,10 @@
         state: absent
       when: docker_desktop_tmpdir_fedora is defined and docker_desktop_tmpdir_fedora.path is defined
 
-- name: Install Docker Desktop on Arch Linux
+- name: Install or update Docker Desktop on Arch Linux
   when:
     - dotfiles_platform.distro_key == 'arch'
     - dotfiles_platform.architecture in ['x86_64', 'amd64']
-    - docker_desktop_check_arch.rc != 0
   block:
     - name: Create temporary directory for Docker Desktop Arch package
       tempfile:

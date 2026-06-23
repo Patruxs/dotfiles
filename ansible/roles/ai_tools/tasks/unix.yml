@@ -1,16 +1,7 @@
 ---
-- name: Check whether {{ ai_cli.key }} is already installed
-  shell: "command -v {{ ai_cli.value.command }} >/dev/null 2>&1"
-  args:
-    executable: /bin/bash
-  register: ai_cli_check
-  changed_when: false
-  failed_when: false
-
-- name: Install {{ ai_cli.key }}
+- name: Install or update {{ ai_cli.key }}
   shell: "{{ ai_cli.value.install.unix }}"
   when:
-    - ai_cli_check.rc != 0
     - ai_cli.value.install.unix is defined
   ignore_errors: yes
   changed_when: false
