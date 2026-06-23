@@ -11,7 +11,7 @@
       - --if-not-exists
       - flathub
       - https://flathub.org/repo/flathub.flatpakrepo
-  stdin: "{{ lookup('file', dotfiles_sudo_password_file) }}"
+    stdin: "{{ lookup('file', dotfiles_sudo_password_file) }}"
   no_log: true
   when:
     - ansible_facts["system"] == 'Linux'
@@ -31,7 +31,7 @@
       - --noninteractive
       - flathub
       - "{{ item }}"
-  stdin: "{{ lookup('file', dotfiles_sudo_password_file) }}"
+    stdin: "{{ lookup('file', dotfiles_sudo_password_file) }}"
   no_log: true
   loop: "{{ (chezmoi_data.packages.common.flatpak.linux | default([])) + (chezmoi_data.packages[profile].flatpak.linux | default([])) }}"
   when:
