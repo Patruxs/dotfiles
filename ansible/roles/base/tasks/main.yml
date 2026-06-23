@@ -1,14 +1,26 @@
 ---
-- name: Validate sudo access
-  command: sudo -v
+- name: Validate cached sudo access
+  command: sudo -n -v
+  register: sudo_validation
+  failed_when: false
   become: no
-  when: ansible_system != "Windows"
+  when: ansible_facts["system"] != "Windows"
   changed_when: false
+
+- name: Fail when sudo credentials are unavailable
+  fail:
+    msg: >-
+      Sudo credentials are not cached for this non-interactive Ansible run.
+      Re-run bootstrap.sh from a terminal, or run `sudo -v` first and retry.
+  when:
+    - ansible_facts["system"] != "Windows"
+    - sudo_validation is defined
+    - sudo_validation.rc != 0
 
 - name: Keep sudo alive in background
   shell: "while true; do sudo -n true; sleep 60; kill -0 \"$$\" || exit; done 2>/dev/null &"
   async: 0
   poll: 0
   become: no
-  when: ansible_system != "Windows"
+  when: ansible_facts["system"] != "Windows"
   changed_when: false
