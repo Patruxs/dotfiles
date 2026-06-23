@@ -12,6 +12,7 @@ windows_bootstrap="$repo_root/bootstrap.ps1"
 docker_task_main="$repo_root/ansible/roles/docker/tasks/main.yml"
 git_tools_task_main="$repo_root/ansible/roles/git_tools/tasks/main.yml"
 setup_playbook="$repo_root/ansible/playbooks/setup.yml"
+chezmoi_bootstrap_script="$repo_root/.chezmoiscripts/run_once_before_00-bootstrap.sh.tmpl"
 
 search_file() {
   local pattern="$1"
@@ -21,6 +22,17 @@ search_file() {
     rg -q -- "$pattern" "$path"
   else
     grep -Eq -- "$pattern" "$path"
+  fi
+}
+
+search_file_literal() {
+  local text="$1"
+  local path="$2"
+
+  if command -v rg >/dev/null 2>&1; then
+    rg -F -q -- "$text" "$path"
+  else
+    grep -Fq -- "$text" "$path"
   fi
 }
 
@@ -140,6 +152,11 @@ fi
 
 if ! search_file '--source' "$repo_root/ansible/roles/chezmoi/tasks/main.yml"; then
   echo "expected chezmoi ansible role to pass the resolved source directory explicitly"
+  exit 1
+fi
+
+if ! search_file_literal '{{- if ne .chezmoi.os "windows" }}' "$chezmoi_bootstrap_script"; then
+  echo "expected chezmoi bootstrap script to skip Bash execution on Windows"
   exit 1
 fi
 
