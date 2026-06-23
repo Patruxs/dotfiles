@@ -2,7 +2,7 @@
 - name: Check if GNOME is running
   command: "pgrep -f gnome-session"
   register: gnome_running
-  ignore_errors: yes
+  failed_when: false
   changed_when: false
   when: gnome_settings_enabled | default(false) and ansible_facts["system"] == 'Linux'
 
