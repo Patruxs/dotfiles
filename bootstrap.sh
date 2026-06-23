@@ -45,6 +45,8 @@ have() {
   command -v "$1" >/dev/null 2>&1
 }
 
+sudo_password=""
+
 require_tty_device() {
   if [ -r /dev/tty ] && [ -w /dev/tty ]; then
     printf '%s\n' "/dev/tty"
@@ -53,6 +55,32 @@ require_tty_device() {
 
   echo "An interactive terminal is required for this setup."
   exit 1
+}
+
+cleanup_sensitive_state() {
+  unset ANSIBLE_BECOME_PASS ANSIBLE_SUDO_PASS ANSIBLE_BECOME_FLAGS ANSIBLE_SUDO_FLAGS
+  sudo_password=""
+}
+
+prompt_sudo_password() {
+  local tty_device
+
+  tty_device="$(require_tty_device)"
+  printf "Sudo password: " >"$tty_device"
+  IFS= read -r -s sudo_password <"$tty_device"
+  printf "\n" >"$tty_device"
+
+  if [ -z "$sudo_password" ]; then
+    echo "A sudo password is required for setup."
+    exit 1
+  fi
+}
+
+validate_sudo_password() {
+  if ! printf '%s\n' "$sudo_password" | sudo -S -k -p '' -v >/dev/null 2>&1; then
+    echo "The provided sudo password was not accepted."
+    exit 1
+  fi
 }
 
 refresh_repo() {
@@ -231,8 +259,10 @@ case "$profile" in
     ;;
 esac
 
-# Ask for the administrator password upfront
-sudo -v
+trap cleanup_sensitive_state EXIT
+
+prompt_sudo_password
+validate_sudo_password
 # Keep-alive: update existing sudo time stamp until this script has finished
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
@@ -264,8 +294,10 @@ if [ -n "$profile" ]; then
 fi
 
 if [ "$OS" = "Linux" ]; then
-  echo "Ansible will prompt once for your sudo password to run privileged setup tasks."
-  ansible_args=(--ask-become-pass "${ansible_args[@]}")
+  export ANSIBLE_BECOME_PASS="$sudo_password"
+  export ANSIBLE_SUDO_PASS="$sudo_password"
+  export ANSIBLE_BECOME_FLAGS="-H -S"
+  export ANSIBLE_SUDO_FLAGS="-H -S"
 fi
 
-ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook "${ansible_args[@]}" <"$(require_tty_device)"
+ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook "${ansible_args[@]}"
