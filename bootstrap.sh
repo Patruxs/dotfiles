@@ -46,6 +46,7 @@ have() {
 }
 
 sudo_password=""
+become_password_file=""
 
 require_tty_device() {
   if [ -r /dev/tty ] && [ -w /dev/tty ]; then
@@ -60,6 +61,10 @@ require_tty_device() {
 cleanup_sensitive_state() {
   unset ANSIBLE_BECOME_PASS ANSIBLE_SUDO_PASS ANSIBLE_BECOME_FLAGS ANSIBLE_SUDO_FLAGS
   sudo_password=""
+  if [ -n "$become_password_file" ] && [ -f "$become_password_file" ]; then
+    rm -f "$become_password_file"
+  fi
+  become_password_file=""
 }
 
 prompt_sudo_password() {
@@ -81,6 +86,19 @@ validate_sudo_password() {
     echo "The provided sudo password was not accepted."
     exit 1
   fi
+}
+
+run_sudo() {
+  printf '%s\n' "$sudo_password" | sudo -S -p '' "$@"
+}
+
+create_become_password_file() {
+  become_password_file="$(mktemp)"
+  chmod 700 "$become_password_file"
+  cat >"$become_password_file" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "$(printf '%s' "$sudo_password" | sed "s/'/'\\\\''/g")"
+EOF
 }
 
 refresh_repo() {
@@ -109,13 +127,13 @@ install_packages() {
   elif [ "$OS" = "Linux" ]; then
     case "$DISTRO" in
       fedora)
-        sudo dnf install -y "$@"
+        run_sudo dnf install -y "$@"
         ;;
       debian|ubuntu)
-        sudo apt-get install -y "$@"
+        run_sudo apt-get install -y "$@"
         ;;
       arch|manjaro)
-        sudo pacman -S --noconfirm --needed "$@"
+        run_sudo pacman -S --noconfirm --needed "$@"
         ;;
       *)
         echo "Unsupported Linux distro: $DISTRO"
@@ -136,14 +154,14 @@ update_system() {
   echo "Updating system packages before setup..."
   case "$DISTRO" in
     fedora)
-      sudo dnf upgrade --refresh -y
+      run_sudo dnf upgrade --refresh -y
       ;;
     debian|ubuntu)
-      sudo apt-get update
-      sudo apt-get upgrade -y
+      run_sudo apt-get update
+      run_sudo apt-get upgrade -y
       ;;
     arch|manjaro)
-      sudo pacman -Syu --noconfirm
+      run_sudo pacman -Syu --noconfirm
       ;;
     *)
       echo "Unsupported Linux distro: $DISTRO"
@@ -263,8 +281,7 @@ trap cleanup_sensitive_state EXIT
 
 prompt_sudo_password
 validate_sudo_password
-# Keep-alive: update existing sudo time stamp until this script has finished
-while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+create_become_password_file
 
 update_system
 
@@ -294,10 +311,7 @@ if [ -n "$profile" ]; then
 fi
 
 if [ "$OS" = "Linux" ]; then
-  export ANSIBLE_BECOME_PASS="$sudo_password"
-  export ANSIBLE_SUDO_PASS="$sudo_password"
-  export ANSIBLE_BECOME_FLAGS="-H -S"
-  export ANSIBLE_SUDO_FLAGS="-H -S"
+  ansible_args=(--become-password-file "$become_password_file" "${ansible_args[@]}")
 fi
 
 ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook "${ansible_args[@]}"
