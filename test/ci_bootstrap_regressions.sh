@@ -113,6 +113,21 @@ if ! search_file '\$scriptDir' "$windows_bootstrap"; then
   exit 1
 fi
 
+if ! search_file 'chezmoi apply --source \$chezmoiSource --force -v' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to run chezmoi apply against the resolved source directory"
+  exit 1
+fi
+
+if ! search_file 'Assert-LastExitCode "chezmoi apply"' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to fail when chezmoi apply returns a non-zero exit code"
+  exit 1
+fi
+
+if ! search_file 'chezmoi data --source \$chezmoiSource' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to read chezmoi data from the resolved source directory"
+  exit 1
+fi
+
 if ! search_file 'DOTFILES_CHEZMOI_DIR' "$setup_playbook"; then
   echo "expected setup.yml to honor DOTFILES_CHEZMOI_DIR during CI"
   exit 1
@@ -120,6 +135,11 @@ fi
 
 if ! search_file 'export DOTFILES_CHEZMOI_DIR="\$chezmoi_dir"' "$repo_root/bootstrap.sh"; then
   echo "expected bootstrap.sh to export DOTFILES_CHEZMOI_DIR for ansible"
+  exit 1
+fi
+
+if ! search_file '--source' "$repo_root/ansible/roles/chezmoi/tasks/main.yml"; then
+  echo "expected chezmoi ansible role to pass the resolved source directory explicitly"
   exit 1
 fi
 

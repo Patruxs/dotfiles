@@ -1,6 +1,13 @@
 ---
 - name: Run chezmoi apply
-  command: chezmoi apply --force -v
+  command:
+    argv:
+      - chezmoi
+      - apply
+      - --source
+      - "{{ chezmoi_dir }}"
+      - --force
+      - -v
   environment:
     PROFILE: "{{ profile }}"
   register: chezmoi_result

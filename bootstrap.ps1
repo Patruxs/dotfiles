@@ -24,6 +24,16 @@ if (
 
 $wingetTemplateFile = Join-Path $chezmoiSource "packages/winget.json"
 
+function Assert-LastExitCode {
+  param(
+    [string]$CommandName
+  )
+
+  if ($LASTEXITCODE -ne 0) {
+    throw "$CommandName failed with exit code $LASTEXITCODE."
+  }
+}
+
 function Show-Banner {
   Write-Host "▓▓▓▓   ▓▓▓  ▓▓▓▓▓ ▓▓▓▓▓ ▓▓▓ ▓     ▓▓▓▓▓  ▓▓▓▓"
   Write-Host "▓   ▓ ▓   ▓   ▓   ▓      ▓  ▓     ▓     ▓"
@@ -149,12 +159,14 @@ function Install-WingetPackages {
 
 if (-not (Get-Command chezmoi -ErrorAction SilentlyContinue)) {
   winget install --id twpayne.chezmoi -e --accept-source-agreements --accept-package-agreements
+  Assert-LastExitCode "winget install twpayne.chezmoi"
   $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 } elseif (Test-IsCi) {
   Write-Host "Skipping chezmoi self-upgrade in CI."
 } else {
   try {
     chezmoi upgrade
+    Assert-LastExitCode "chezmoi upgrade"
   } catch {
     Write-Warning "Could not self-upgrade chezmoi. Continuing with the current version."
   }
@@ -162,6 +174,7 @@ if (-not (Get-Command chezmoi -ErrorAction SilentlyContinue)) {
 
 if (-not (Test-Path (Join-Path $chezmoiSource ".git"))) {
   chezmoi init $repoHttps
+  Assert-LastExitCode "chezmoi init"
 } else {
   Refresh-Repo
 }
@@ -170,9 +183,11 @@ Show-WelcomeScreen
 $profile = Get-Profile
 Write-Host "Using profile: $profile"
 
-chezmoi apply --force -v
+chezmoi apply --source $chezmoiSource --force -v
+Assert-LastExitCode "chezmoi apply"
 
-$dataJson = chezmoi data
+$dataJson = chezmoi data --source $chezmoiSource
+Assert-LastExitCode "chezmoi data"
 $data = $dataJson | ConvertFrom-Json
 
 $pkgs = @()
