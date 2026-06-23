@@ -26,13 +26,6 @@ Windows PowerShell:
 irm https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.ps1 | iex
 ```
 
-Pick a profile without the menu:
-
-```sh
-bash bootstrap.sh --profile personal
-DOTFILES_PROFILE=work bash bootstrap.sh
-```
-
 ## Use
 
 Add a dotfile:
