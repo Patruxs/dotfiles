@@ -61,7 +61,8 @@
       fi
 
       echo "Existing /swapfile is present, but total swap is still below ${min_swap_mb}MB. Leaving it unchanged." >&2
-      exit 1
+      echo "DOTFILES_LOW_MEMORY_SWAP=ignored_existing"
+      exit 0
     fi
 
     run_root_shell "fallocate -l ${swapfile_size_mb}M /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=${swapfile_size_mb} status=progress"
