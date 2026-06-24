@@ -15,6 +15,20 @@
     - not (dotfiles_ci | default(false))
     - not (dotfiles_automation | default(false))
 
+- name: Ensure user-local CLI install directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ lookup('env', 'HOME') }}/.local/bin"
+    - "{{ lookup('env', 'HOME') }}/.local/lib"
+  when:
+    - install_ai_clis | default(false)
+    - dotfiles_platform.system != 'Windows'
+    - not (dotfiles_ci | default(false))
+    - not (dotfiles_automation | default(false))
+
 - name: Install AI CLIs (Unix)
   include_tasks: unix.yml
   loop: "{{ (ai_clis_data.ai_clis.clis | default({})) | dict2items }}"

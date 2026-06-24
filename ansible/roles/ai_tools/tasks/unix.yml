@@ -1,7 +1,14 @@
 ---
 - name: Install or update {{ ai_cli.key }}
   shell: "{{ ai_cli.value.install.unix }}"
-  environment: "{{ {'CODEX_NON_INTERACTIVE': '1'} if dotfiles_automation | default(false) | bool else {} }}"
+  environment: >-
+    {{
+      {
+        'NPM_CONFIG_PREFIX': lookup('env', 'HOME') ~ '/.local',
+        'PATH': lookup('env', 'HOME') ~ '/.local/bin:' ~ lookup('env', 'PATH')
+      } |
+      combine({'CODEX_NON_INTERACTIVE': '1'} if dotfiles_automation | default(false) | bool else {})
+    }}
   when:
     - ai_cli.value.install.unix is defined
   changed_when: false

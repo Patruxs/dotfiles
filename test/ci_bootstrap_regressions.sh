@@ -338,13 +338,42 @@ if search_file 'ignore_errors: yes' "$ai_tools_unix_task"; then
   exit 1
 fi
 
+if search_file 'become:' "$ai_tools_unix_task"; then
+  echo "expected AI CLI Unix installers not to use Ansible become"
+  exit 1
+fi
+
+if search_file 'sudo npm install -g|--prefix /usr/local|/usr/local/lib/node_modules' "$ai_tools_unix_task" ||
+  search_file 'sudo npm install -g|--prefix /usr/local|/usr/local/lib/node_modules' "$ai_clis_data"; then
+  echo "expected AI CLI npm installers not to target root-owned global npm paths"
+  exit 1
+fi
+
 if ! search_file 'dotfiles_automation' "$ai_tools_task_main"; then
   echo "expected AI CLI upstream installers to be skipped in automation"
   exit 1
 fi
 
+if ! search_file 'Ensure user-local CLI install directories exist' "$ai_tools_task_main" ||
+  ! search_file '\.local/bin' "$ai_tools_task_main" ||
+  ! search_file '\.local/lib' "$ai_tools_task_main"; then
+  echo "expected AI CLI role to create user-local install directories before upstream installers"
+  exit 1
+fi
+
 if ! search_file 'CODEX_NON_INTERACTIVE' "$ai_tools_unix_task"; then
   echo "expected AI CLI Unix installer task to set non-interactive installer environment in automation"
+  exit 1
+fi
+
+if ! search_file 'NPM_CONFIG_PREFIX' "$ai_tools_unix_task" ||
+  ! search_file "lookup\\('env', 'HOME'\\).*\\.local" "$ai_tools_unix_task"; then
+  echo "expected AI CLI Unix installers to use the user-local npm prefix"
+  exit 1
+fi
+
+if ! search_file "'PATH': lookup\\('env', 'HOME'\\).*\\.local/bin" "$ai_tools_unix_task"; then
+  echo "expected AI CLI Unix installers to prefer user-local binaries on PATH"
   exit 1
 fi
 
