@@ -104,6 +104,7 @@ packages:
         - ghostty
         - docker-desktop
         - obsidian
+        - localsend
     windows:
       packages:
         - Git.Git
@@ -125,11 +126,13 @@ packages:
         - GitButler.GitButler
         - Docker.DockerDesktop
         - Obsidian.Obsidian
+        - LocalSend.LocalSend
     flatpak:
       linux:
         - com.gitbutler.gitbutler
         - com.visualstudio.code
         - md.obsidian.Obsidian
+        - org.localsend.localsend_app
   personal:
     system:
       fedora:

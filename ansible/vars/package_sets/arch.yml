@@ -28,6 +28,7 @@ package_sets:
       - com.gitbutler.gitbutler
       - com.visualstudio.code
       - md.obsidian.Obsidian
+      - org.localsend.localsend_app
   desktop_apps:
     pacman:
       - nvtop

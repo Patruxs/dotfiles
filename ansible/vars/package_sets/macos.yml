@@ -26,6 +26,7 @@ package_sets:
       - visual-studio-code
       - gitbutler
       - obsidian
+      - localsend
   desktop_apps:
     cask:
       - telegram
