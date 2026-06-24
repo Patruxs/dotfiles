@@ -156,9 +156,9 @@
     - ai_clis_data is defined
     - dotfiles_platform.system != 'Windows'
 
-- name: Show setup outcome summary
-  debug:
-    msg: |
+- name: Prepare setup outcome summary text
+  set_fact:
+    dotfiles_setup_report_text: |
       Setup Outcome Summary
       Profile: {{ profile }}
       Platform: {{ dotfiles_platform.name }} ({{ dotfiles_platform.package_family }})
@@ -239,3 +239,13 @@
       - [{{ failure.phase }}] {{ failure.name }} failed at "{{ failure.task }}": {{ failure.error }}
       {% endfor %}
       {% endif %}
+
+- name: Show setup outcome summary
+  debug:
+    msg: "{{ dotfiles_setup_report_text }}"
+
+- name: Save setup outcome summary to file
+  copy:
+    content: "{{ dotfiles_setup_report_text }}\n"
+    dest: "{{ lookup('env', 'HOME') }}/.dotfiles_setup_report.md"
+  ignore_errors: yes

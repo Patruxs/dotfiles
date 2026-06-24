@@ -17,6 +17,7 @@ $setupMode = if (-not [string]::IsNullOrWhiteSpace($SetupMode)) {
   "best_effort"
 }
 $setupFailures = @()
+$setupSuccesses = @()
 
 function Test-IsCi {
   $ciValue = $env:DOTFILES_CI
@@ -84,6 +85,19 @@ function Add-SetupFailure {
   }
 }
 
+function Add-SetupSuccess {
+  param(
+    [string]$Phase,
+    [string]$Name
+  )
+
+  $script:setupSuccesses += [pscustomobject]@{
+    Phase = $Phase
+    Name = $Name
+  }
+}
+
+
 function Invoke-BestEffort {
   param(
     [string]$Phase,
@@ -93,6 +107,7 @@ function Invoke-BestEffort {
 
   try {
     & $ScriptBlock
+    Add-SetupSuccess -Phase $Phase -Name $Name
   } catch {
     if ($script:setupMode -eq "strict") {
       throw
@@ -103,17 +118,34 @@ function Invoke-BestEffort {
   }
 }
 
-function Show-SetupFailureSummary {
-  if ($script:setupFailures.Count -eq 0) {
-    Write-Host "Bootstrap complete. No best-effort failures recorded."
-    return
+function Write-SetupReport {
+  $reportPath = Join-Path $HOME ".dotfiles_setup_report.md"
+  $content = "# Setup Outcome Breakdown`n`n"
+  
+  $content += "## What was Successfully Installed/Configured`n"
+  if ($script:setupSuccesses.Count -eq 0) {
+    $content += "No setup phases completed successfully.`n"
+  } else {
+    foreach ($success in $script:setupSuccesses) {
+      $content += "- [$($success.Phase)] $($success.Name)`n"
+    }
   }
 
-  Write-Warning "Bootstrap finished with $($script:setupFailures.Count) best-effort failure(s)."
-  Write-Host "Items to install or fix manually:"
-  foreach ($failure in $script:setupFailures) {
-    Write-Host "- [$($failure.Phase)] $($failure.Name): $($failure.Error)"
+  $content += "`n## What Failed`n"
+  if ($script:setupFailures.Count -eq 0) {
+    $content += "No errors were recorded.`n"
+  } else {
+    foreach ($failure in $script:setupFailures) {
+      $content += "- [$($failure.Phase)] $($failure.Name): $($failure.Error)`n"
+    }
   }
+  
+  Set-Content -Path $reportPath -Value $content -Encoding utf8
+  
+  Write-Host "`n==========================================================="
+  Write-Host "Setup finished (or aborted). A full report has been saved."
+  Write-Host "Read your setup outcome summary at: $reportPath"
+  Write-Host "==========================================================="
 }
 
 function Show-Banner {
@@ -324,4 +356,4 @@ if ((-not (Test-IsCi)) -and $null -ne $data.ai_clis.clis) {
     }
 }
 
-Show-SetupFailureSummary
+Write-SetupReport

@@ -516,3 +516,10 @@ if [ "$OS" = "Linux" ] && [ -n "$become_password_file" ]; then
 fi
 
 ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook "${ansible_args[@]}"
+
+if [ -f "$HOME/.dotfiles_setup_report.md" ]; then
+  echo -e "\n==========================================================="
+  echo -e "Setup finished (or aborted). A full report has been saved."
+  echo -e "Read your setup outcome summary at: $HOME/.dotfiles_setup_report.md"
+  echo -e "==========================================================="
+fi

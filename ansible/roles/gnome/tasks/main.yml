@@ -4,3 +4,4 @@
   when:
     - gnome_settings_enabled | default(false)
     - dotfiles_platform.system == 'Linux'
+    - dotfiles_platform.distro_key == 'fedora'
