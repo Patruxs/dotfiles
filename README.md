@@ -1,134 +1,78 @@
-# dotfiles
+# Dotfiles
 
-Public chezmoi repo for shell config, Git config, selected app config, package bootstrapping, Lazygit and GitButler setup, VS Code settings/extensions, GNOME settings, Docker daemon settings, and a safe SSH config.
+Cross-platform machine bootstrap system and dotfiles manager for Linux, macOS, and Windows. Uses **Ansible** for orchestration and **Chezmoi** for symlinking.
 
-This repo is configured for chezmoi `symlink` mode. On `chezmoi apply`, eligible managed files are linked back to the source directory instead of being copied.
+## 🚀 Setup
 
-Not managed: secrets, tokens, auth/session state, SSH keys, Docker auth, GitHub CLI auth, browser profiles, VS Code state, monitor layouts, binary dconf, caches.
-
-## Architecture
-
-The setup flow keeps one public entrypoint and splits platform-specific work behind it:
-- `bootstrap.sh` is the shared Unix entrypoint and detects Linux distro vs macOS at runtime.
-- `ansible/playbooks/ubuntu.yml`, `fedora.yml`, `arch.yml`, and `macos.yml` are standalone platform entrypoints. `setup.yml` remains as a compatibility entrypoint.
-- Profiles in `ansible/vars/profiles/` select explicit features and supported platforms.
-- Package definitions for Unix/macOS live in `ansible/vars/package_sets/`, one file per platform.
-- Procedural installers live behind feature-named roles in `ansible/roles/features/`.
-
-## Setup
-
-Linux:
-
+**Linux**:
 ```sh
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh)"
 ```
 
-On Linux, `bootstrap.sh` reuses passwordless sudo when available. Otherwise it prompts once for your sudo password, stores it in a temporary file with restricted permissions for the current run, uses it for the bootstrap update/install steps, then passes that same file to Ansible for privileged tasks.
-
-macOS:
-
+**macOS**:
 ```sh
 bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh | bash'
 ```
 
-Windows PowerShell:
-
+**Windows (PowerShell)**:
 ```powershell
 irm https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.ps1 | iex
 ```
 
-## Use
-
-Add a dotfile:
+## 🛠 Usage
 
 ```sh
-chezmoi add ~/.zshrc
-git -C ~/.local/share/chezmoi status
+chezmoi add ~/.zshrc     # Manage a new file
+chezmoi update -v        # Pull and apply latest changes
+chezmoi diff             # See what will change
+chezmoi doctor           # Troubleshoot issues
 ```
 
-Update another machine:
+*Manual Setup*: `./bootstrap.sh --profile personal`
 
-```sh
-chezmoi update -v
-```
-
-Check rendered config:
-
-```sh
-chezmoi cat-config | rg '^mode = "symlink"$'
-```
-
-Run setup manually:
-
-```sh
-./bootstrap.sh --profile personal
-```
-
-Use the playbook that matches the current platform: `ubuntu.yml`, `fedora.yml`, `arch.yml`, or `macos.yml`.
-
-## Manual login
-
+## 🔑 Manual Logins
 ```sh
 gh auth login
 docker login
-codex
-claude
-agy
-droid
-opencode   # then /connect
-```
-
-## SSH
-
-```sh
 ssh-keygen -t ed25519 -C "you@example.com"
 ```
 
-## Troubleshooting
+## 📁 Symlink Mode
+Chezmoi is set to `mode = "symlink"`. Tracked files are symlinked directly into `$HOME`. Any edits made by applications modify the tracked file here.
 
-```sh
-chezmoi doctor
-chezmoi diff
-chezmoi apply --dry-run --verbose
-```
-
-## Symlink Mode
-
-Chezmoi is configured with `mode = "symlink"` in [.chezmoi.toml.tmpl](/home/pat/.local/share/chezmoi/.chezmoi.toml.tmpl:1).
-
-What this means:
-- Regular non-templated managed files are symlinked into `$HOME` on `chezmoi apply`.
-- Templates, `private_` files, encrypted files, executable files, and directories are still managed normally by chezmoi and are not symlinked.
-- If a program edits a symlinked config file, it is editing the tracked source file in this repo.
-- Files that used to need templates for live syncing now point at tracked backing files in [.live/](/home/pat/.local/share/chezmoi/.live): shell dotfiles, `~/.ssh/config`, and Docker.
-- `~/.gitconfig` stays symlinked to the tracked shared config and includes a generated `~/.gitconfig.local` for per-machine `user.name` and `user.email`.
-
-Useful checks:
-
-```sh
-chezmoi status
-chezmoi managed --include files
-find "$HOME" -maxdepth 3 -type l
-```
 
 <details>
-<summary>What This repo does , setup , store </summary>
+<summary>Repository Capabilities & Profiles</summary>
 
-What this repo does:
-- Acts as a cross-platform machine bootstrap system and dotfiles manager for Linux, macOS, and Windows.
-- Uses Ansible as the primary orchestration layer for OS detection, profile selection (personal/work), and role-based setups.
-- Uses Chezmoi for dotfile templating, secret handling, and managing configurations in `symlink` mode.
+### 1. What is set up at the OS level?
+- **Core CLI Tools**: `git`, `curl`, `wget`, `bash`, `neovim`, `tmux`, `btop`, `ripgrep`, `jq`, `bat`, `fzf` (plus `fd`, `eza`, `lazygit`, `gh` natively on Arch/macOS).
+- **Development Tools**: `nodejs`, `npm`, `python3`, `python-pip`, `gcc`, `go`.
+- **Desktop Base (Flatpak/Cask)**: VS Code, GitButler, Obsidian, GParted.
+- **System Configs**: GNOME `dconf` settings, SSH host aliases, low-memory tuning (swap), Docker daemon setup.
+- **Terminals**: Warp Terminal, Ghostty.
+- **Docker**: Docker Engine (natively) and Docker Desktop.
+*(Automatically detects and uses native package managers: APT, DNF, Pacman, Homebrew, plus Flatpak).*
 
-Setup:
-- Automatically detects OS and installs Chezmoi and Ansible if missing.
-- Installs system packages and desktop apps using native package managers (dnf, apt, pacman, Homebrew, Winget) and Flatpak.
-- Installs Lazygit and GitButler during setup without managing either app's config files.
-- Applies system configurations like GNOME `dconf` settings, Docker daemon, SSH host aliases, and user `systemd` services.
-- Renders templates and symlinks user dotfiles (Zsh, Git, Ghostty) into `$HOME`.
+### 2. What is stored in this repo?
+- **Ansible Logic**: Modular playbooks (`setup.yml`, `ubuntu.yml`, `arch.yml`, etc.) and roles for OS detection and package installations.
+- **Chezmoi Dotfiles**: Configuration templates (`*.tmpl`) that safely render secrets and symlink user settings (Zsh, Git, Neovim, etc.) into `$HOME`.
+- **Package Maps**: Structured YAML files (`package_sets/`) that cleanly map tools to their respective OS package managers.
+- **Bootstrap Scripts**: Quick-start scripts (`bootstrap.sh`, `bootstrap.ps1`) to trigger the setup from zero.
 
-Store:
-- Ansible logic including playbooks, roles (base, packages, git_tools, flatpak, gnome, shell, docker), and profile variables.
-- Package definitions in `.chezmoidata/packages.yaml` grouped by common, personal, and work profiles.
-- Dotfile templates (`*.tmpl`), ignore rules, and configuration sources.
-- Bootstrap scripts (`bootstrap.sh`, `bootstrap.ps1`) to trigger the setup flow.
+### 3. What do the Personal vs. Work profiles set up?
+
+The system is split into two primary profiles to keep work machines lean while fully tricking out personal machines.
+
+| Feature / App Category | Personal Profile | Work Profile | Description / Apps Included |
+| :--- | :---: | :---: | :--- |
+| **Core CLI & Shell** | ✅ | ✅ | `git`, `curl`, `wget`, `bash`, `neovim`, `tmux`, `btop`, `ripgrep`, `jq`, `bat`, `fzf`, Zsh, custom aliases (plus `fd`, `eza`, `lazygit`, `gh` on Arch/macOS) |
+| **Dev Tools & SDKs** | ✅ | ✅ | `nodejs`, `npm`, `python3`, `python-pip`, `gcc`, `go`, global npm tools |
+| **Desktop Base** | ✅ | ✅ | VS Code, GitButler, Obsidian, GParted |
+| **Modern Terminals** | ✅ | ✅ | Warp Terminal, Ghostty |
+| **Docker Engine & Desktop**| ✅ | ✅ | Native Docker daemon + Docker Desktop |
+| **AI CLIs** | ✅ | ✅ | Local/cloud AI CLI tools and prompts |
+| **GNOME Settings** | ✅ | ✅ | Custom `dconf` keybindings and UI tweaks |
+| **Heavy IDEs** | ✅ | ❌ | JetBrains Toolbox, Kiro IDE |
+| **Virtualization** | ✅ | ❌ | VirtualBox |
+| **Desktop Apps (Media/Comm/Utils)** | ✅ | ❌ | Telegram, Zoom, Spotify, Postman, ONLYOFFICE, OBS Studio, Edge, Anki, Termius, Bazaar, `nvtop` |
 </details>
