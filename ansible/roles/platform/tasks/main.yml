@@ -9,3 +9,8 @@
       distribution_major_version: "{{ ansible_facts['distribution_major_version'] | default('') }}"
       architecture: "{{ ansible_facts['architecture'] | default('') }}"
       distro_key: "{{ 'fedora' if ansible_facts['distribution'] == 'Fedora' else 'debian' if ansible_facts['os_family'] == 'Debian' else 'arch' if ansible_facts['os_family'] == 'Archlinux' else '' }}"
+      ubuntu_codename: >-
+        {{
+          lookup('pipe', '. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}"')
+          if ansible_facts['os_family'] == 'Debian' else ''
+        }}

@@ -20,8 +20,8 @@
           {{
             dotfiles_platform
             | combine({
-              'name': 'ubuntu' if ansible_facts['distribution'] == 'Ubuntu' else 'fedora' if ansible_facts['distribution'] == 'Fedora' else 'arch' if ansible_facts['os_family'] == 'Archlinux' else 'macos' if ansible_facts['system'] == 'Darwin' else '',
-              'package_family': 'apt' if ansible_facts['distribution'] == 'Ubuntu' else 'dnf' if ansible_facts['distribution'] == 'Fedora' else 'pacman' if ansible_facts['os_family'] == 'Archlinux' else 'brew' if ansible_facts['system'] == 'Darwin' else ''
+              'name': 'ubuntu' if ansible_facts['os_family'] == 'Debian' else 'fedora' if ansible_facts['distribution'] == 'Fedora' else 'arch' if ansible_facts['os_family'] == 'Archlinux' else 'macos' if ansible_facts['system'] == 'Darwin' else '',
+              'package_family': 'apt' if ansible_facts['os_family'] == 'Debian' else 'dnf' if ansible_facts['distribution'] == 'Fedora' else 'pacman' if ansible_facts['os_family'] == 'Archlinux' else 'brew' if ansible_facts['system'] == 'Darwin' else ''
             })
           }}
 

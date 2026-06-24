@@ -59,7 +59,7 @@
     dotfiles_unsupported_features: >-
       {{
         []
-        + (['docker_desktop'] if 'docker_desktop' in features and dotfiles_platform.name == 'ubuntu' and not (dotfiles_platform.distribution == 'Ubuntu' and dotfiles_platform.distribution_version in ['24.04', '26.04'] and dotfiles_platform.architecture in ['x86_64', 'amd64']) else [])
+        + (['docker_desktop'] if 'docker_desktop' in features and dotfiles_platform.name == 'ubuntu' and not (dotfiles_platform.ubuntu_codename in ['focal', 'jammy', 'noble', 'oracular', 'plucky'] and dotfiles_platform.architecture in ['x86_64', 'amd64']) else [])
         + (['docker_desktop'] if 'docker_desktop' in features and dotfiles_platform.name == 'fedora' and not ((dotfiles_platform.distribution_major_version | int) >= 43 and dotfiles_platform.architecture in ['x86_64', 'amd64']) else [])
         + (['docker_desktop'] if 'docker_desktop' in features and dotfiles_platform.name == 'arch' and dotfiles_platform.architecture not in ['x86_64', 'amd64'] else [])
         + (['kiro_ide'] if 'kiro_ide' in features and dotfiles_platform.system == 'Linux' and dotfiles_platform.architecture not in ['x86_64', 'amd64'] else [])

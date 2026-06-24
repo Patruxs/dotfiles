@@ -1,15 +1,10 @@
 ---
-- name: Install or update Docker Desktop on Ubuntu
+- name: Install or update Docker Desktop on Debian-based Distros
   vars:
-    docker_ubuntu_release: >-
-      {{
-        ansible_facts['distribution_release']
-        | default(lookup('pipe', '. /etc/os-release && printf %s "$VERSION_CODENAME"'))
-      }}
+    docker_ubuntu_release: "{{ dotfiles_platform.ubuntu_codename }}"
   when:
     - dotfiles_platform.distro_key == 'debian'
-    - dotfiles_platform.distribution == 'Ubuntu'
-    - dotfiles_platform.distribution_version in ['24.04', '26.04']
+    - dotfiles_platform.ubuntu_codename in ['focal', 'jammy', 'noble', 'oracular', 'plucky']
     - dotfiles_platform.architecture in ['x86_64', 'amd64']
   block:
     - name: Create temporary directory for Docker Desktop Debian package
