@@ -24,6 +24,22 @@
     msg: "Invalid setup mode '{{ dotfiles_setup_mode }}'. Use best_effort or strict."
   when: dotfiles_setup_mode not in ['best_effort', 'strict']
 
+- name: Detect low-memory setup mode
+  vars:
+    dotfiles_low_memory_env: "{{ lookup('env', 'DOTFILES_LOW_MEMORY') | default('auto', true) | string | lower }}"
+  set_fact:
+    dotfiles_low_memory_threshold_mb: "{{ lookup('env', 'DOTFILES_LOW_MEMORY_THRESHOLD_MB') | default('4096', true) | int }}"
+    dotfiles_low_memory_setup: >-
+      {{
+        dotfiles_low_memory_env in ['1', 'true', 'yes', 'on']
+        or (
+          dotfiles_low_memory_env not in ['0', 'false', 'no', 'off']
+          and dotfiles_platform.system == 'Linux'
+          and (ansible_facts['memtotal_mb'] | default(0) | int) > 0
+          and (ansible_facts['memtotal_mb'] | default(0) | int) <= (lookup('env', 'DOTFILES_LOW_MEMORY_THRESHOLD_MB') | default('4096', true) | int)
+        )
+      }}
+
 - name: Detect CI container environment
   set_fact:
     dotfiles_container_ci: >-
@@ -130,6 +146,64 @@
     dotfiles_setup_failures: []
     dotfiles_setup_configured: []
     dotfiles_setup_skipped: []
+
+- name: Prepare low-memory Linux setup (strict)
+  block:
+    - include_role:
+        name: low_memory
+
+    - name: Record low-memory setup completion
+      set_fact:
+        dotfiles_setup_configured: >-
+          {{
+            dotfiles_setup_configured + [
+              {
+                'phase': 'low_memory',
+                'name': 'swap and installer throttling',
+                'detail': dotfiles_low_memory_summary | default('Low-memory setup was enabled for this machine.')
+              }
+            ]
+          }}
+  when:
+    - dotfiles_setup_mode == 'strict'
+    - dotfiles_low_memory_setup | default(false) | bool
+    - dotfiles_platform.system == 'Linux'
+
+- name: Prepare low-memory Linux setup (best effort)
+  block:
+    - include_role:
+        name: low_memory
+
+    - name: Record low-memory setup completion
+      set_fact:
+        dotfiles_setup_configured: >-
+          {{
+            dotfiles_setup_configured + [
+              {
+                'phase': 'low_memory',
+                'name': 'swap and installer throttling',
+                'detail': dotfiles_low_memory_summary | default('Low-memory setup was enabled for this machine.')
+              }
+            ]
+          }}
+  rescue:
+    - name: Record low-memory setup failure
+      set_fact:
+        dotfiles_setup_failures: >-
+          {{
+            dotfiles_setup_failures + [
+              {
+                'phase': 'low_memory',
+                'name': 'swap and installer throttling',
+                'task': ansible_failed_task.name | default('unknown task'),
+                'error': ansible_failed_result.msg | default(ansible_failed_result.stderr | default(ansible_failed_result | to_json))
+              }
+            ]
+          }}
+  when:
+    - dotfiles_setup_mode == 'best_effort'
+    - dotfiles_low_memory_setup | default(false) | bool
+    - dotfiles_platform.system == 'Linux'
 
 - name: Generate Chezmoi setup data
   include_role:

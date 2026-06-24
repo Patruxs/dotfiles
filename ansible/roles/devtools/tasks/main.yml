@@ -21,8 +21,22 @@
     global: true
     state: latest
   loop: "{{ devtools_data.devtools.npm_global_packages | default([]) }}"
-  environment:
-    NPM_CONFIG_PREFIX: "{{ lookup('env', 'HOME') }}/.local"
+  environment: >-
+    {{
+      {
+        'NPM_CONFIG_PREFIX': lookup('env', 'HOME') ~ '/.local',
+        'NPM_CONFIG_FUND': 'false',
+        'NPM_CONFIG_AUDIT': 'false'
+      } |
+      combine(
+        {
+          'NPM_CONFIG_JOBS': '1',
+          'NODE_OPTIONS': '--max-old-space-size=512'
+        }
+        if dotfiles_low_memory_setup | default(false) | bool
+        else {}
+      )
+    }}
   when:
     - dotfiles_platform.system != 'Windows'
     - not (dotfiles_ci | default(false))

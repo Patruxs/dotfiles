@@ -10,3 +10,20 @@
     fi
   args:
     executable: /bin/bash
+  when: not (dotfiles_low_memory_setup | default(false) | bool)
+
+- name: Install system packages one at a time (Archlinux low memory)
+  ansible.builtin.shell: |
+    set -euo pipefail
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' pacman -S --noconfirm --needed {{ item | quote }} < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n pacman -S --noconfirm --needed {{ item | quote }}
+    fi
+  args:
+    executable: /bin/bash
+  loop: "{{ system_packages }}"
+  loop_control:
+    label: "{{ item }}"
+  when: dotfiles_low_memory_setup | default(false) | bool

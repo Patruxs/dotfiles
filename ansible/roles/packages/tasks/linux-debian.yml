@@ -10,3 +10,29 @@
     fi
   args:
     executable: /bin/bash
+  when: not (dotfiles_low_memory_setup | default(false) | bool)
+
+- name: Install system packages one at a time (Debian/Ubuntu low memory)
+  ansible.builtin.shell: |
+    set -euo pipefail
+
+    apt_args=(
+      -o Acquire::Queue-Mode=access
+      -o Acquire::http::Pipeline-Depth=0
+      -o Acquire::Retries=3
+      install
+      -y
+      {{ item | quote }}
+    )
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' apt-get "${apt_args[@]}" < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n apt-get "${apt_args[@]}"
+    fi
+  args:
+    executable: /bin/bash
+  loop: "{{ system_packages }}"
+  loop_control:
+    label: "{{ item }}"
+  when: dotfiles_low_memory_setup | default(false) | bool

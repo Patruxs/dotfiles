@@ -1,0 +1,84 @@
+---
+- name: Read current swap total
+  ansible.builtin.shell: awk '/^SwapTotal:/ { print int($2 / 1024) }' /proc/meminfo
+  args:
+    executable: /bin/bash
+  register: dotfiles_swap_total_mb_check
+  changed_when: false
+
+- name: Derive low-memory swap targets
+  vars:
+    requested_swapfile_size_mb: "{{ lookup('env', 'DOTFILES_SWAPFILE_SIZE_MB') | default('', true) }}"
+    requested_min_swap_mb: "{{ lookup('env', 'DOTFILES_MIN_SWAP_MB') | default('', true) }}"
+    default_swap_target_mb: "{{ 4096 if (ansible_facts['memtotal_mb'] | default(0) | int) <= 2048 else 2048 }}"
+  set_fact:
+    dotfiles_current_swap_mb: "{{ dotfiles_swap_total_mb_check.stdout | default('0') | int }}"
+    dotfiles_low_memory_swapfile_size_mb: "{{ requested_swapfile_size_mb | int if requested_swapfile_size_mb | length > 0 else default_swap_target_mb | int }}"
+    dotfiles_low_memory_min_swap_mb: "{{ requested_min_swap_mb | int if requested_min_swap_mb | length > 0 else default_swap_target_mb | int }}"
+
+- name: Ensure low-memory swap is available
+  ansible.builtin.shell: |
+    set -euo pipefail
+
+    password_file={{ dotfiles_sudo_password_file | quote }}
+    swapfile_size_mb={{ dotfiles_low_memory_swapfile_size_mb | int }}
+    min_swap_mb={{ dotfiles_low_memory_min_swap_mb | int }}
+
+    run_sudo() {
+      if [ -n "$password_file" ]; then
+        sudo -S -p '' "$@" < "$password_file"
+      else
+        sudo -n "$@"
+      fi
+    }
+
+    run_root_shell() {
+      if [ -n "$password_file" ]; then
+        sudo -S -p '' /bin/sh -c "$1" < "$password_file"
+      else
+        sudo -n /bin/sh -c "$1"
+      fi
+    }
+
+    current_swap_mb() {
+      awk '/^SwapTotal:/ { print int($2 / 1024) }' /proc/meminfo
+    }
+
+    if [ "$(current_swap_mb)" -ge "$min_swap_mb" ]; then
+      echo "DOTFILES_LOW_MEMORY_SWAP=already_sufficient"
+      exit 0
+    fi
+
+    if [ -e /swapfile ]; then
+      if ! swapon --show=NAME --noheadings | grep -qx '/swapfile'; then
+        run_sudo swapon /swapfile || true
+      fi
+
+      if [ "$(current_swap_mb)" -ge "$min_swap_mb" ]; then
+        run_root_shell "grep -qE '^[^#][[:space:]]*/swapfile[[:space:]]+none[[:space:]]+swap[[:space:]]' /etc/fstab || printf '%s\n' '/swapfile none swap sw 0 0' >> /etc/fstab"
+        echo "DOTFILES_LOW_MEMORY_SWAP=activated_existing"
+        exit 0
+      fi
+
+      echo "Existing /swapfile is present, but total swap is still below ${min_swap_mb}MB. Leaving it unchanged." >&2
+      exit 1
+    fi
+
+    run_root_shell "fallocate -l ${swapfile_size_mb}M /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=${swapfile_size_mb} status=progress"
+    run_sudo chmod 600 /swapfile
+    run_sudo mkswap /swapfile
+    run_sudo swapon /swapfile
+    run_root_shell "grep -qE '^[^#][[:space:]]*/swapfile[[:space:]]+none[[:space:]]+swap[[:space:]]' /etc/fstab || printf '%s\n' '/swapfile none swap sw 0 0' >> /etc/fstab"
+    echo "DOTFILES_LOW_MEMORY_SWAP=created_${swapfile_size_mb}mb"
+  args:
+    executable: /bin/bash
+  register: dotfiles_low_memory_swap_result
+  changed_when: "'DOTFILES_LOW_MEMORY_SWAP=created_' in dotfiles_low_memory_swap_result.stdout or 'DOTFILES_LOW_MEMORY_SWAP=activated_existing' in dotfiles_low_memory_swap_result.stdout"
+  when: (dotfiles_current_swap_mb | int) < (dotfiles_low_memory_min_swap_mb | int)
+
+- name: Record low-memory setup summary
+  set_fact:
+    dotfiles_low_memory_summary: >-
+      Low-memory mode is enabled for {{ ansible_facts['memtotal_mb'] | default('unknown') }}MB RAM.
+      Package installers will run more serially.
+      Swap target is {{ dotfiles_low_memory_min_swap_mb }}MB; current swap before setup was {{ dotfiles_current_swap_mb }}MB.

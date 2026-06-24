@@ -30,10 +30,12 @@ chezmoi_bootstrap_script="$repo_root/.chezmoiscripts/run_once_before_00-bootstra
 workflow_file="$repo_root/.github/workflows/ci.yml"
 run_feature_task="$repo_root/ansible/playbooks/run_feature_best_effort.yml"
 setup_outcome_task="$repo_root/ansible/roles/setup_outcome/tasks/main.yml"
+low_memory_task="$repo_root/ansible/roles/low_memory/tasks/main.yml"
 linux_privileged_task_files=(
   "$debian_packages_task"
   "$fedora_packages_task"
   "$arch_packages_task"
+  "$low_memory_task"
   "$repo_root/ansible/roles/shell/tasks/linux.yml"
   "$repo_root/ansible/roles/docker/tasks/linux.yml"
   "$repo_root/ansible/roles/linux_apps/tasks/linux-warp.yml"
@@ -498,6 +500,40 @@ if ! search_file 'dotfiles_setup_mode' "$common_playbook" ||
   ! search_file 'Show setup outcome summary' "$common_playbook" ||
   ! search_file 'dotfiles_setup_failures' "$common_playbook"; then
   echo "expected common flow to support setup modes and print a final outcome summary"
+  exit 1
+fi
+
+if ! search_file 'DOTFILES_LOW_MEMORY' "$common_playbook" ||
+  ! search_file 'DOTFILES_LOW_MEMORY_THRESHOLD_MB' "$common_playbook" ||
+  ! search_file 'dotfiles_low_memory_setup' "$common_playbook" ||
+  ! search_file 'name: low_memory' "$common_playbook"; then
+  echo "expected common flow to detect low-memory machines and run the low-memory role"
+  exit 1
+fi
+
+if ! search_file 'DOTFILES_SWAPFILE_SIZE_MB' "$low_memory_task" ||
+  ! search_file 'DOTFILES_MIN_SWAP_MB' "$low_memory_task" ||
+  ! search_file 'fallocate -l' "$low_memory_task" ||
+  ! search_file 'mkswap /swapfile' "$low_memory_task" ||
+  ! search_file 'swapon /swapfile' "$low_memory_task"; then
+  echo "expected low-memory role to prepare a configurable Linux swapfile"
+  exit 1
+fi
+
+if ! search_file 'one at a time.*Debian/Ubuntu low memory' "$debian_packages_task" ||
+  ! search_file 'Acquire::Queue-Mode=access' "$debian_packages_task" ||
+  ! search_file 'one at a time.*Fedora low memory' "$fedora_packages_task" ||
+  ! search_file 'max_parallel_downloads=1' "$fedora_packages_task" ||
+  ! search_file 'one at a time.*Archlinux low memory' "$arch_packages_task"; then
+  echo "expected Linux package tasks to use serial low-memory install paths"
+  exit 1
+fi
+
+if ! search_file 'NODE_OPTIONS' "$ai_tools_unix_task" ||
+  ! search_file 'NPM_CONFIG_JOBS' "$ai_tools_unix_task" ||
+  ! search_file 'NODE_OPTIONS' "$repo_root/ansible/roles/devtools/tasks/main.yml" ||
+  ! search_file 'NPM_CONFIG_JOBS' "$repo_root/ansible/roles/devtools/tasks/main.yml"; then
+  echo "expected npm and AI CLI installers to cap Node/npm work in low-memory mode"
   exit 1
 fi
 
