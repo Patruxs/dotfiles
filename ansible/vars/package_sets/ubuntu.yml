@@ -20,6 +20,7 @@ package_sets:
   desktop_base:
     apt:
       - flatpak
+      - gparted
     flatpak:
       - com.gitbutler.gitbutler
       - com.visualstudio.code

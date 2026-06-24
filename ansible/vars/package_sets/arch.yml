@@ -23,6 +23,7 @@ package_sets:
   desktop_base:
     pacman:
       - flatpak
+      - gparted
     flatpak:
       - com.gitbutler.gitbutler
       - com.visualstudio.code

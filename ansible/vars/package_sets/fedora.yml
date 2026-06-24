@@ -19,6 +19,7 @@ package_sets:
   desktop_base:
     dnf:
       - flatpak
+      - gparted
     flatpak:
       - com.gitbutler.gitbutler
       - com.visualstudio.code
