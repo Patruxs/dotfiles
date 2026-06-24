@@ -128,20 +128,62 @@
 - name: Initialize best-effort setup failure summary
   set_fact:
     dotfiles_setup_failures: []
+    dotfiles_setup_configured: []
+    dotfiles_setup_skipped: []
 
 - name: Generate Chezmoi setup data
   include_role:
     name: chezmoi_setup_data
 
+- name: Record Chezmoi setup data generation
+  set_fact:
+    dotfiles_setup_configured: >-
+      {{
+        dotfiles_setup_configured + [
+          {
+            'phase': 'chezmoi',
+            'name': 'setup data',
+            'detail': 'Selected profile, platform, and features were generated for guarded templates.'
+          }
+        ]
+      }}
+
 - name: Install selected package-set entries (strict)
-  include_role:
-    name: package_installer
+  block:
+    - include_role:
+        name: package_installer
+
+    - name: Record package installer completion
+      set_fact:
+        dotfiles_setup_configured: >-
+          {{
+            dotfiles_setup_configured + [
+              {
+                'phase': 'packages',
+                'name': 'direct package entries',
+                'detail': 'Selected package-set entries finished through ' ~ dotfiles_platform.package_family ~ '.'
+              }
+            ]
+          }}
   when: dotfiles_setup_mode == 'strict'
 
 - name: Install selected package-set entries (best effort)
   block:
     - include_role:
         name: package_installer
+
+    - name: Record package installer completion
+      set_fact:
+        dotfiles_setup_configured: >-
+          {{
+            dotfiles_setup_configured + [
+              {
+                'phase': 'packages',
+                'name': 'direct package entries',
+                'detail': 'Selected package-set entries finished through ' ~ dotfiles_platform.package_family ~ '.'
+              }
+            ]
+          }}
   rescue:
     - name: Record package installation failure
       set_fact:
@@ -166,18 +208,93 @@
   when: selected_feature in (features | default([]))
 
 - name: Apply Chezmoi
-  include_role:
-    name: chezmoi
+  block:
+    - include_role:
+        name: chezmoi
+
+    - name: Record Chezmoi apply completion
+      set_fact:
+        dotfiles_setup_configured: >-
+          {{
+            dotfiles_setup_configured + [
+              {
+                'phase': 'chezmoi',
+                'name': 'chezmoi apply',
+                'detail': 'Managed dotfiles were applied from the selected source.'
+              }
+            ]
+          }}
+  when: dotfiles_setup_mode == 'strict'
+
+- name: Apply Chezmoi (best effort)
+  block:
+    - include_role:
+        name: chezmoi
+
+    - name: Record Chezmoi apply completion
+      set_fact:
+        dotfiles_setup_configured: >-
+          {{
+            dotfiles_setup_configured + [
+              {
+                'phase': 'chezmoi',
+                'name': 'chezmoi apply',
+                'detail': 'Managed dotfiles were applied from the selected source.'
+              }
+            ]
+          }}
+  rescue:
+    - name: Record Chezmoi apply failure
+      set_fact:
+        dotfiles_setup_failures: >-
+          {{
+            dotfiles_setup_failures + [
+              {
+                'phase': 'chezmoi',
+                'name': 'chezmoi apply',
+                'task': ansible_failed_task.name | default('unknown task'),
+                'error': ansible_failed_result.msg | default(ansible_failed_result.stderr | default(ansible_failed_result | to_json))
+              }
+            ]
+          }}
+  when: dotfiles_setup_mode == 'best_effort'
 
 - name: Enable selected services (strict)
-  include_role:
-    name: services
+  block:
+    - include_role:
+        name: services
+
+    - name: Record service setup completion
+      set_fact:
+        dotfiles_setup_configured: >-
+          {{
+            dotfiles_setup_configured + [
+              {
+                'phase': 'services',
+                'name': 'selected services',
+                'detail': 'Selected service setup phase finished; service conditions may skip unavailable sessions.'
+              }
+            ]
+          }}
   when: dotfiles_setup_mode == 'strict'
 
 - name: Enable selected services (best effort)
   block:
     - include_role:
         name: services
+
+    - name: Record service setup completion
+      set_fact:
+        dotfiles_setup_configured: >-
+          {{
+            dotfiles_setup_configured + [
+              {
+                'phase': 'services',
+                'name': 'selected services',
+                'detail': 'Selected service setup phase finished; service conditions may skip unavailable sessions.'
+              }
+            ]
+          }}
   rescue:
     - name: Record service setup failure
       set_fact:
@@ -194,15 +311,6 @@
           }}
   when: dotfiles_setup_mode == 'best_effort'
 
-- name: Show setup failure summary
-  debug:
-    msg: |
-      Setup finished with {{ dotfiles_setup_failures | length }} best-effort failure(s).
-      {% if dotfiles_setup_failures | length == 0 %}
-      Everything in the selected setup completed without recorded best-effort failures.
-      {% else %}
-      Items to install or fix manually:
-      {% for failure in dotfiles_setup_failures %}
-      - [{{ failure.phase }}] {{ failure.name }} failed at "{{ failure.task }}": {{ failure.error }}
-      {% endfor %}
-      {% endif %}
+- name: Show setup outcome summary
+  include_role:
+    name: setup_outcome

@@ -36,6 +36,51 @@
         )
       }}
   set_fact:
+    dotfiles_package_plan:
+      installer: "{{ dotfiles_platform.package_family }}"
+      selected_package_sets: "{{ selected_package_set_names }}"
+      selected_system_packages: "{{ merged_system_packages }}"
+      system_packages: >-
+        {{
+          merged_system_packages
+          | reject('in', system_package_exclusions)
+          | list
+        }}
+      excluded_system_packages: >-
+        {{
+          merged_system_packages
+          | select('in', system_package_exclusions)
+          | list
+        }}
+      homebrew_brews: >-
+        {{
+          selected_package_sets
+          | map(attribute='brew')
+          | select('defined')
+          | flatten
+          | list
+        }}
+      homebrew_casks: >-
+        {{
+          []
+          if dotfiles_ci | default(false)
+          else
+          (
+            selected_package_sets
+            | map(attribute='cask')
+            | select('defined')
+            | flatten
+            | list
+          )
+        }}
+      flatpak_apps: >-
+        {{
+          selected_package_sets
+          | map(attribute='flatpak')
+          | select('defined')
+          | flatten
+          | list
+        }}
     system_packages: >-
       {{
         merged_system_packages

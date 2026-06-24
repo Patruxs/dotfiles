@@ -1,13 +1,40 @@
 ---
 - name: Run selected feature role {{ selected_feature }} (strict)
-  include_role:
-    name: "features/{{ selected_feature }}"
+  block:
+    - include_role:
+        name: "features/{{ selected_feature }}"
+
+    - name: Record selected feature completion
+      set_fact:
+        dotfiles_setup_configured: >-
+          {{
+            dotfiles_setup_configured + [
+              {
+                'phase': 'feature',
+                'name': selected_feature,
+                'detail': 'Selected feature role finished; platform and environment conditions may skip individual subtasks.'
+              }
+            ]
+          }}
   when: dotfiles_setup_mode == 'strict'
 
 - name: Run selected feature role {{ selected_feature }} (best effort)
   block:
     - include_role:
         name: "features/{{ selected_feature }}"
+
+    - name: Record selected feature completion
+      set_fact:
+        dotfiles_setup_configured: >-
+          {{
+            dotfiles_setup_configured + [
+              {
+                'phase': 'feature',
+                'name': selected_feature,
+                'detail': 'Selected feature role finished; platform and environment conditions may skip individual subtasks.'
+              }
+            ]
+          }}
   rescue:
     - name: Record selected feature failure
       set_fact:

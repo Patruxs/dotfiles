@@ -1,0 +1,241 @@
+---
+- name: Ensure setup outcome defaults exist
+  set_fact:
+    dotfiles_package_plan: >-
+      {{
+        dotfiles_package_plan | default({
+          'installer': dotfiles_platform.package_family | default('unknown'),
+          'selected_package_sets': [],
+          'selected_system_packages': [],
+          'system_packages': [],
+          'excluded_system_packages': [],
+          'homebrew_brews': [],
+          'homebrew_casks': [],
+          'flatpak_apps': []
+        })
+      }}
+    dotfiles_setup_failures: "{{ dotfiles_setup_failures | default([]) }}"
+    dotfiles_setup_configured: "{{ dotfiles_setup_configured | default([]) }}"
+    dotfiles_setup_skipped: "{{ dotfiles_setup_skipped | default([]) }}"
+
+- name: Load devtools data for outcome verification
+  include_vars:
+    file: "{{ chezmoi_dir }}/.chezmoidata/devtools.yaml"
+    name: devtools_data
+  when:
+    - "'npm_global_tools' in (features | default([]))"
+    - devtools_data is not defined
+
+- name: Load AI CLI data for outcome verification
+  include_vars:
+    file: "{{ chezmoi_dir }}/.chezmoidata/ai-clis.yaml"
+    name: ai_clis_data
+  when:
+    - "'ai_clis' in (features | default([]))"
+    - ai_clis_data is not defined
+
+- name: Record intentionally excluded system package entries
+  set_fact:
+    dotfiles_setup_skipped: >-
+      {{
+        dotfiles_setup_skipped
+        + [
+          {
+            'phase': 'packages',
+            'name': item,
+            'detail': 'Selected system package entry was intentionally excluded for this environment or because another selected feature provides it.'
+          }
+        ]
+      }}
+  loop: "{{ dotfiles_package_plan.excluded_system_packages | default([]) }}"
+
+- name: Verify selected apt package entries are present
+  command:
+    argv:
+      - dpkg-query
+      - -W
+      - "{{ item }}"
+  loop: "{{ dotfiles_package_plan.system_packages | default([]) }}"
+  register: dotfiles_verified_apt_packages
+  changed_when: false
+  failed_when: false
+  when: dotfiles_platform.package_family == 'apt'
+
+- name: Verify selected dnf package entries are present
+  command:
+    argv:
+      - rpm
+      - -q
+      - "{{ item }}"
+  loop: "{{ dotfiles_package_plan.system_packages | default([]) }}"
+  register: dotfiles_verified_dnf_packages
+  changed_when: false
+  failed_when: false
+  when: dotfiles_platform.package_family == 'dnf'
+
+- name: Verify selected pacman package entries are present
+  command:
+    argv:
+      - pacman
+      - -Q
+      - "{{ item }}"
+  loop: "{{ dotfiles_package_plan.system_packages | default([]) }}"
+  register: dotfiles_verified_pacman_packages
+  changed_when: false
+  failed_when: false
+  when: dotfiles_platform.package_family == 'pacman'
+
+- name: Verify selected Homebrew formula entries are present
+  command:
+    argv:
+      - brew
+      - list
+      - --formula
+      - "{{ item }}"
+  loop: "{{ dotfiles_package_plan.homebrew_brews | default([]) }}"
+  register: dotfiles_verified_homebrew_brews
+  changed_when: false
+  failed_when: false
+  when: dotfiles_package_plan.homebrew_brews | default([]) | length > 0
+
+- name: Verify selected Homebrew cask entries are present
+  command:
+    argv:
+      - brew
+      - list
+      - --cask
+      - "{{ item }}"
+  loop: "{{ dotfiles_package_plan.homebrew_casks | default([]) }}"
+  register: dotfiles_verified_homebrew_casks
+  changed_when: false
+  failed_when: false
+  when: dotfiles_package_plan.homebrew_casks | default([]) | length > 0
+
+- name: Verify selected Flatpak app entries are present
+  command:
+    argv:
+      - flatpak
+      - info
+      - "{{ item }}"
+  loop: "{{ dotfiles_package_plan.flatpak_apps | default([]) }}"
+  register: dotfiles_verified_flatpak_apps
+  changed_when: false
+  failed_when: false
+  when: dotfiles_package_plan.flatpak_apps | default([]) | length > 0
+
+- name: Verify selected npm global tools are present
+  command:
+    argv:
+      - npm
+      - list
+      - --global
+      - --depth=0
+      - "{{ item }}"
+  environment:
+    NPM_CONFIG_PREFIX: "{{ lookup('env', 'HOME') }}/.local"
+  loop: "{{ (devtools_data | default({'devtools': {'npm_global_packages': []}})).devtools.npm_global_packages | default([]) }}"
+  register: dotfiles_verified_npm_global_tools
+  changed_when: false
+  failed_when: false
+  when:
+    - "'npm_global_tools' in (features | default([]))"
+    - devtools_data is defined
+
+- name: Verify selected AI CLI commands are present
+  shell: "command -v {{ item.value.command | quote }}"
+  args:
+    executable: /bin/bash
+  loop: "{{ ((ai_clis_data | default({'ai_clis': {'clis': {}}})).ai_clis.clis | default({})) | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  register: dotfiles_verified_ai_clis
+  changed_when: false
+  failed_when: false
+  when:
+    - "'ai_clis' in (features | default([]))"
+    - ai_clis_data is defined
+    - dotfiles_platform.system != 'Windows'
+
+- name: Show setup outcome summary
+  debug:
+    msg: |
+      Setup Outcome Summary
+      Profile: {{ profile }}
+      Platform: {{ dotfiles_platform.name }} ({{ dotfiles_platform.package_family }})
+      Mode: {{ dotfiles_setup_mode }}
+
+      Installed or present after setup:
+      {% for result in dotfiles_verified_apt_packages.results | default([]) if result.rc is defined and result.rc == 0 %}
+      - [apt] {{ result.item }}
+      {% endfor %}
+      {% for result in dotfiles_verified_dnf_packages.results | default([]) if result.rc is defined and result.rc == 0 %}
+      - [dnf] {{ result.item }}
+      {% endfor %}
+      {% for result in dotfiles_verified_pacman_packages.results | default([]) if result.rc is defined and result.rc == 0 %}
+      - [pacman] {{ result.item }}
+      {% endfor %}
+      {% for result in dotfiles_verified_homebrew_brews.results | default([]) if result.rc is defined and result.rc == 0 %}
+      - [brew] {{ result.item }}
+      {% endfor %}
+      {% for result in dotfiles_verified_homebrew_casks.results | default([]) if result.rc is defined and result.rc == 0 %}
+      - [cask] {{ result.item }}
+      {% endfor %}
+      {% for result in dotfiles_verified_flatpak_apps.results | default([]) if result.rc is defined and result.rc == 0 %}
+      - [flatpak] {{ result.item }}
+      {% endfor %}
+      {% for result in dotfiles_verified_npm_global_tools.results | default([]) if result.rc is defined and result.rc == 0 %}
+      - [npm global] {{ result.item }}
+      {% endfor %}
+      {% for result in dotfiles_verified_ai_clis.results | default([]) if result.rc is defined and result.rc == 0 %}
+      - [ai cli] {{ result.item.key }} ({{ result.item.value.command }})
+      {% endfor %}
+
+      Configured setup phases:
+      {% if dotfiles_setup_configured | length == 0 %}
+      - No setup phases completed after validation.
+      {% else %}
+      {% for configured in dotfiles_setup_configured %}
+      - [{{ configured.phase }}] {{ configured.name }}: {{ configured.detail }}
+      {% endfor %}
+      {% endif %}
+
+      Not installed or not configured:
+      {% for result in dotfiles_verified_apt_packages.results | default([]) if result.rc is defined and result.rc != 0 %}
+      - [apt] {{ result.item }} was selected but was not detected after setup.
+      {% endfor %}
+      {% for result in dotfiles_verified_dnf_packages.results | default([]) if result.rc is defined and result.rc != 0 %}
+      - [dnf] {{ result.item }} was selected but was not detected after setup.
+      {% endfor %}
+      {% for result in dotfiles_verified_pacman_packages.results | default([]) if result.rc is defined and result.rc != 0 %}
+      - [pacman] {{ result.item }} was selected but was not detected after setup.
+      {% endfor %}
+      {% for result in dotfiles_verified_homebrew_brews.results | default([]) if result.rc is defined and result.rc != 0 %}
+      - [brew] {{ result.item }} was selected but was not detected after setup.
+      {% endfor %}
+      {% for result in dotfiles_verified_homebrew_casks.results | default([]) if result.rc is defined and result.rc != 0 %}
+      - [cask] {{ result.item }} was selected but was not detected after setup.
+      {% endfor %}
+      {% for result in dotfiles_verified_flatpak_apps.results | default([]) if result.rc is defined and result.rc != 0 %}
+      - [flatpak] {{ result.item }} was selected but was not detected after setup.
+      {% endfor %}
+      {% for result in dotfiles_verified_npm_global_tools.results | default([]) if result.rc is defined and result.rc != 0 %}
+      - [npm global] {{ result.item }} was selected but was not detected after setup.
+      {% endfor %}
+      {% for result in dotfiles_verified_ai_clis.results | default([]) if result.rc is defined and result.rc != 0 %}
+      - [ai cli] {{ result.item.key }} ({{ result.item.value.command }}) was selected but was not detected after setup.
+      {% endfor %}
+      {% for skipped in dotfiles_setup_skipped %}
+      - [{{ skipped.phase }}] {{ skipped.name }}: {{ skipped.detail }}
+      {% endfor %}
+      {% for failure in dotfiles_setup_failures %}
+      - [{{ failure.phase }}] {{ failure.name }} failed at "{{ failure.task }}".
+      {% endfor %}
+
+      Errors:
+      {% if dotfiles_setup_failures | length == 0 %}
+      - No best-effort errors were recorded.
+      {% else %}
+      {% for failure in dotfiles_setup_failures %}
+      - [{{ failure.phase }}] {{ failure.name }} failed at "{{ failure.task }}": {{ failure.error }}
+      {% endfor %}
+      {% endif %}

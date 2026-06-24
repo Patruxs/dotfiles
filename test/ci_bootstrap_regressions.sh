@@ -29,6 +29,7 @@ ai_clis_data="$repo_root/.chezmoidata/ai-clis.yaml"
 chezmoi_bootstrap_script="$repo_root/.chezmoiscripts/run_once_before_00-bootstrap.sh.tmpl"
 workflow_file="$repo_root/.github/workflows/ci.yml"
 run_feature_task="$repo_root/ansible/playbooks/run_feature_best_effort.yml"
+setup_outcome_task="$repo_root/ansible/roles/setup_outcome/tasks/main.yml"
 linux_privileged_task_files=(
   "$debian_packages_task"
   "$fedora_packages_task"
@@ -494,9 +495,32 @@ fi
 
 if ! search_file 'dotfiles_setup_mode' "$common_playbook" ||
   ! search_file 'DOTFILES_SETUP_MODE' "$common_playbook" ||
-  ! search_file 'Show setup failure summary' "$common_playbook" ||
+  ! search_file 'Show setup outcome summary' "$common_playbook" ||
   ! search_file 'dotfiles_setup_failures' "$common_playbook"; then
-  echo "expected common flow to support setup modes and print a final failure summary"
+  echo "expected common flow to support setup modes and print a final outcome summary"
+  exit 1
+fi
+
+if ! search_file 'Setup Outcome Summary' "$setup_outcome_task" ||
+  ! search_file 'Installed or present after setup' "$setup_outcome_task" ||
+  ! search_file 'Not installed or not configured' "$setup_outcome_task" ||
+  ! search_file 'Errors:' "$setup_outcome_task"; then
+  echo "expected setup outcome role to print installed, configured, missing, and error sections"
+  exit 1
+fi
+
+for verifier in dpkg-query rpm pacman brew flatpak npm 'command -v'; do
+  if ! search_file "$verifier" "$setup_outcome_task"; then
+    echo "expected setup outcome role to verify selected package/app entries with $verifier"
+    exit 1
+  fi
+done
+
+if ! search_file 'dotfiles_package_plan' "$package_installer" ||
+  ! search_file 'excluded_system_packages' "$package_installer" ||
+  ! search_file 'dotfiles_setup_configured' "$common_playbook" ||
+  ! search_file 'dotfiles_setup_skipped' "$setup_outcome_task"; then
+  echo "expected setup outcome data to include package plans, configured phases, and skipped entries"
   exit 1
 fi
 
