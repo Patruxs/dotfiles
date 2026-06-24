@@ -22,12 +22,16 @@ profile_preflight="$repo_root/ansible/roles/profile_preflight/tasks/main.yml"
 package_installer="$repo_root/ansible/roles/package_installer/tasks/main.yml"
 flatpak_feature="$repo_root/ansible/roles/features/flatpak_apps/tasks/main.yml"
 flatpak_task="$repo_root/ansible/roles/flatpak/tasks/linux.yml"
+flatpak_best_effort_task="$repo_root/ansible/roles/flatpak/tasks/install_app_best_effort.yml"
 ai_tools_task_main="$repo_root/ansible/roles/ai_tools/tasks/main.yml"
 ai_tools_unix_task="$repo_root/ansible/roles/ai_tools/tasks/unix.yml"
 ai_tools_unix_best_effort_task="$repo_root/ansible/roles/ai_tools/tasks/install_unix_cli_best_effort.yml"
+devtools_task_main="$repo_root/ansible/roles/devtools/tasks/main.yml"
+devtools_npm_best_effort_task="$repo_root/ansible/roles/devtools/tasks/install_npm_global_best_effort.yml"
 ai_clis_data="$repo_root/.chezmoidata/ai-clis.yaml"
 chezmoi_bootstrap_script="$repo_root/.chezmoiscripts/run_once_before_00-bootstrap.sh.tmpl"
 workflow_file="$repo_root/.github/workflows/ci.yml"
+ansible_config="$repo_root/ansible.cfg"
 run_feature_task="$repo_root/ansible/playbooks/run_feature_best_effort.yml"
 setup_outcome_task="$repo_root/ansible/roles/setup_outcome/tasks/main.yml"
 low_memory_task="$repo_root/ansible/roles/low_memory/tasks/main.yml"
@@ -340,6 +344,33 @@ if search_file 'ignore_errors: yes' "$flatpak_task"; then
   exit 1
 fi
 
+if search_file 'ignore_errors: yes' "$flatpak_best_effort_task" ||
+  search_file 'ignore_errors: yes' "$devtools_npm_best_effort_task"; then
+  echo "expected Flatpak and npm best-effort installers to record failures without ignore_errors"
+  exit 1
+fi
+
+if ! search_file 'Install flatpak packages \(strict\)' "$flatpak_task" ||
+  ! search_file 'Install flatpak packages \(best effort\)' "$flatpak_task" ||
+  ! search_file 'dotfiles_setup_mode.*strict' "$flatpak_task" ||
+  ! search_file 'dotfiles_setup_mode.*best_effort' "$flatpak_task" ||
+  ! search_file 'phase.*flatpak_app' "$flatpak_best_effort_task" ||
+  ! search_file 'dotfiles_setup_failures' "$flatpak_best_effort_task"; then
+  echo "expected Flatpak installs to preserve strict mode and record per-app best-effort failures"
+  exit 1
+fi
+
+if ! search_file 'Install or update global npm development tools \(strict\)' "$devtools_task_main" ||
+  ! search_file 'Install or update global npm development tools \(best effort\)' "$devtools_task_main" ||
+  ! search_file 'dotfiles_setup_mode.*strict' "$devtools_task_main" ||
+  ! search_file 'dotfiles_setup_mode.*best_effort' "$devtools_task_main" ||
+  ! search_file 'phase.*npm_global' "$devtools_npm_best_effort_task" ||
+  ! search_file 'dotfiles_setup_failures' "$devtools_npm_best_effort_task" ||
+  ! search_file 'dotfiles_setup_skipped' "$devtools_task_main"; then
+  echo "expected npm globals to preserve strict mode, record per-package failures, and list skipped packages when npm is unavailable"
+  exit 1
+fi
+
 if ! search_file 'https://chatgpt\.com/codex/install\.sh' "$ai_clis_data"; then
   echo "expected Codex Unix installer to use the current chatgpt.com installer URL"
   exit 1
@@ -503,6 +534,11 @@ if ! search_file 'dotfiles_setup_mode' "$common_playbook" ||
   exit 1
 fi
 
+if ! search_file '^remote_tmp = /tmp/ansible-\$\{USER\}/tmp$' "$ansible_config"; then
+  echo "expected Ansible remote temp files to use /tmp so a full HOME does not block the final summary"
+  exit 1
+fi
+
 if ! search_file 'DOTFILES_LOW_MEMORY' "$common_playbook" ||
   ! search_file 'DOTFILES_LOW_MEMORY_THRESHOLD_MB' "$common_playbook" ||
   ! search_file 'dotfiles_low_memory_setup' "$common_playbook" ||
@@ -529,10 +565,23 @@ if ! search_file 'one at a time.*Debian/Ubuntu low memory' "$debian_packages_tas
   exit 1
 fi
 
+if ! search_file 'apt_package' "$debian_packages_task" ||
+  ! search_file 'dnf_package' "$fedora_packages_task" ||
+  ! search_file 'pacman_package' "$arch_packages_task" ||
+  ! search_file 'brew_package' "$macos_packages_task" ||
+  ! search_file 'cask_package' "$macos_packages_task" ||
+  ! search_file 'failed_when: false' "$debian_packages_task" ||
+  ! search_file 'failed_when: false' "$fedora_packages_task" ||
+  ! search_file 'failed_when: false' "$arch_packages_task" ||
+  ! search_file 'failed_when: false' "$macos_packages_task"; then
+  echo "expected best-effort direct package installs to record per-item failures"
+  exit 1
+fi
+
 if ! search_file 'NODE_OPTIONS' "$ai_tools_unix_task" ||
   ! search_file 'NPM_CONFIG_JOBS' "$ai_tools_unix_task" ||
-  ! search_file 'NODE_OPTIONS' "$repo_root/ansible/roles/devtools/tasks/main.yml" ||
-  ! search_file 'NPM_CONFIG_JOBS' "$repo_root/ansible/roles/devtools/tasks/main.yml"; then
+  ! search_file 'NODE_OPTIONS' "$devtools_task_main" ||
+  ! search_file 'NPM_CONFIG_JOBS' "$devtools_task_main"; then
   echo "expected npm and AI CLI installers to cap Node/npm work in low-memory mode"
   exit 1
 fi

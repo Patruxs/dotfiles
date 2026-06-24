@@ -6,10 +6,18 @@
     method: user
     state: present
 
-- name: Install flatpak packages
+- name: Install flatpak packages (strict)
   community.general.flatpak:
     name: "{{ item }}"
     method: user
     remote: flathub
     state: latest
   loop: "{{ flatpak_apps | default([]) }}"
+  when: dotfiles_setup_mode | default('best_effort') == 'strict'
+
+- name: Install flatpak packages (best effort)
+  include_tasks: install_app_best_effort.yml
+  loop: "{{ flatpak_apps | default([]) }}"
+  loop_control:
+    loop_var: flatpak_app
+  when: dotfiles_setup_mode | default('best_effort') == 'best_effort'

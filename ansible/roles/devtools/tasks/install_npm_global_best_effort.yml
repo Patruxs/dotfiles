@@ -1,23 +1,23 @@
 ---
-- name: Install AI CLI {{ ai_cli.key }} (strict)
-  include_tasks: unix.yml
-  when: dotfiles_setup_mode | default('best_effort') == 'strict'
-
-- name: Install AI CLI {{ ai_cli.key }} (best effort)
+- name: Install or update global npm development tool {{ npm_global_tool }}
   block:
-    - include_tasks: unix.yml
+    - name: Install or update global npm development tool {{ npm_global_tool }}
+      community.general.npm:
+        name: "{{ npm_global_tool }}"
+        global: true
+        state: latest
+      environment: "{{ devtools_npm_environment }}"
   rescue:
-    - name: Record AI CLI installer failure
+    - name: Record npm global installer failure
       set_fact:
         dotfiles_setup_failures: >-
           {{
             (dotfiles_setup_failures | default([])) + [
               {
-                'phase': 'ai_cli',
-                'name': ai_cli.key,
+                'phase': 'npm_global',
+                'name': npm_global_tool,
                 'task': ansible_failed_task.name | default('unknown task'),
                 'error': (ansible_failed_result.stderr | default('') | string) if (ansible_failed_result.stderr | default('') | string | length > 0) else (ansible_failed_result.msg | default(ansible_failed_result | to_json))
               }
             ]
           }}
-  when: dotfiles_setup_mode | default('best_effort') == 'best_effort'

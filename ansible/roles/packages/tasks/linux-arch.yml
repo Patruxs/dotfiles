@@ -1,5 +1,5 @@
 ---
-- name: Install system packages (Archlinux)
+- name: Install system packages (Archlinux strict)
   ansible.builtin.shell: |
     set -euo pipefail
 
@@ -10,9 +10,11 @@
     fi
   args:
     executable: /bin/bash
-  when: not (dotfiles_low_memory_setup | default(false) | bool)
+  when:
+    - dotfiles_setup_mode | default('best_effort') == 'strict'
+    - not (dotfiles_low_memory_setup | default(false) | bool)
 
-- name: Install system packages one at a time (Archlinux low memory)
+- name: Install system packages one at a time (Archlinux low memory strict)
   ansible.builtin.shell: |
     set -euo pipefail
 
@@ -26,4 +28,46 @@
   loop: "{{ system_packages }}"
   loop_control:
     label: "{{ item }}"
-  when: dotfiles_low_memory_setup | default(false) | bool
+  when:
+    - dotfiles_setup_mode | default('best_effort') == 'strict'
+    - dotfiles_low_memory_setup | default(false) | bool
+
+- name: Install system packages one at a time (Archlinux best effort)
+  ansible.builtin.shell: |
+    set -euo pipefail
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' pacman -S --noconfirm --needed {{ item | quote }} < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n pacman -S --noconfirm --needed {{ item | quote }}
+    fi
+  args:
+    executable: /bin/bash
+  loop: "{{ system_packages }}"
+  loop_control:
+    label: "{{ item }}"
+  register: dotfiles_pacman_package_install_results
+  changed_when: dotfiles_pacman_package_install_results.rc == 0
+  failed_when: false
+  when: dotfiles_setup_mode | default('best_effort') == 'best_effort'
+
+- name: Record Archlinux package installation failures
+  set_fact:
+    dotfiles_setup_failures: >-
+      {{
+        (dotfiles_setup_failures | default([])) + [
+          {
+            'phase': 'pacman_package',
+            'name': item.item,
+            'task': 'Install system packages one at a time (Archlinux best effort)',
+            'error': (item.stderr | default('') | string) if (item.stderr | default('') | string | length > 0) else (item.msg | default(item.stdout | default(item | to_json)))
+          }
+        ]
+      }}
+  loop: "{{ dotfiles_pacman_package_install_results.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item | default('unknown package') }}"
+  when:
+    - dotfiles_setup_mode | default('best_effort') == 'best_effort'
+    - item.rc is defined
+    - item.rc != 0

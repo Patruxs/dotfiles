@@ -45,7 +45,7 @@
                 'phase': 'feature',
                 'name': selected_feature,
                 'task': ansible_failed_task.name | default('unknown task'),
-                'error': ansible_failed_result.msg | default(ansible_failed_result.stderr | default(ansible_failed_result | to_json))
+                'error': (ansible_failed_result.stderr | default('') | string) if (ansible_failed_result.stderr | default('') | string | length > 0) else (ansible_failed_result.msg | default(ansible_failed_result | to_json))
               }
             ]
           }}

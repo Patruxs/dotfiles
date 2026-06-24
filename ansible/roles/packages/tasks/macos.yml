@@ -1,15 +1,88 @@
 ---
-- name: Install or update Homebrew packages (macOS)
+- name: Install or update Homebrew packages (macOS strict)
   community.general.homebrew:
     name: "{{ homebrew_brews }}"
     state: latest
     update_homebrew: true
-  when: homebrew_brews | length > 0
+  when:
+    - homebrew_brews | length > 0
+    - dotfiles_setup_mode | default('best_effort') == 'strict'
 
-- name: Install or update Homebrew casks (macOS)
+- name: Install or update Homebrew casks (macOS strict)
   community.general.homebrew_cask:
     name: "{{ homebrew_casks }}"
     state: latest
     greedy: true
     update_homebrew: true
-  when: homebrew_casks | length > 0
+  when:
+    - homebrew_casks | length > 0
+    - dotfiles_setup_mode | default('best_effort') == 'strict'
+
+- name: Install or update Homebrew packages (macOS best effort)
+  community.general.homebrew:
+    name: "{{ item }}"
+    state: latest
+    update_homebrew: true
+  loop: "{{ homebrew_brews }}"
+  loop_control:
+    label: "{{ item }}"
+  register: dotfiles_homebrew_brew_install_results
+  failed_when: false
+  when:
+    - homebrew_brews | length > 0
+    - dotfiles_setup_mode | default('best_effort') == 'best_effort'
+
+- name: Record Homebrew package installation failures
+  set_fact:
+    dotfiles_setup_failures: >-
+      {{
+        (dotfiles_setup_failures | default([])) + [
+          {
+            'phase': 'brew_package',
+            'name': item.item,
+            'task': 'Install or update Homebrew packages (macOS best effort)',
+            'error': (item.stderr | default('') | string) if (item.stderr | default('') | string | length > 0) else (item.msg | default(item.stdout | default(item | to_json)))
+          }
+        ]
+      }}
+  loop: "{{ dotfiles_homebrew_brew_install_results.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item | default('unknown formula') }}"
+  when:
+    - dotfiles_setup_mode | default('best_effort') == 'best_effort'
+    - item.failed | default(false)
+
+- name: Install or update Homebrew casks (macOS best effort)
+  community.general.homebrew_cask:
+    name: "{{ item }}"
+    state: latest
+    greedy: true
+    update_homebrew: true
+  loop: "{{ homebrew_casks }}"
+  loop_control:
+    label: "{{ item }}"
+  register: dotfiles_homebrew_cask_install_results
+  failed_when: false
+  when:
+    - homebrew_casks | length > 0
+    - dotfiles_setup_mode | default('best_effort') == 'best_effort'
+
+- name: Record Homebrew cask installation failures
+  set_fact:
+    dotfiles_setup_failures: >-
+      {{
+        (dotfiles_setup_failures | default([])) + [
+          {
+            'phase': 'cask_package',
+            'name': item.item,
+            'task': 'Install or update Homebrew casks (macOS best effort)',
+            'error': (item.stderr | default('') | string) if (item.stderr | default('') | string | length > 0) else (item.msg | default(item.stdout | default(item | to_json)))
+          }
+        ]
+      }}
+  loop: "{{ dotfiles_homebrew_cask_install_results.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item | default('unknown cask') }}"
+  when:
+    - dotfiles_setup_mode | default('best_effort') == 'best_effort'
+    - item.failed | default(false)

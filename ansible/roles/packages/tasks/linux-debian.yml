@@ -1,5 +1,5 @@
 ---
-- name: Install system packages (Debian/Ubuntu)
+- name: Install system packages (Debian/Ubuntu strict)
   ansible.builtin.shell: |
     set -euo pipefail
 
@@ -10,9 +10,11 @@
     fi
   args:
     executable: /bin/bash
-  when: not (dotfiles_low_memory_setup | default(false) | bool)
+  when:
+    - dotfiles_setup_mode | default('best_effort') == 'strict'
+    - not (dotfiles_low_memory_setup | default(false) | bool)
 
-- name: Install system packages one at a time (Debian/Ubuntu low memory)
+- name: Install system packages one at a time (Debian/Ubuntu low memory strict)
   ansible.builtin.shell: |
     set -euo pipefail
 
@@ -35,4 +37,55 @@
   loop: "{{ system_packages }}"
   loop_control:
     label: "{{ item }}"
-  when: dotfiles_low_memory_setup | default(false) | bool
+  when:
+    - dotfiles_setup_mode | default('best_effort') == 'strict'
+    - dotfiles_low_memory_setup | default(false) | bool
+
+- name: Install system packages one at a time (Debian/Ubuntu best effort)
+  ansible.builtin.shell: |
+    set -euo pipefail
+
+    apt_args=(
+      -o Acquire::Queue-Mode=access
+      -o Acquire::http::Pipeline-Depth=0
+      -o Acquire::Retries=3
+      install
+      -y
+      {{ item | quote }}
+    )
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' apt-get "${apt_args[@]}" < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n apt-get "${apt_args[@]}"
+    fi
+  args:
+    executable: /bin/bash
+  loop: "{{ system_packages }}"
+  loop_control:
+    label: "{{ item }}"
+  register: dotfiles_apt_package_install_results
+  changed_when: dotfiles_apt_package_install_results.rc == 0
+  failed_when: false
+  when: dotfiles_setup_mode | default('best_effort') == 'best_effort'
+
+- name: Record Debian/Ubuntu package installation failures
+  set_fact:
+    dotfiles_setup_failures: >-
+      {{
+        (dotfiles_setup_failures | default([])) + [
+          {
+            'phase': 'apt_package',
+            'name': item.item,
+            'task': 'Install system packages one at a time (Debian/Ubuntu best effort)',
+            'error': (item.stderr | default('') | string) if (item.stderr | default('') | string | length > 0) else (item.msg | default(item.stdout | default(item | to_json)))
+          }
+        ]
+      }}
+  loop: "{{ dotfiles_apt_package_install_results.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item | default('unknown package') }}"
+  when:
+    - dotfiles_setup_mode | default('best_effort') == 'best_effort'
+    - item.rc is defined
+    - item.rc != 0

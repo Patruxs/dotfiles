@@ -15,29 +15,66 @@
     - dotfiles_platform.system != 'Windows'
     - not (dotfiles_ci | default(false))
 
-- name: Install or update global npm development tools
+- name: Derive npm global installer environment
+  set_fact:
+    devtools_npm_environment: >-
+      {{
+        {
+          'NPM_CONFIG_PREFIX': lookup('env', 'HOME') ~ '/.local',
+          'NPM_CONFIG_FUND': 'false',
+          'NPM_CONFIG_AUDIT': 'false'
+        } |
+        combine(
+          {
+            'NPM_CONFIG_JOBS': '1',
+            'NODE_OPTIONS': '--max-old-space-size=512'
+          }
+          if dotfiles_low_memory_setup | default(false) | bool
+          else {}
+        )
+      }}
+  when:
+    - dotfiles_platform.system != 'Windows'
+    - not (dotfiles_ci | default(false))
+
+- name: Install or update global npm development tools (strict)
   community.general.npm:
     name: "{{ item }}"
     global: true
     state: latest
   loop: "{{ devtools_data.devtools.npm_global_packages | default([]) }}"
-  environment: >-
-    {{
-      {
-        'NPM_CONFIG_PREFIX': lookup('env', 'HOME') ~ '/.local',
-        'NPM_CONFIG_FUND': 'false',
-        'NPM_CONFIG_AUDIT': 'false'
-      } |
-      combine(
-        {
-          'NPM_CONFIG_JOBS': '1',
-          'NODE_OPTIONS': '--max-old-space-size=512'
-        }
-        if dotfiles_low_memory_setup | default(false) | bool
-        else {}
-      )
-    }}
+  environment: "{{ devtools_npm_environment }}"
   when:
     - dotfiles_platform.system != 'Windows'
     - not (dotfiles_ci | default(false))
     - devtools_npm_check.rc == 0
+    - dotfiles_setup_mode | default('best_effort') == 'strict'
+
+- name: Install or update global npm development tools (best effort)
+  include_tasks: install_npm_global_best_effort.yml
+  loop: "{{ devtools_data.devtools.npm_global_packages | default([]) }}"
+  loop_control:
+    loop_var: npm_global_tool
+  when:
+    - dotfiles_platform.system != 'Windows'
+    - not (dotfiles_ci | default(false))
+    - devtools_npm_check.rc == 0
+    - dotfiles_setup_mode | default('best_effort') == 'best_effort'
+
+- name: Record skipped npm global tools when npm is unavailable
+  set_fact:
+    dotfiles_setup_skipped: >-
+      {{
+        (dotfiles_setup_skipped | default([])) + [
+          {
+            'phase': 'npm_global',
+            'name': item,
+            'detail': 'npm was not available, so this selected npm global tool was not attempted.'
+          }
+        ]
+      }}
+  loop: "{{ devtools_data.devtools.npm_global_packages | default([]) }}"
+  when:
+    - dotfiles_platform.system != 'Windows'
+    - not (dotfiles_ci | default(false))
+    - devtools_npm_check.rc != 0
