@@ -9,7 +9,6 @@ package_sets:
       - curl
       - wget
       - unzip
-      - zsh
       - bash
       - neovim
       - tmux

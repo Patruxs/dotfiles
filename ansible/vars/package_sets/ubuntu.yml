@@ -10,7 +10,6 @@ package_sets:
       - wget
       - gnupg
       - unzip
-      - zsh
       - bash
       - neovim
       - tmux
