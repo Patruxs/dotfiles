@@ -20,6 +20,11 @@ arch_playbook="$repo_root/ansible/playbooks/arch.yml"
 macos_playbook="$repo_root/ansible/playbooks/macos.yml"
 profile_preflight="$repo_root/ansible/roles/profile_preflight/tasks/main.yml"
 package_installer="$repo_root/ansible/roles/package_installer/tasks/main.yml"
+flatpak_feature="$repo_root/ansible/roles/features/flatpak_apps/tasks/main.yml"
+flatpak_task="$repo_root/ansible/roles/flatpak/tasks/linux.yml"
+ai_tools_task_main="$repo_root/ansible/roles/ai_tools/tasks/main.yml"
+ai_tools_unix_task="$repo_root/ansible/roles/ai_tools/tasks/unix.yml"
+ai_clis_data="$repo_root/.chezmoidata/ai-clis.yaml"
 chezmoi_bootstrap_script="$repo_root/.chezmoiscripts/run_once_before_00-bootstrap.sh.tmpl"
 workflow_file="$repo_root/.github/workflows/ci.yml"
 
@@ -244,6 +249,61 @@ if ! search_file 'disable_gpg_check: yes' "$repo_root/ansible/roles/linux_apps/t
   exit 1
 fi
 
+if search_file 'apt_repository:' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+  echo "expected Ubuntu Docker Desktop installer to avoid the deprecated apt_repository module"
+  exit 1
+fi
+
+if ! search_file 'deb822_repository:' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+  echo "expected Ubuntu Docker Desktop installer to use deb822_repository"
+  exit 1
+fi
+
+if ! search_file 'dotfiles_container_ci' "$common_playbook"; then
+  echo "expected common flow to derive a CI container fact"
+  exit 1
+fi
+
+if ! search_file 'GITHUB_ACTIONS' "$common_playbook" || ! search_file "lookup\\('env', 'CI'\\)" "$common_playbook"; then
+  echo "expected common flow to detect automation separately from lightweight DOTFILES_CI mode"
+  exit 1
+fi
+
+if ! search_file 'dotfiles_container_ci' "$flatpak_feature"; then
+  echo "expected Flatpak app feature to skip app installs inside CI containers"
+  exit 1
+fi
+
+if search_file 'ignore_errors: yes' "$flatpak_task"; then
+  echo "expected Flatpak app install failures to be avoided or fail clearly, not ignored noisily"
+  exit 1
+fi
+
+if ! search_file 'https://chatgpt\.com/codex/install\.sh' "$ai_clis_data"; then
+  echo "expected Codex Unix installer to use the current chatgpt.com installer URL"
+  exit 1
+fi
+
+if search_file 'github\.com/openai/codex/releases/latest/download/install\.sh' "$ai_clis_data"; then
+  echo "expected Codex Unix installer not to use the stale GitHub release installer URL"
+  exit 1
+fi
+
+if search_file 'ignore_errors: yes' "$ai_tools_unix_task"; then
+  echo "expected AI CLI installer failures to fail clearly instead of being ignored noisily"
+  exit 1
+fi
+
+if ! search_file 'dotfiles_automation' "$ai_tools_task_main"; then
+  echo "expected AI CLI upstream installers to be skipped in automation"
+  exit 1
+fi
+
+if ! search_file 'CODEX_NON_INTERACTIVE' "$ai_tools_unix_task"; then
+  echo "expected AI CLI Unix installer task to set non-interactive installer environment in automation"
+  exit 1
+fi
+
 if ! search_file 'pacman-key --init' "$repo_root/ansible/roles/linux_apps/tasks/linux-warp.yml"; then
   echo "expected Arch Warp installer to initialize the pacman keyring when needed"
   exit 1
@@ -408,6 +468,11 @@ fi
 
 if ! search_file 'GITHUB_TOKEN:' "$workflow_file"; then
   echo "expected ci.yml to expose GITHUB_TOKEN for installer metadata lookups"
+  exit 1
+fi
+
+if ! search_file 'set-safe-directory: false' "$workflow_file"; then
+  echo "expected Windows checkout to avoid global safe.directory writes in the runner temp HOME"
   exit 1
 fi
 

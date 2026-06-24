@@ -6,6 +6,26 @@
   failed_when: false
   when: ansible_facts["system"] == "Linux"
 
+- name: Detect automation environment
+  set_fact:
+    dotfiles_automation: >-
+      {{
+        (dotfiles_ci | default(false) | bool)
+        or ((lookup('env', 'GITHUB_ACTIONS') | default('', true) | string | lower) in ['1', 'true', 'yes'])
+        or ((lookup('env', 'CI') | default('', true) | string | lower) in ['1', 'true', 'yes'])
+      }}
+
+- name: Detect CI container environment
+  set_fact:
+    dotfiles_container_ci: >-
+      {{
+        (dotfiles_automation | bool)
+        and (
+          (ansible_facts['virtualization_type'] | default('')) in ['container', 'containerd', 'docker', 'lxc', 'openvz', 'podman']
+          or (ansible_facts['container'] | default(false) | bool)
+        )
+      }}
+
 - name: Check saved profile and ask for confirmation
   pause:
     prompt: "Current profile is {{ ansible_facts['dotfiles_profile'] }}. Continue? [Y/n]"

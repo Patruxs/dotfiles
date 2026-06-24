@@ -13,4 +13,3 @@
     remote: flathub
     state: latest
   loop: "{{ flatpak_apps | default([]) }}"
-  ignore_errors: yes

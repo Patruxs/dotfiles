@@ -1,7 +1,7 @@
 ---
 - name: Install or update {{ ai_cli.key }}
   shell: "{{ ai_cli.value.install.unix }}"
+  environment: "{{ {'CODEX_NON_INTERACTIVE': '1'} if dotfiles_automation | default(false) | bool else {} }}"
   when:
     - ai_cli.value.install.unix is defined
-  ignore_errors: yes
   changed_when: false

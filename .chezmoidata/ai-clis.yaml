@@ -3,7 +3,7 @@ ai_clis:
     codex:
       command: codex
       install:
-        unix: curl -fsSL https://github.com/openai/codex/releases/latest/download/install.sh | sh
+        unix: curl -fsSL https://chatgpt.com/codex/install.sh | sh
         windows: irm https://github.com/openai/codex/releases/latest/download/install.ps1 | iex
       login: Run `codex` and sign in with ChatGPT or an API key.
     agy:

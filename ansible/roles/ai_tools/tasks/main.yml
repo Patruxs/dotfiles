@@ -1,4 +1,11 @@
 ---
+- name: Skip AI CLI upstream installers in automation
+  debug:
+    msg: "Skipping AI CLI upstream installers in automation; run bootstrap locally to install or update AI CLIs."
+  when:
+    - install_ai_clis | default(false)
+    - dotfiles_automation | default(false)
+
 - name: Load AI CLIs data
   include_vars:
     file: "{{ chezmoi_dir }}/.chezmoidata/ai-clis.yaml"
@@ -6,6 +13,7 @@
   when:
     - install_ai_clis | default(false)
     - not (dotfiles_ci | default(false))
+    - not (dotfiles_automation | default(false))
 
 - name: Install AI CLIs (Unix)
   include_tasks: unix.yml
@@ -16,3 +24,4 @@
     - install_ai_clis | default(false)
     - dotfiles_platform.system != 'Windows'
     - not (dotfiles_ci | default(false))
+    - not (dotfiles_automation | default(false))

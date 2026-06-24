@@ -1,7 +1,15 @@
 ---
+- name: Skip Flatpak app installs in CI containers
+  debug:
+    msg: "Skipping Flatpak app installs in CI containers because Flatpak sandbox setup requires user namespaces."
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - dotfiles_container_ci | default(false)
+
 - name: Install Flatpak apps feature on Linux
   include_role:
     name: flatpak
   when:
     - dotfiles_platform.system == 'Linux'
     - not (dotfiles_ci | default(false))
+    - not (dotfiles_container_ci | default(false))
