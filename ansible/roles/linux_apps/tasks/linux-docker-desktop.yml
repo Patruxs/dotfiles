@@ -26,60 +26,36 @@
         mode: "0644"
       changed_when: false
 
-    - name: Ensure APT keyrings directory exists
-      become: yes
-      file:
-        path: /etc/apt/keyrings
-        state: directory
-        mode: "0755"
-
-    - name: Add Docker APT repository signing key
-      become: yes
-      get_url:
-        url: https://download.docker.com/linux/ubuntu/gpg
-        dest: /etc/apt/keyrings/docker.asc
-        mode: "0644"
-
-    - name: Add Docker APT repository
-      become: yes
-      ansible.builtin.deb822_repository:
-        name: docker
-        types:
-          - deb
-        uris:
-          - https://download.docker.com/linux/ubuntu
-        suites:
-          - "{{ docker_ubuntu_release }}"
-        components:
-          - stable
-        architectures:
-          - "{{ 'amd64' if dotfiles_platform.architecture in ['x86_64', 'amd64'] else 'arm64' }}"
-        signed_by: /etc/apt/keyrings/docker.asc
-        state: present
-      register: docker_apt_repository
-
-    - name: Update APT cache after Docker repository changes
-      become: yes
-      ansible.builtin.apt:
-        update_cache: yes
-      when: docker_apt_repository.changed
-
-    - name: Install Docker Desktop Ubuntu prerequisites
-      become: yes
-      ansible.builtin.apt:
-        name:
-          - docker-ce-cli
-          - pass
-          - desktop-file-utils
-          - qemu-system-x86
-          - uidmap
-        state: present
-
     - name: Install Docker Desktop Debian package
-      become: yes
-      ansible.builtin.apt:
-        deb: "{{ docker_desktop_tmpdir_debian.path }}/docker-desktop-amd64.deb"
-        state: present
+      ansible.builtin.shell: |
+        set -euo pipefail
+        root_script="$(mktemp)"
+        trap 'rm -f "$root_script"' EXIT
+        cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
+        set -euo pipefail
+        install -d -m 0755 /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+        chmod 0644 /etc/apt/keyrings/docker.asc
+        cat >/etc/apt/sources.list.d/docker.sources <<'DOCKER_SOURCES'
+        Types: deb
+        URIs: https://download.docker.com/linux/ubuntu
+        Suites: {{ docker_ubuntu_release }}
+        Components: stable
+        Architectures: {{ 'amd64' if dotfiles_platform.architecture in ['x86_64', 'amd64'] else 'arm64' }}
+        Signed-By: /etc/apt/keyrings/docker.asc
+        DOCKER_SOURCES
+        apt-get update
+        apt-get install -y docker-ce-cli pass desktop-file-utils qemu-system-x86 uidmap
+        apt-get install -y {{ docker_desktop_tmpdir_debian.path | quote }}/docker-desktop-amd64.deb
+        DOTFILES_ROOT_SCRIPT
+
+        if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+          sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
+        else
+          sudo -n /bin/bash "$root_script"
+        fi
+      args:
+        executable: /bin/bash
   always:
     - name: Remove temporary Docker Desktop Debian package directory
       file:
@@ -108,31 +84,26 @@
         mode: "0644"
       changed_when: false
 
-    - name: Add Docker DNF repository
-      become: yes
-      get_url:
-        url: https://download.docker.com/linux/fedora/docker-ce.repo
-        dest: /etc/yum.repos.d/docker-ce.repo
-        mode: "0644"
-
-    - name: Install Docker Desktop Fedora prerequisites
-      become: yes
-      ansible.builtin.dnf:
-        name:
-          - docker-ce-cli
-          - pass
-          - desktop-file-utils
-          - gtk3-devel
-          - qemu-system-x86
-          - shadow-utils
-        state: present
-
     - name: Install Docker Desktop Fedora package
-      become: yes
-      ansible.builtin.dnf:
-        name: "{{ docker_desktop_tmpdir_fedora.path }}/docker-desktop-x86_64.rpm"
-        state: present
-        disable_gpg_check: yes
+      ansible.builtin.shell: |
+        set -euo pipefail
+        root_script="$(mktemp)"
+        trap 'rm -f "$root_script"' EXIT
+        cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
+        set -euo pipefail
+        curl -fsSL https://download.docker.com/linux/fedora/docker-ce.repo -o /etc/yum.repos.d/docker-ce.repo
+        chmod 0644 /etc/yum.repos.d/docker-ce.repo
+        dnf install -y docker-ce-cli pass desktop-file-utils gtk3-devel qemu-system-x86 shadow-utils
+        dnf install -y --nogpgcheck {{ docker_desktop_tmpdir_fedora.path | quote }}/docker-desktop-x86_64.rpm
+        DOTFILES_ROOT_SCRIPT
+
+        if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+          sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
+        else
+          sudo -n /bin/bash "$root_script"
+        fi
+      args:
+        executable: /bin/bash
   always:
     - name: Remove temporary Docker Desktop Fedora package directory
       file:
@@ -160,26 +131,24 @@
         mode: "0644"
       changed_when: false
 
-    - name: Install Docker Desktop Arch prerequisites
-      become: yes
-      community.general.pacman:
-        name:
-          - curl
-          - qemu-desktop
-          - libseccomp
-          - libcap-ng
-          - pass
-          - desktop-file-utils
-          - gtk3
-          - libx11
-          - shadow
-        state: present
-
     - name: Install Docker Desktop Arch package
-      become: yes
-      community.general.pacman:
-        name: "{{ docker_desktop_tmpdir_arch.path }}/docker-desktop-x86_64.pkg.tar.zst"
-        state: present
+      ansible.builtin.shell: |
+        set -euo pipefail
+        root_script="$(mktemp)"
+        trap 'rm -f "$root_script"' EXIT
+        cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
+        set -euo pipefail
+        pacman -S --noconfirm --needed curl qemu-desktop libseccomp libcap-ng pass desktop-file-utils gtk3 libx11 shadow
+        pacman -U --noconfirm --needed {{ docker_desktop_tmpdir_arch.path | quote }}/docker-desktop-x86_64.pkg.tar.zst
+        DOTFILES_ROOT_SCRIPT
+
+        if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+          sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
+        else
+          sudo -n /bin/bash "$root_script"
+        fi
+      args:
+        executable: /bin/bash
   always:
     - name: Remove temporary Docker Desktop Arch package directory
       file:

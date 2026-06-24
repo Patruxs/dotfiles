@@ -1,6 +1,12 @@
 ---
 - name: Install system packages (Debian/Ubuntu)
-  become: yes
-  ansible.builtin.apt:
-    name: "{{ system_packages }}"
-    state: latest
+  ansible.builtin.shell: |
+    set -euo pipefail
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' apt-get install -y {{ system_packages | map('quote') | join(' ') }} < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n apt-get install -y {{ system_packages | map('quote') | join(' ') }}
+    fi
+  args:
+    executable: /bin/bash

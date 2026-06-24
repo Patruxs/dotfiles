@@ -1,7 +1,10 @@
 ---
 - name: Install or update Kiro on Linux
-  become: yes
-  shell: |
+  ansible.builtin.shell: |
+    set -euo pipefail
+    root_script="$(mktemp)"
+    trap 'rm -f "$root_script"' EXIT
+    cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
     set -euo pipefail
 
     metadata_url="https://prod.download.desktop.kiro.dev/stable/metadata-linux-x64-stable.json"
@@ -39,6 +42,13 @@
       'Categories=Development;IDE;' \
       'StartupWMClass=Kiro' \
       > /usr/local/share/applications/kiro.desktop
+    DOTFILES_ROOT_SCRIPT
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n /bin/bash "$root_script"
+    fi
   args:
     executable: /bin/bash
   changed_when: false

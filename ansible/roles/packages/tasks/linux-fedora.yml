@@ -1,6 +1,12 @@
 ---
 - name: Install system packages (Fedora)
-  become: yes
-  ansible.builtin.dnf:
-    name: "{{ system_packages }}"
-    state: latest
+  ansible.builtin.shell: |
+    set -euo pipefail
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' dnf install -y {{ system_packages | map('quote') | join(' ') }} < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n dnf install -y {{ system_packages | map('quote') | join(' ') }}
+    fi
+  args:
+    executable: /bin/bash

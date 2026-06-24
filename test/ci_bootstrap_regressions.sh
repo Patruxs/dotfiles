@@ -27,6 +27,18 @@ ai_tools_unix_task="$repo_root/ansible/roles/ai_tools/tasks/unix.yml"
 ai_clis_data="$repo_root/.chezmoidata/ai-clis.yaml"
 chezmoi_bootstrap_script="$repo_root/.chezmoiscripts/run_once_before_00-bootstrap.sh.tmpl"
 workflow_file="$repo_root/.github/workflows/ci.yml"
+linux_privileged_task_files=(
+  "$debian_packages_task"
+  "$fedora_packages_task"
+  "$arch_packages_task"
+  "$repo_root/ansible/roles/shell/tasks/linux.yml"
+  "$repo_root/ansible/roles/docker/tasks/linux.yml"
+  "$repo_root/ansible/roles/linux_apps/tasks/linux-warp.yml"
+  "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml"
+  "$repo_root/ansible/roles/linux_apps/tasks/linux-kiro.yml"
+  "$repo_root/ansible/roles/linux_apps/tasks/linux-ghostty.yml"
+  "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"
+)
 
 if ! bash -c "$(cat "$repo_root/bootstrap.sh")" -- --help >/dev/null; then
   echo "expected bootstrap.sh to support README curl execution with bash -c"
@@ -54,6 +66,13 @@ search_file_literal() {
     grep -Fq -- "$text" "$path"
   fi
 }
+
+for linux_task in "${linux_privileged_task_files[@]}"; do
+  if search_file 'become:' "$linux_task"; then
+    echo "expected ${linux_task#$repo_root/} to avoid Ansible become for Linux localhost setup"
+    exit 1
+  fi
+done
 
 if ! search_file "^  vars:$" "$packages_task"; then
   echo "expected Merge package lists task to declare task-local vars"
@@ -98,11 +117,31 @@ if ! search_file "'docker-desktop' in \\(linux_native_apps \\| default\\(\\[\\]\
 fi
 
 for distro_task in "$debian_packages_task" "$fedora_packages_task" "$arch_packages_task"; do
-  if ! search_file 'state: latest' "$distro_task"; then
-    echo "expected ${distro_task##*/} to install the latest available distro packages"
+  if search_file 'become:' "$distro_task"; then
+    echo "expected ${distro_task##*/} to avoid Ansible become for Linux localhost package installs"
+    exit 1
+  fi
+
+  if ! search_file 'sudo -S -p' "$distro_task" || ! search_file 'dotfiles_sudo_password_file' "$distro_task"; then
+    echo "expected ${distro_task##*/} to feed sudo from DOTFILES_SUDO_PASSWORD_FILE"
     exit 1
   fi
 done
+
+if ! search_file 'apt-get install -y' "$debian_packages_task"; then
+  echo "expected Debian package task to install packages with apt-get"
+  exit 1
+fi
+
+if ! search_file 'dnf install -y' "$fedora_packages_task"; then
+  echo "expected Fedora package task to install packages with dnf"
+  exit 1
+fi
+
+if ! search_file 'pacman -S --noconfirm --needed' "$arch_packages_task"; then
+  echo "expected Arch package task to install packages with pacman"
+  exit 1
+fi
 
 if ! search_file 'state: latest' "$macos_packages_task"; then
   echo "expected macos.yml to install the latest available Homebrew packages and casks"
@@ -249,7 +288,7 @@ if ! search_file 'download\.docker\.com/linux/fedora/docker-ce\.repo' "$repo_roo
   exit 1
 fi
 
-if ! search_file 'disable_gpg_check: yes' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+if ! search_file '--nogpgcheck' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
   echo "expected Fedora Docker Desktop installer to allow Docker''s unsigned desktop RPM"
   exit 1
 fi
@@ -259,8 +298,8 @@ if search_file 'apt_repository:' "$repo_root/ansible/roles/linux_apps/tasks/linu
   exit 1
 fi
 
-if ! search_file 'deb822_repository:' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
-  echo "expected Ubuntu Docker Desktop installer to use deb822_repository"
+if ! search_file '/etc/apt/sources\.list\.d/docker\.sources' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+  echo "expected Ubuntu Docker Desktop installer to write Docker deb822 source data"
   exit 1
 fi
 

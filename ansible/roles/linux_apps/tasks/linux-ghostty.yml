@@ -1,9 +1,13 @@
 ---
 - name: Install or update Ghostty on Debian-based Linux
-  become: yes
-  shell: |
+  ansible.builtin.shell: |
     set -euo pipefail
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)"
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)" < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)"
+    fi
   args:
     executable: /bin/bash
   changed_when: false
@@ -11,11 +15,16 @@
     - dotfiles_platform.distro_key == 'debian'
 
 - name: Install or update Ghostty on Fedora
-  become: yes
-  shell: |
+  ansible.builtin.shell: |
     set -euo pipefail
-    dnf -y copr enable scottames/ghostty
-    dnf install -y ghostty
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' dnf -y copr enable scottames/ghostty < {{ dotfiles_sudo_password_file | quote }}
+      sudo -S -p '' dnf install -y ghostty < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n dnf -y copr enable scottames/ghostty
+      sudo -n dnf install -y ghostty
+    fi
   args:
     executable: /bin/bash
   changed_when: false
@@ -23,14 +32,16 @@
     - dotfiles_platform.distro_key == 'fedora'
 
 - name: Install or update Ghostty on Arch Linux
-  become: yes
-  command:
-    argv:
-      - pacman
-      - -S
-      - --noconfirm
-      - --needed
-      - ghostty
+  ansible.builtin.shell: |
+    set -euo pipefail
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' pacman -S --noconfirm --needed ghostty < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n pacman -S --noconfirm --needed ghostty
+    fi
+  args:
+    executable: /bin/bash
   changed_when: false
   when:
     - dotfiles_platform.distro_key == 'arch'

@@ -1,8 +1,13 @@
 ---
 - name: Enable Docker service (Linux)
-  become: yes
-  systemd:
-    name: docker
-    enabled: yes
-    state: started
+  ansible.builtin.shell: |
+    set -euo pipefail
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' systemctl enable --now docker < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n systemctl enable --now docker
+    fi
+  args:
+    executable: /bin/bash
   ignore_errors: yes

@@ -1,8 +1,14 @@
 ---
 - name: Set zsh as default shell (Linux)
-  become: yes
-  user:
-    name: "{{ ansible_facts['user_id'] }}"
-    shell: /usr/bin/zsh
+  ansible.builtin.shell: |
+    set -euo pipefail
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' chsh -s /usr/bin/zsh {{ ansible_facts['user_id'] | quote }} < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n chsh -s /usr/bin/zsh {{ ansible_facts['user_id'] | quote }}
+    fi
+  args:
+    executable: /bin/bash
   ignore_errors: yes
   changed_when: false
