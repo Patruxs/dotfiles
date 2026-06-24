@@ -275,7 +275,7 @@
   when: dotfiles_setup_mode == 'best_effort'
 
 - name: Run selected feature roles
-  include_tasks: run_feature_best_effort.yml
+  include_tasks: feature_best_effort.yml
   loop: "{{ dotfiles_feature_execution_order }}"
   loop_control:
     loop_var: selected_feature
