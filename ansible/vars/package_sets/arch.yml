@@ -1,0 +1,59 @@
+---
+platform: arch
+package_family: pacman
+
+package_sets:
+  core_cli:
+    pacman:
+      - git
+      - curl
+      - wget
+      - unzip
+      - zsh
+      - bash
+      - neovim
+      - tmux
+      - btop
+      - ripgrep
+      - jq
+      - bat
+      - fd
+      - eza
+      - lazygit
+      - github-cli
+  desktop_base:
+    pacman:
+      - flatpak
+    flatpak:
+      - com.gitbutler.gitbutler
+      - com.visualstudio.code
+      - md.obsidian.Obsidian
+  desktop_apps:
+    pacman:
+      - nvtop
+    flatpak:
+      - org.telegram.desktop
+      - us.zoom.Zoom
+      - com.spotify.Client
+      - com.getpostman.Postman
+      - org.onlyoffice.desktopeditors
+      - com.obsproject.Studio
+      - com.microsoft.Edge
+      - net.ankiweb.Anki
+      - com.termius.Termius
+      - io.github.kolunmi.Bazaar
+  devtools:
+    pacman:
+      - nodejs
+      - npm
+      - python
+      - python-pip
+      - gcc
+      - go
+      - fzf
+  docker_engine:
+    pacman:
+      - docker
+  webserver_nginx:
+    pacman:
+      - nginx

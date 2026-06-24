@@ -1,0 +1,121 @@
+---
+- name: Check for passwordless sudo on Linux
+  command: sudo -n true
+  register: dotfiles_passwordless_sudo
+  changed_when: false
+  failed_when: false
+  when: ansible_facts["system"] == "Linux"
+
+- name: Check saved profile and ask for confirmation
+  pause:
+    prompt: "Current profile is {{ ansible_facts['dotfiles_profile'] }}. Continue? [Y/n]"
+  register: confirm_profile
+  when:
+    - profile is not defined
+    - ansible_facts["dotfiles_profile"] is defined
+    - ansible_facts["env"]["TERM"] is defined
+
+- name: Set profile from saved fact if confirmed
+  set_fact:
+    profile: "{{ ansible_facts['dotfiles_profile'] }}"
+  when:
+    - profile is not defined
+    - confirm_profile is defined
+    - not confirm_profile.skipped | default(false)
+    - confirm_profile.user_input | default('y') | lower in ['y', 'yes', '']
+
+- name: Reuse saved profile in non-interactive mode
+  set_fact:
+    profile: "{{ ansible_facts['dotfiles_profile'] }}"
+  when:
+    - profile is not defined
+    - ansible_facts["dotfiles_profile"] is defined
+    - ansible_facts["env"]["TERM"] is not defined
+
+- name: Prompt for profile if not provided or saved/confirmed
+  pause:
+    prompt: "Select profile (personal or work)"
+  register: prompt_profile
+  when:
+    - profile is not defined
+    - ansible_facts["env"]["TERM"] is defined
+
+- name: Set profile fact from prompt
+  set_fact:
+    profile: "{{ prompt_profile.user_input }}"
+  when: profile is not defined and prompt_profile is defined and not prompt_profile.skipped | default(false)
+
+- name: Fail clearly when no profile is available in non-interactive mode
+  fail:
+    msg: "No profile was provided. Re-run bootstrap.sh and choose a profile, or pass -e profile=personal|work."
+  when:
+    - profile is not defined
+    - ansible_facts["env"]["TERM"] is not defined
+
+- name: Check selected profile file
+  stat:
+    path: "{{ chezmoi_dir }}/ansible/vars/profiles/{{ profile }}.yml"
+  register: selected_profile_file
+
+- name: Fail if selected profile is unknown
+  fail:
+    msg: "Unknown profile '{{ profile }}'. Expected a profile file in ansible/vars/profiles."
+  when: not selected_profile_file.stat.exists
+
+- name: Save selected profile to facts cache
+  set_fact:
+    dotfiles_profile: "{{ profile }}"
+    cacheable: yes
+
+- name: Remove old legacy profile file if it exists
+  file:
+    path: "{{ lookup('env', 'HOME') }}/.dotfiles_profile"
+    state: absent
+
+- name: Load profile vars
+  include_vars:
+    file: "{{ chezmoi_dir }}/ansible/vars/profiles/{{ profile }}.yml"
+
+- name: Derive feature compatibility vars
+  set_fact:
+    gnome_settings_enabled: "{{ 'desktop_base' in (features | default([])) }}"
+    install_ai_clis: "{{ 'ai_clis' in (features | default([])) }}"
+    install_docker: "{{ ('docker_engine' in (features | default([]))) or ('docker_desktop' in (features | default([]))) }}"
+    install_jetbrains_toolbox: "{{ 'jetbrains_toolbox' in (features | default([])) }}"
+    linux_native_apps: >-
+      {{
+        []
+        + (['warp'] if 'warp_terminal' in (features | default([])) else [])
+        + (['ghostty'] if 'ghostty_terminal' in (features | default([])) else [])
+        + (['docker-desktop'] if 'docker_desktop' in (features | default([])) else [])
+        + (['virtualbox'] if 'virtualbox' in (features | default([])) else [])
+        + (['kiro'] if 'kiro_ide' in (features | default([])) else [])
+      }}
+
+- name: Validate selected profile, platform, and features
+  include_role:
+    name: profile_preflight
+
+- name: Generate Chezmoi setup data
+  include_role:
+    name: chezmoi_setup_data
+
+- name: Install selected package-set entries
+  include_role:
+    name: package_installer
+
+- name: Run selected feature roles
+  include_role:
+    name: "features/{{ selected_feature }}"
+  loop: "{{ dotfiles_feature_execution_order }}"
+  loop_control:
+    loop_var: selected_feature
+  when: selected_feature in (features | default([]))
+
+- name: Apply Chezmoi
+  include_role:
+    name: chezmoi
+
+- name: Enable selected services
+  include_role:
+    name: services

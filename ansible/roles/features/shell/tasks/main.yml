@@ -1,0 +1,4 @@
+---
+- name: Configure shell feature
+  include_role:
+    name: shell

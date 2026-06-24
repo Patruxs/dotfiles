@@ -1,0 +1,6 @@
+---
+- name: Install Kiro IDE feature on Linux
+  include_tasks: "{{ chezmoi_dir }}/ansible/roles/linux_apps/tasks/linux-kiro.yml"
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - not (dotfiles_ci | default(false))

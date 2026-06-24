@@ -48,3 +48,4 @@
     - managed_user_systemd_service_stat.stat.exists
     - managed_user_runtime_dir_stat.stat.exists
     - managed_user_systemd_bus_stat.stat.exists
+  changed_when: false

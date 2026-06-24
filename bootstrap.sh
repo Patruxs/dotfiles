@@ -6,6 +6,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 chezmoi_dir="$HOME/.local/share/chezmoi"
 OS="$(uname -s)"
 DISTRO=""
+platform=""
 
 if [ "$OS" = "Linux" ] && [ -f /etc/os-release ]; then
   . /etc/os-release
@@ -284,6 +285,60 @@ install_ansible() {
   install_packages ansible
 }
 
+detect_platform() {
+  case "$OS" in
+    Darwin)
+      printf '%s\n' "macos"
+      ;;
+    Linux)
+      case "$DISTRO" in
+        ubuntu)
+          printf '%s\n' "ubuntu"
+          ;;
+        fedora)
+          printf '%s\n' "fedora"
+          ;;
+        arch|manjaro)
+          printf '%s\n' "arch"
+          ;;
+        *)
+          echo "Unsupported Linux distro: $DISTRO" >&2
+          return 1
+          ;;
+      esac
+      ;;
+    *)
+      echo "Unsupported OS: $OS" >&2
+      return 1
+      ;;
+  esac
+}
+
+resolve_platform() {
+  local detected_platform
+
+  detected_platform="$(detect_platform)" || exit 1
+
+  if [ -z "$platform" ]; then
+    platform="$detected_platform"
+    return
+  fi
+
+  if ! is_ci; then
+    echo "--platform is only supported when DOTFILES_CI=1."
+    exit 1
+  fi
+
+  case "$platform" in
+    ubuntu|fedora|arch|macos)
+      ;;
+    *)
+      echo "Unsupported platform override: $platform"
+      exit 1
+      ;;
+  esac
+}
+
 ensure_ansible_collections() {
   local requirements_file
 
@@ -352,8 +407,16 @@ while [[ $# -gt 0 ]]; do
       profile="$2"
       shift 2
       ;;
+    --platform)
+      if [[ $# -lt 2 ]]; then
+        echo "--platform requires a value."
+        exit 1
+      fi
+      platform="$2"
+      shift 2
+      ;;
     --help|-h)
-      echo "Usage: $0 [--profile personal|work]"
+      echo "Usage: $0 [--profile personal|work] [--platform ubuntu|fedora|arch|macos]"
       exit 0
       ;;
     *)
@@ -364,6 +427,7 @@ done
 
 show_welcome_screen
 resolve_chezmoi_dir
+resolve_platform
 
 if [ -z "$profile" ]; then
   choose_profile
@@ -411,7 +475,13 @@ ensure_ansible_collections
 
 cd "$chezmoi_dir"
 export DOTFILES_CHEZMOI_DIR="$chezmoi_dir"
-ansible_args=(-i "localhost," "ansible/playbooks/setup.yml")
+ansible_playbook="ansible/playbooks/$platform.yml"
+if [ ! -f "$ansible_playbook" ]; then
+  echo "No Ansible playbook exists for platform: $platform"
+  exit 1
+fi
+
+ansible_args=(-i "localhost," "$ansible_playbook")
 if [ -n "$profile" ]; then
   ansible_args+=(-e "profile=$profile")
 fi

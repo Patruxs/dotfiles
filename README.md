@@ -10,9 +10,10 @@ Not managed: secrets, tokens, auth/session state, SSH keys, Docker auth, GitHub 
 
 The setup flow keeps one public entrypoint and splits platform-specific work behind it:
 - `bootstrap.sh` is the shared Unix entrypoint and detects Linux distro vs macOS at runtime.
-- `ansible/playbooks/setup.yml` orchestrates the setup and loads a derived `dotfiles_platform` fact for roles.
-- Roles keep shared behavior in `main.yml` and fan out into OS-specific task files such as `linux-debian.yml`, `linux-fedora.yml`, `linux-arch.yml`, and `macos.yml`.
-- Package definitions stay in `.chezmoidata/packages.yaml` so platform differences live in data before code.
+- `ansible/playbooks/ubuntu.yml`, `fedora.yml`, `arch.yml`, and `macos.yml` are standalone platform entrypoints. `setup.yml` remains as a compatibility entrypoint.
+- Profiles in `ansible/vars/profiles/` select explicit features and supported platforms.
+- Package definitions for Unix/macOS live in `ansible/vars/package_sets/`, one file per platform.
+- Procedural installers live behind feature-named roles in `ansible/roles/features/`.
 
 ## Setup
 
@@ -60,10 +61,10 @@ chezmoi cat-config | rg '^mode = "symlink"$'
 Run setup manually:
 
 ```sh
-ansible-galaxy collection install -r ansible/collections/requirements.yml && ansible-playbook -i "localhost," --ask-become-pass ansible/playbooks/setup.yml -e profile=personal
+./bootstrap.sh --profile personal
 ```
 
-This runs the main orchestration playbook to install packages and configure the system.
+Use the playbook that matches the current platform: `ubuntu.yml`, `fedora.yml`, `arch.yml`, or `macos.yml`.
 
 ## Manual login
 

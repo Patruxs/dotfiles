@@ -1,0 +1,56 @@
+---
+platform: fedora
+package_family: dnf
+
+package_sets:
+  core_cli:
+    dnf:
+      - git
+      - curl
+      - wget
+      - unzip
+      - zsh
+      - bash
+      - neovim
+      - tmux
+      - btop
+      - ripgrep
+      - jq
+      - bat
+  desktop_base:
+    dnf:
+      - flatpak
+    flatpak:
+      - com.gitbutler.gitbutler
+      - com.visualstudio.code
+      - md.obsidian.Obsidian
+  desktop_apps:
+    dnf:
+      - nvtop
+    flatpak:
+      - org.telegram.desktop
+      - us.zoom.Zoom
+      - com.spotify.Client
+      - com.getpostman.Postman
+      - org.onlyoffice.desktopeditors
+      - com.obsproject.Studio
+      - com.microsoft.Edge
+      - net.ankiweb.Anki
+      - com.termius.Termius
+      - io.github.kolunmi.Bazaar
+  devtools:
+    dnf:
+      - nodejs
+      - npm
+      - python3
+      - python3-pip
+      - gcc
+      - go
+      - gh
+      - fzf
+  docker_engine:
+    dnf:
+      - moby-engine
+  webserver_nginx:
+    dnf:
+      - nginx

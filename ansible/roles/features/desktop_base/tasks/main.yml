@@ -1,0 +1,6 @@
+---
+- name: Configure desktop base feature
+  include_role:
+    name: gnome
+  when:
+    - dotfiles_platform.system == 'Linux'

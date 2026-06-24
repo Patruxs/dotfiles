@@ -116,6 +116,7 @@
       ansible.builtin.dnf:
         name: "{{ docker_desktop_tmpdir_fedora.path }}/docker-desktop-x86_64.rpm"
         state: present
+        disable_gpg_check: yes
   always:
     - name: Remove temporary Docker Desktop Fedora package directory
       file:

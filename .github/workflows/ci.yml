@@ -26,6 +26,7 @@ jobs:
         
     - name: Check Idempotency
       run: |
+        export PATH="$HOME/.local/bin:$PATH"
         output_log="$(mktemp)"
         chezmoi_diff="$(mktemp)"
         ./bootstrap.sh --profile ${{ matrix.profile }} | tee "$output_log"
@@ -59,6 +60,7 @@ jobs:
       run: ./bootstrap.sh --profile ${{ matrix.profile }}
     - name: Check Idempotency
       run: |
+        export PATH="$HOME/.local/bin:$PATH"
         output_log="$(mktemp)"
         chezmoi_diff="$(mktemp)"
         ./bootstrap.sh --profile ${{ matrix.profile }} | tee "$output_log"
@@ -121,6 +123,7 @@ jobs:
       run: ./bootstrap.sh --profile ${{ matrix.profile }}
     - name: Check Idempotency (Fedora)
       run: |
+        export PATH="$HOME/.local/bin:$PATH"
         output_log="$(mktemp)"
         chezmoi_diff="$(mktemp)"
         ./bootstrap.sh --profile ${{ matrix.profile }} | tee "$output_log"
@@ -154,6 +157,7 @@ jobs:
       run: ./bootstrap.sh --profile ${{ matrix.profile }}
     - name: Check Idempotency (Arch)
       run: |
+        export PATH="$HOME/.local/bin:$PATH"
         output_log="$(mktemp)"
         chezmoi_diff="$(mktemp)"
         ./bootstrap.sh --profile ${{ matrix.profile }} | tee "$output_log"

@@ -1,0 +1,4 @@
+---
+- name: Install selected npm global tools
+  include_role:
+    name: devtools

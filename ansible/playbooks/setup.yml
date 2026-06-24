@@ -1,5 +1,5 @@
 ---
-- name: Local Machine Setup
+- name: Compatibility setup entrypoint
   hosts: localhost
   connection: local
   gather_facts: yes
@@ -10,103 +10,30 @@
     dotfiles_sudo_password_file: "{{ lookup('env', 'DOTFILES_SUDO_PASSWORD_FILE') | default('', true) }}"
 
   pre_tasks:
-    - name: Check for passwordless sudo on Linux
-      command: sudo -n true
-      register: dotfiles_passwordless_sudo
-      changed_when: false
-      failed_when: false
-      when: ansible_facts["system"] == "Linux"
+    - name: Derive compatibility platform facts
+      include_role:
+        name: platform
 
-    - name: Check saved profile and ask for confirmation
-      pause:
-        prompt: "Current profile is {{ ansible_facts['dotfiles_profile'] }}. Continue? [Y/n]"
-      register: confirm_profile
-      when:
-        - profile is not defined
-        - ansible_facts["dotfiles_profile"] is defined
-        - ansible_facts["env"]["TERM"] is defined
-
-    - name: Set profile from saved fact if confirmed
+    - name: Normalize compatibility platform name
       set_fact:
-        profile: "{{ ansible_facts['dotfiles_profile'] }}"
-      when:
-        - profile is not defined
-        - confirm_profile is defined
-        - not confirm_profile.skipped | default(false)
-        - confirm_profile.user_input | default('y') | lower in ['y', 'yes', '']
+        dotfiles_platform: >-
+          {{
+            dotfiles_platform
+            | combine({
+              'name': 'ubuntu' if ansible_facts['distribution'] == 'Ubuntu' else 'fedora' if ansible_facts['distribution'] == 'Fedora' else 'arch' if ansible_facts['os_family'] == 'Archlinux' else 'macos' if ansible_facts['system'] == 'Darwin' else '',
+              'package_family': 'apt' if ansible_facts['distribution'] == 'Ubuntu' else 'dnf' if ansible_facts['distribution'] == 'Fedora' else 'pacman' if ansible_facts['os_family'] == 'Archlinux' else 'brew' if ansible_facts['system'] == 'Darwin' else ''
+            })
+          }}
 
-    - name: Reuse saved profile in non-interactive mode
-      set_fact:
-        profile: "{{ ansible_facts['dotfiles_profile'] }}"
-      when:
-        - profile is not defined
-        - ansible_facts["dotfiles_profile"] is defined
-        - ansible_facts["env"]["TERM"] is not defined
-
-    - name: Prompt for profile if not provided or saved/confirmed
-      pause:
-        prompt: "Select profile (personal or work)"
-      register: prompt_profile
-      when:
-        - profile is not defined
-        - ansible_facts["env"]["TERM"] is defined
-
-    - name: Set profile fact from prompt
-      set_fact:
-        profile: "{{ prompt_profile.user_input }}"
-      when: profile is not defined and prompt_profile is defined and not prompt_profile.skipped | default(false)
-
-    - name: Fail clearly when no profile is available in non-interactive mode
+    - name: Fail when compatibility setup cannot map the current platform
       fail:
-        msg: "No profile was provided. Re-run bootstrap.sh and choose a profile, or pass -e profile=personal|work."
-      when:
-        - profile is not defined
-        - ansible_facts["env"]["TERM"] is not defined
+        msg: "Unsupported platform for setup.yml compatibility entrypoint."
+      when: dotfiles_platform.name == ''
 
-    - name: Fail if invalid profile
-      fail:
-        msg: "Invalid profile selected. Must be 'personal' or 'work'"
-      when: profile not in ['personal', 'work']
-
-    - name: Save selected profile to facts cache
-      set_fact:
-        dotfiles_profile: "{{ profile }}"
-        cacheable: yes
-
-    - name: Remove old legacy profile file if it exists
-      file:
-        path: "{{ lookup('env', 'HOME') }}/.dotfiles_profile"
-        state: absent
-
-    - name: Load profile vars
+    - name: Load selected platform package set
       include_vars:
-        file: "{{ chezmoi_dir }}/ansible/vars/profiles/{{ profile }}.yml"
+        file: "{{ chezmoi_dir }}/ansible/vars/package_sets/{{ dotfiles_platform.name }}.yml"
+        name: platform_package_data
 
-    - name: Load chezmoi packages data
-      include_vars:
-        file: "{{ chezmoi_dir }}/.chezmoidata/packages.yaml"
-        name: chezmoi_data
-
-    - name: Fail clearly when Linux privileged automation password is unavailable
-      fail:
-        msg: "DOTFILES_SUDO_PASSWORD_FILE was not provided and passwordless sudo is unavailable. Re-run bootstrap.sh from an interactive terminal."
-      when:
-        - ansible_facts["system"] == "Linux"
-        - not (dotfiles_ci | default(false))
-        - dotfiles_sudo_password_file == ""
-        - dotfiles_passwordless_sudo.rc != 0
-
-  roles:
-    - platform
-    - base
-    - packages
-    - linux_apps
-    - devtools
-    - git_tools
-    - flatpak
-    - ai_tools
-    - docker
-    - shell
-    - chezmoi
-    - gnome
-    - services
+  tasks:
+    - import_tasks: common.yml

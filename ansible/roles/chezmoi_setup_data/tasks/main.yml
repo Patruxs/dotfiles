@@ -1,0 +1,7 @@
+---
+- name: Build feature-aware Chezmoi setup data
+  set_fact:
+    dotfiles_chezmoi_setup_data:
+      dotfiles_profile: "{{ profile }}"
+      dotfiles_platform: "{{ dotfiles_platform.name }}"
+      dotfiles_features: "{{ features }}"

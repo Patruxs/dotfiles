@@ -1,0 +1,7 @@
+---
+- name: Install Flatpak apps feature on Linux
+  include_role:
+    name: flatpak
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - not (dotfiles_ci | default(false))

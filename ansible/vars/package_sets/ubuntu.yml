@@ -1,0 +1,57 @@
+---
+platform: ubuntu
+package_family: apt
+
+package_sets:
+  core_cli:
+    apt:
+      - git
+      - curl
+      - wget
+      - gnupg
+      - unzip
+      - zsh
+      - bash
+      - neovim
+      - tmux
+      - btop
+      - ripgrep
+      - jq
+      - bat
+  desktop_base:
+    apt:
+      - flatpak
+    flatpak:
+      - com.gitbutler.gitbutler
+      - com.visualstudio.code
+      - md.obsidian.Obsidian
+  desktop_apps:
+    apt:
+      - nvtop
+    flatpak:
+      - org.telegram.desktop
+      - us.zoom.Zoom
+      - com.spotify.Client
+      - com.getpostman.Postman
+      - org.onlyoffice.desktopeditors
+      - com.obsproject.Studio
+      - com.microsoft.Edge
+      - net.ankiweb.Anki
+      - com.termius.Termius
+      - io.github.kolunmi.Bazaar
+  devtools:
+    apt:
+      - nodejs
+      - npm
+      - python3
+      - python3-pip
+      - gcc
+      - golang-go
+      - gh
+      - fzf
+  docker_engine:
+    apt:
+      - docker.io
+  webserver_nginx:
+    apt:
+      - nginx

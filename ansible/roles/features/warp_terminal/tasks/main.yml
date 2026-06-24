@@ -1,0 +1,6 @@
+---
+- name: Install Warp terminal feature on Linux
+  include_tasks: "{{ chezmoi_dir }}/ansible/roles/linux_apps/tasks/linux-warp.yml"
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - not (dotfiles_ci | default(false))

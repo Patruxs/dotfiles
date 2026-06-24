@@ -1,5 +1,21 @@
 ---
 profile_name: work
+supported_platforms:
+  - ubuntu
+  - fedora
+  - arch
+  - macos
+features:
+  - core_cli
+  - desktop_base
+  - shell
+  - devtools
+  - npm_global_tools
+  - ai_clis
+  - docker_desktop
+  - flatpak_apps
+  - warp_terminal
+  - ghostty_terminal
 gnome_settings_enabled: true
 install_ai_clis: true
 install_docker: true

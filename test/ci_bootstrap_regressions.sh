@@ -11,7 +11,15 @@ lazygit_task="$repo_root/ansible/roles/git_tools/tasks/linux-lazygit.yml"
 windows_bootstrap="$repo_root/bootstrap.ps1"
 docker_task_main="$repo_root/ansible/roles/docker/tasks/main.yml"
 git_tools_task_main="$repo_root/ansible/roles/git_tools/tasks/main.yml"
+services_task_main="$repo_root/ansible/roles/services/tasks/main.yml"
 setup_playbook="$repo_root/ansible/playbooks/setup.yml"
+common_playbook="$repo_root/ansible/playbooks/common.yml"
+ubuntu_playbook="$repo_root/ansible/playbooks/ubuntu.yml"
+fedora_playbook="$repo_root/ansible/playbooks/fedora.yml"
+arch_playbook="$repo_root/ansible/playbooks/arch.yml"
+macos_playbook="$repo_root/ansible/playbooks/macos.yml"
+profile_preflight="$repo_root/ansible/roles/profile_preflight/tasks/main.yml"
+package_installer="$repo_root/ansible/roles/package_installer/tasks/main.yml"
 chezmoi_bootstrap_script="$repo_root/.chezmoiscripts/run_once_before_00-bootstrap.sh.tmpl"
 workflow_file="$repo_root/.github/workflows/ci.yml"
 
@@ -186,6 +194,16 @@ if ! search_file '0x8A15002B' "$windows_bootstrap"; then
   exit 1
 fi
 
+if search_file '\[uint32\]\$LASTEXITCODE' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to compare winget''s signed exit code without a UInt32 cast"
+  exit 1
+fi
+
+if ! search_file '\-1978335189' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to compare winget''s no-available-upgrade exit code as the signed PowerShell LASTEXITCODE value"
+  exit 1
+fi
+
 if ! search_file 'Assert-LastExitCode "winget install twpayne\.chezmoi" -AllowWingetNoApplicableUpgrade' "$windows_bootstrap"; then
   echo "expected bootstrap.ps1 to tolerate winget''s no-available-upgrade result for chezmoi during idempotency checks"
   exit 1
@@ -221,6 +239,11 @@ if ! search_file 'download\.docker\.com/linux/fedora/docker-ce\.repo' "$repo_roo
   exit 1
 fi
 
+if ! search_file 'disable_gpg_check: yes' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+  echo "expected Fedora Docker Desktop installer to allow Docker''s unsigned desktop RPM"
+  exit 1
+fi
+
 if ! search_file 'pacman-key --init' "$repo_root/ansible/roles/linux_apps/tasks/linux-warp.yml"; then
   echo "expected Arch Warp installer to initialize the pacman keyring when needed"
   exit 1
@@ -233,6 +256,83 @@ fi
 
 if ! search_file 'export DOTFILES_CHEZMOI_DIR="\$chezmoi_dir"' "$repo_root/bootstrap.sh"; then
   echo "expected bootstrap.sh to export DOTFILES_CHEZMOI_DIR for ansible"
+  exit 1
+fi
+
+if ! search_file '--platform' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to accept a CI-only --platform override"
+  exit 1
+fi
+
+if ! search_file '--platform is only supported when DOTFILES_CI=1\.' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to reject platform overrides outside DOTFILES_CI"
+  exit 1
+fi
+
+if ! search_file 'ansible_playbook="ansible/playbooks/\$platform\.yml"' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to select exactly one platform playbook"
+  exit 1
+fi
+
+if ! search_file 'ansible_args=\(-i "localhost," "\$ansible_playbook"\)' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to run only the selected platform playbook"
+  exit 1
+fi
+
+if ! search_file 'ansible/vars/package_sets/ubuntu\.yml' "$ubuntu_playbook"; then
+  echo "expected Ubuntu playbook to load only the Ubuntu package set"
+  exit 1
+fi
+
+for other_package_set in fedora arch macos; do
+  if search_file "ansible/vars/package_sets/${other_package_set}\\.yml" "$ubuntu_playbook"; then
+    echo "expected Ubuntu playbook not to load ${other_package_set} package set"
+    exit 1
+  fi
+done
+
+for playbook in "$fedora_playbook" "$arch_playbook" "$macos_playbook"; do
+  if ! search_file 'import_tasks: common\.yml' "$playbook"; then
+    echo "expected ${playbook##*/} to use the shared platform common flow"
+    exit 1
+  fi
+done
+
+if ! search_file 'supported_platforms' "$repo_root/ansible/vars/profiles/personal.yml" ||
+  ! search_file 'features:' "$repo_root/ansible/vars/profiles/personal.yml" ||
+  ! search_file 'supported_platforms' "$repo_root/ansible/vars/profiles/work.yml" ||
+  ! search_file 'features:' "$repo_root/ansible/vars/profiles/work.yml"; then
+  echo "expected personal and work profiles to declare supported_platforms and features"
+  exit 1
+fi
+
+if ! search_file 'Unknown feature\(s\)' "$profile_preflight"; then
+  echo "expected profile preflight to fail clearly for unknown features"
+  exit 1
+fi
+
+if ! search_file 'does not support platform' "$profile_preflight"; then
+  echo "expected profile preflight to fail clearly for unsupported profile/platform combinations"
+  exit 1
+fi
+
+if ! search_file 'platform_package_data\.package_sets' "$package_installer"; then
+  echo "expected package installer to use the selected platform package set"
+  exit 1
+fi
+
+if ! search_file 'dotfiles_chezmoi_setup_data' "$repo_root/ansible/roles/chezmoi/tasks/main.yml"; then
+  echo "expected chezmoi apply to receive feature-aware setup data"
+  exit 1
+fi
+
+if ! search_file 'include_role:' "$common_playbook" || ! search_file 'features/\{\{ selected_feature \}\}' "$common_playbook"; then
+  echo "expected common flow to run selected feature roles by feature name"
+  exit 1
+fi
+
+if ! search_file 'export PATH="\$HOME/\.local/bin:\$PATH"' "$workflow_file"; then
+  echo "expected CI idempotency checks to find tools installed into HOME/.local/bin by bootstrap.sh"
   exit 1
 fi
 
@@ -283,6 +383,21 @@ fi
 
 if ! search_file 'Record installed lazygit version' "$lazygit_task"; then
   echo "expected lazygit install to record the installed version"
+  exit 1
+fi
+
+if ! awk '
+  /Create temporary directory for lazygit download/ { in_task = 1; next }
+  /^    - name:/ && in_task { in_task = 0 }
+  in_task && /changed_when: false/ { found = 1 }
+  END { exit(found ? 0 : 1) }
+' "$lazygit_task"; then
+  echo "expected lazygit temporary download directory creation to be idempotency-neutral"
+  exit 1
+fi
+
+if ! search_file 'changed_when: false' "$services_task_main"; then
+  echo "expected managed user service activation to be idempotency-neutral in CI logs"
   exit 1
 fi
 

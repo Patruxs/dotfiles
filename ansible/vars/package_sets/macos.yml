@@ -1,0 +1,64 @@
+---
+platform: macos
+package_family: brew
+
+package_sets:
+  core_cli:
+    brew:
+      - git
+      - curl
+      - wget
+      - unzip
+      - zsh
+      - bash
+      - neovim
+      - tmux
+      - btop
+      - ripgrep
+      - fd
+      - fzf
+      - jq
+      - bat
+      - eza
+      - lazygit
+      - gh
+  desktop_base:
+    cask:
+      - visual-studio-code
+      - gitbutler
+      - obsidian
+  desktop_apps:
+    cask:
+      - telegram
+      - zoom
+      - spotify
+      - postman
+      - onlyoffice
+      - obs
+      - microsoft-edge
+      - anki
+      - termius
+  devtools:
+    brew:
+      - node
+      - python
+      - go
+      - gcc
+  docker_desktop:
+    cask:
+      - docker-desktop
+  ghostty_terminal:
+    cask:
+      - ghostty
+  jetbrains_toolbox:
+    cask:
+      - jetbrains-toolbox
+  kiro_ide:
+    cask:
+      - kiro
+  virtualbox:
+    cask:
+      - virtualbox
+  warp_terminal:
+    cask:
+      - warp

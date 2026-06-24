@@ -43,7 +43,8 @@ function Assert-LastExitCode {
     return
   }
 
-  if ($AllowWingetNoApplicableUpgrade -and ([uint32]$LASTEXITCODE -eq 0x8A15002B)) {
+  # winget reports 0x8A15002B through PowerShell's $LASTEXITCODE as a signed Int32.
+  if ($AllowWingetNoApplicableUpgrade -and $LASTEXITCODE -eq -1978335189) {
     Write-Host "$CommandName reported no available upgrade. Continuing."
     return
   }

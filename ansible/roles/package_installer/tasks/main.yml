@@ -1,0 +1,85 @@
+---
+- name: Build selected package lists
+  vars:
+    selected_package_set_names: "{{ features | intersect((platform_package_data.package_sets | default({})).keys() | list) }}"
+    selected_package_sets: "{{ selected_package_set_names | map('extract', platform_package_data.package_sets | default({})) | list }}"
+    ci_excluded_system_packages:
+      - flatpak
+      - docker
+      - docker.io
+      - moby-engine
+    docker_desktop_conflicting_system_packages: >-
+      {{
+        ['docker.io']
+        if dotfiles_platform.distro_key == 'debian'
+        else ['moby-engine']
+        if dotfiles_platform.distro_key == 'fedora'
+        else ['docker']
+        if dotfiles_platform.distro_key == 'arch'
+        else []
+      }}
+    merged_system_packages: >-
+      {{
+        selected_package_sets
+        | map(attribute=dotfiles_platform.package_family)
+        | select('defined')
+        | flatten
+        | list
+      }}
+    system_package_exclusions: >-
+      {{
+        (ci_excluded_system_packages if dotfiles_ci | default(false) else []) +
+        (
+          docker_desktop_conflicting_system_packages
+          if 'docker-desktop' in (linux_native_apps | default([]))
+          else []
+        )
+      }}
+  set_fact:
+    system_packages: >-
+      {{
+        merged_system_packages
+        | reject('in', system_package_exclusions)
+        | list
+      }}
+    homebrew_brews: >-
+      {{
+        selected_package_sets
+        | map(attribute='brew')
+        | select('defined')
+        | flatten
+        | list
+      }}
+    homebrew_casks: >-
+      {{
+        []
+        if dotfiles_ci | default(false)
+        else
+        (
+          selected_package_sets
+          | map(attribute='cask')
+          | select('defined')
+          | flatten
+          | list
+        )
+      }}
+    flatpak_apps: >-
+      {{
+        selected_package_sets
+        | map(attribute='flatpak')
+        | select('defined')
+        | flatten
+        | list
+      }}
+
+- name: Install Linux system packages
+  include_tasks: "{{ chezmoi_dir }}/ansible/roles/packages/tasks/linux-{{ dotfiles_platform.distro_key }}.yml"
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - dotfiles_platform.distro_key != ''
+    - system_packages | length > 0
+
+- name: Install Homebrew packages
+  include_tasks: "{{ chezmoi_dir }}/ansible/roles/packages/tasks/macos.yml"
+  when:
+    - dotfiles_platform.os_family == 'Darwin'

@@ -1,0 +1,81 @@
+---
+- name: Fail when profile omits supported platforms
+  fail:
+    msg: "Profile '{{ profile }}' must declare supported_platforms."
+  when: supported_platforms is not defined
+
+- name: Fail when profile omits features
+  fail:
+    msg: "Profile '{{ profile }}' must declare features."
+  when: features is not defined
+
+- name: Fail when selected platform is not supported by profile
+  fail:
+    msg: "Profile '{{ profile }}' does not support platform '{{ dotfiles_platform.name }}'. Supported platforms: {{ supported_platforms | join(', ') }}."
+  when: dotfiles_platform.name not in supported_platforms
+
+- name: Define known feature implementations
+  set_fact:
+    dotfiles_feature_execution_order:
+      - desktop_base
+      - shell
+      - npm_global_tools
+      - ai_clis
+      - docker_desktop
+      - flatpak_apps
+      - warp_terminal
+      - ghostty_terminal
+      - jetbrains_toolbox
+      - virtualbox
+      - kiro_ide
+
+- name: Find feature role directories
+  find:
+    paths: "{{ chezmoi_dir }}/ansible/roles/features"
+    file_type: directory
+    depth: 1
+  register: dotfiles_feature_role_dirs
+
+- name: Record feature roles from filesystem
+  set_fact:
+    dotfiles_known_feature_roles: "{{ dotfiles_feature_role_dirs.files | map(attribute='path') | map('basename') | list }}"
+
+- name: Compute unknown selected features
+  set_fact:
+    dotfiles_unknown_features: >-
+      {{
+        features
+        | difference((platform_package_data.package_sets | default({})).keys() | list + dotfiles_known_feature_roles)
+        | list
+      }}
+
+- name: Fail when selected features have no implementation
+  fail:
+    msg: "Unknown feature(s) for platform '{{ dotfiles_platform.name }}': {{ dotfiles_unknown_features | join(', ') }}."
+  when: dotfiles_unknown_features | length > 0
+
+- name: Define unsupported selected feature checks
+  set_fact:
+    dotfiles_unsupported_features: >-
+      {{
+        []
+        + (['docker_desktop'] if 'docker_desktop' in features and dotfiles_platform.name == 'ubuntu' and not (dotfiles_platform.distribution == 'Ubuntu' and dotfiles_platform.distribution_version in ['24.04', '26.04'] and dotfiles_platform.architecture in ['x86_64', 'amd64']) else [])
+        + (['docker_desktop'] if 'docker_desktop' in features and dotfiles_platform.name == 'fedora' and not ((dotfiles_platform.distribution_major_version | int) >= 43 and dotfiles_platform.architecture in ['x86_64', 'amd64']) else [])
+        + (['docker_desktop'] if 'docker_desktop' in features and dotfiles_platform.name == 'arch' and dotfiles_platform.architecture not in ['x86_64', 'amd64'] else [])
+        + (['kiro_ide'] if 'kiro_ide' in features and dotfiles_platform.system == 'Linux' and dotfiles_platform.architecture not in ['x86_64', 'amd64'] else [])
+        + (['virtualbox'] if 'virtualbox' in features and dotfiles_platform.name == 'arch' and dotfiles_platform.architecture not in ['x86_64', 'amd64'] else [])
+      }}
+
+- name: Fail when selected features are unsupported on this platform
+  fail:
+    msg: "Unsupported feature(s) for {{ dotfiles_platform.name }} {{ dotfiles_platform.distribution_version }} {{ dotfiles_platform.architecture }}: {{ dotfiles_unsupported_features | join(', ') }}."
+  when: dotfiles_unsupported_features | length > 0
+
+- name: Fail clearly when Linux privileged automation password is unavailable
+  fail:
+    msg: "DOTFILES_SUDO_PASSWORD_FILE was not provided and passwordless sudo is unavailable. Re-run bootstrap.sh from an interactive terminal."
+  when:
+    - ansible_facts["system"] == "Linux"
+    - not (dotfiles_ci | default(false))
+    - dotfiles_sudo_password_file == ""
+    - dotfiles_passwordless_sudo.rc != 0

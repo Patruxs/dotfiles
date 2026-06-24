@@ -1,0 +1,4 @@
+---
+- name: Install selected AI CLIs
+  include_role:
+    name: ai_tools

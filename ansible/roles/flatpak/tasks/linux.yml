@@ -12,5 +12,5 @@
     method: user
     remote: flathub
     state: latest
-  loop: "{{ (chezmoi_data.packages.common.flatpak.linux | default([])) + (chezmoi_data.packages[profile].flatpak.linux | default([])) }}"
+  loop: "{{ flatpak_apps | default([]) }}"
   ignore_errors: yes

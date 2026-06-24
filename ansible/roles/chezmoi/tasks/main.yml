@@ -6,6 +6,8 @@
       - apply
       - --source
       - "{{ chezmoi_dir }}"
+      - --override-data
+      - "{{ dotfiles_chezmoi_setup_data | default({}) | to_json }}"
       - --force
       - -v
   environment:

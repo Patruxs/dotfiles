@@ -119,18 +119,21 @@
         state: directory
         prefix: lazygit-
       register: lazygit_tmpdir
+      changed_when: false
 
     - name: Download lazygit tarball
       get_url:
         url: "https://github.com/jesseduffield/lazygit/releases/download/v{{ lazygit_desired_version }}/lazygit_{{ lazygit_desired_version }}_Linux_{{ lazygit_arch }}.tar.gz"
         dest: "{{ lazygit_tmpdir.path }}/lazygit.tar.gz"
         mode: "0644"
+      changed_when: false
 
     - name: Extract lazygit tarball
       unarchive:
         src: "{{ lazygit_tmpdir.path }}/lazygit.tar.gz"
         dest: "{{ lazygit_tmpdir.path }}"
         remote_src: yes
+      changed_when: false
 
     - name: Install lazygit binary
       copy:
@@ -151,3 +154,4 @@
         path: "{{ lazygit_tmpdir.path }}"
         state: absent
       when: lazygit_tmpdir is defined and lazygit_tmpdir.path is defined
+      changed_when: false

@@ -1,0 +1,29 @@
+---
+- name: Arch setup
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+
+  vars:
+    chezmoi_dir: "{{ lookup('env', 'DOTFILES_CHEZMOI_DIR') | default(lookup('env', 'HOME') ~ '/.local/share/chezmoi', true) }}"
+    dotfiles_ci: "{{ (lookup('env', 'DOTFILES_CI') | default('', true) | string | lower) in ['1', 'true', 'yes'] }}"
+    dotfiles_sudo_password_file: "{{ lookup('env', 'DOTFILES_SUDO_PASSWORD_FILE') | default('', true) }}"
+    dotfiles_platform:
+      name: arch
+      package_family: pacman
+      system: Linux
+      os_family: Archlinux
+      distribution: "{{ ansible_facts['distribution'] | default('') }}"
+      distribution_version: "{{ ansible_facts['distribution_version'] | default('') }}"
+      distribution_major_version: "{{ ansible_facts['distribution_major_version'] | default('') }}"
+      architecture: "{{ ansible_facts['architecture'] | default('') }}"
+      distro_key: arch
+
+  pre_tasks:
+    - name: Load Arch package set
+      include_vars:
+        file: "{{ chezmoi_dir }}/ansible/vars/package_sets/arch.yml"
+        name: platform_package_data
+
+  tasks:
+    - import_tasks: common.yml
