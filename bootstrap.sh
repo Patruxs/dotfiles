@@ -2,7 +2,11 @@
 set -euo pipefail
 
 repo="https://github.com/Patruxs/dotfiles.git"
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_source="${BASH_SOURCE[0]:-}"
+script_dir=""
+if [ -n "$script_source" ]; then
+  script_dir="$(cd "$(dirname "$script_source")" && pwd)"
+fi
 chezmoi_dir="$HOME/.local/share/chezmoi"
 OS="$(uname -s)"
 DISTRO=""

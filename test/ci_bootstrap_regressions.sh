@@ -28,6 +28,11 @@ ai_clis_data="$repo_root/.chezmoidata/ai-clis.yaml"
 chezmoi_bootstrap_script="$repo_root/.chezmoiscripts/run_once_before_00-bootstrap.sh.tmpl"
 workflow_file="$repo_root/.github/workflows/ci.yml"
 
+if ! bash -c "$(cat "$repo_root/bootstrap.sh")" -- --help >/dev/null; then
+  echo "expected bootstrap.sh to support README curl execution with bash -c"
+  exit 1
+fi
+
 search_file() {
   local pattern="$1"
   local path="$2"
