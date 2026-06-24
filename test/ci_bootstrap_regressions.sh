@@ -24,9 +24,11 @@ flatpak_feature="$repo_root/ansible/roles/features/flatpak_apps/tasks/main.yml"
 flatpak_task="$repo_root/ansible/roles/flatpak/tasks/linux.yml"
 ai_tools_task_main="$repo_root/ansible/roles/ai_tools/tasks/main.yml"
 ai_tools_unix_task="$repo_root/ansible/roles/ai_tools/tasks/unix.yml"
+ai_tools_unix_best_effort_task="$repo_root/ansible/roles/ai_tools/tasks/install_unix_cli_best_effort.yml"
 ai_clis_data="$repo_root/.chezmoidata/ai-clis.yaml"
 chezmoi_bootstrap_script="$repo_root/.chezmoiscripts/run_once_before_00-bootstrap.sh.tmpl"
 workflow_file="$repo_root/.github/workflows/ci.yml"
+run_feature_task="$repo_root/ansible/playbooks/run_feature_best_effort.yml"
 linux_privileged_task_files=(
   "$debian_packages_task"
   "$fedora_packages_task"
@@ -258,13 +260,25 @@ if ! search_file 'Assert-LastExitCode "winget install twpayne\.chezmoi" -AllowWi
   exit 1
 fi
 
-if ! search_file 'Assert-LastExitCode "npm install -g \$pkg@latest"' "$windows_bootstrap"; then
-  echo "expected bootstrap.ps1 to fail when npm global installs return a non-zero exit code"
+if ! search_file 'Invoke-BestEffort -Phase "npm_global"' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to record npm global install failures and continue in best-effort mode"
   exit 1
 fi
 
-if ! search_file 'Assert-LastExitCode "\$\(\$cli.Name\) installer"' "$windows_bootstrap"; then
-  echo "expected bootstrap.ps1 to fail when AI CLI installers return a non-zero exit code"
+if ! search_file 'Invoke-BestEffort -Phase "ai_cli"' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to record AI CLI installer failures and continue in best-effort mode"
+  exit 1
+fi
+
+if ! search_file '\$setupMode' "$windows_bootstrap" ||
+  ! search_file 'DOTFILES_SETUP_MODE' "$windows_bootstrap" ||
+  ! search_file 'Show-SetupFailureSummary' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to support setup modes and print a final failure summary"
+  exit 1
+fi
+
+if ! search_file '\$script:setupMode -eq "strict"' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 strict mode to preserve fail-fast installer behavior"
   exit 1
 fi
 
@@ -354,6 +368,13 @@ if ! search_file 'dotfiles_automation' "$ai_tools_task_main"; then
   exit 1
 fi
 
+if ! search_file 'install_unix_cli_best_effort\.yml' "$ai_tools_task_main" ||
+  ! search_file 'dotfiles_setup_failures' "$ai_tools_unix_best_effort_task" ||
+  ! search_file "dotfiles_setup_mode \\| default\\('best_effort'\\) == 'strict'" "$ai_tools_unix_best_effort_task"; then
+  echo "expected AI CLI Unix installers to support strict and best-effort setup modes"
+  exit 1
+fi
+
 if ! search_file 'Ensure user-local CLI install directories exist' "$ai_tools_task_main" ||
   ! search_file '\.local/bin' "$ai_tools_task_main" ||
   ! search_file '\.local/lib' "$ai_tools_task_main"; then
@@ -394,6 +415,13 @@ fi
 
 if ! search_file '--platform' "$repo_root/bootstrap.sh"; then
   echo "expected bootstrap.sh to accept a CI-only --platform override"
+  exit 1
+fi
+
+if ! search_file '--best-effort' "$repo_root/bootstrap.sh" ||
+  ! search_file '--strict' "$repo_root/bootstrap.sh" ||
+  ! search_file 'dotfiles_setup_mode=\$setup_mode' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to expose setup mode and pass it to Ansible"
   exit 1
 fi
 
@@ -459,8 +487,23 @@ if ! search_file 'dotfiles_chezmoi_setup_data' "$repo_root/ansible/roles/chezmoi
   exit 1
 fi
 
-if ! search_file 'include_role:' "$common_playbook" || ! search_file 'features/\{\{ selected_feature \}\}' "$common_playbook"; then
+if ! search_file 'include_role:' "$run_feature_task" || ! search_file 'features/\{\{ selected_feature \}\}' "$run_feature_task"; then
   echo "expected common flow to run selected feature roles by feature name"
+  exit 1
+fi
+
+if ! search_file 'dotfiles_setup_mode' "$common_playbook" ||
+  ! search_file 'DOTFILES_SETUP_MODE' "$common_playbook" ||
+  ! search_file 'Show setup failure summary' "$common_playbook" ||
+  ! search_file 'dotfiles_setup_failures' "$common_playbook"; then
+  echo "expected common flow to support setup modes and print a final failure summary"
+  exit 1
+fi
+
+if ! search_file 'dotfiles_setup_mode == '\''strict'\''' "$run_feature_task" ||
+  ! search_file 'dotfiles_setup_mode == '\''best_effort'\''' "$run_feature_task" ||
+  ! search_file 'dotfiles_setup_failures' "$run_feature_task"; then
+  echo "expected feature execution helper to preserve strict mode and record best-effort failures"
   exit 1
 fi
 

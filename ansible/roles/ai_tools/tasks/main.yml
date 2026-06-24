@@ -30,7 +30,7 @@
     - not (dotfiles_automation | default(false))
 
 - name: Install AI CLIs (Unix)
-  include_tasks: unix.yml
+  include_tasks: install_unix_cli_best_effort.yml
   loop: "{{ (ai_clis_data.ai_clis.clis | default({})) | dict2items }}"
   loop_control:
     loop_var: ai_cli

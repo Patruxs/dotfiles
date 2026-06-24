@@ -1,0 +1,25 @@
+---
+- name: Run selected feature role {{ selected_feature }} (strict)
+  include_role:
+    name: "features/{{ selected_feature }}"
+  when: dotfiles_setup_mode == 'strict'
+
+- name: Run selected feature role {{ selected_feature }} (best effort)
+  block:
+    - include_role:
+        name: "features/{{ selected_feature }}"
+  rescue:
+    - name: Record selected feature failure
+      set_fact:
+        dotfiles_setup_failures: >-
+          {{
+            dotfiles_setup_failures + [
+              {
+                'phase': 'feature',
+                'name': selected_feature,
+                'task': ansible_failed_task.name | default('unknown task'),
+                'error': ansible_failed_result.msg | default(ansible_failed_result.stderr | default(ansible_failed_result | to_json))
+              }
+            ]
+          }}
+  when: dotfiles_setup_mode == 'best_effort'

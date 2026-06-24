@@ -1,5 +1,7 @@
 param(
-    [string]$ProfileName = ""
+    [string]$ProfileName = "",
+    [ValidateSet("", "best_effort", "strict")]
+    [string]$SetupMode = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -7,6 +9,14 @@ $repoHttps = "https://github.com/Patruxs/dotfiles.git"
 $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } elseif ($PSCommandPath) { Split-Path -Parent $PSCommandPath } else { $null }
 $chezmoiSource = Join-Path $HOME ".local/share/chezmoi"
 $profileCacheFile = Join-Path $HOME ".dotfiles_profile"
+$setupMode = if (-not [string]::IsNullOrWhiteSpace($SetupMode)) {
+  $SetupMode
+} elseif ($env:DOTFILES_SETUP_MODE -match "^(best_effort|strict)$") {
+  $env:DOTFILES_SETUP_MODE
+} else {
+  "best_effort"
+}
+$setupFailures = @()
 
 function Test-IsCi {
   $ciValue = $env:DOTFILES_CI
@@ -50,6 +60,60 @@ function Assert-LastExitCode {
   }
 
   throw "$CommandName failed with exit code $LASTEXITCODE."
+}
+
+function Add-SetupFailure {
+  param(
+    [string]$Phase,
+    [string]$Name,
+    [object]$ErrorRecord
+  )
+
+  $message = if ($null -ne $ErrorRecord -and $null -ne $ErrorRecord.Exception) {
+    $ErrorRecord.Exception.Message
+  } elseif ($null -ne $ErrorRecord) {
+    [string]$ErrorRecord
+  } else {
+    "Unknown error"
+  }
+
+  $script:setupFailures += [pscustomobject]@{
+    Phase = $Phase
+    Name = $Name
+    Error = $message
+  }
+}
+
+function Invoke-BestEffort {
+  param(
+    [string]$Phase,
+    [string]$Name,
+    [scriptblock]$ScriptBlock
+  )
+
+  try {
+    & $ScriptBlock
+  } catch {
+    if ($script:setupMode -eq "strict") {
+      throw
+    }
+
+    Add-SetupFailure -Phase $Phase -Name $Name -ErrorRecord $_
+    Write-Warning "$Phase '$Name' failed. Continuing setup."
+  }
+}
+
+function Show-SetupFailureSummary {
+  if ($script:setupFailures.Count -eq 0) {
+    Write-Host "Bootstrap complete. No best-effort failures recorded."
+    return
+  }
+
+  Write-Warning "Bootstrap finished with $($script:setupFailures.Count) best-effort failure(s)."
+  Write-Host "Items to install or fix manually:"
+  foreach ($failure in $script:setupFailures) {
+    Write-Host "- [$($failure.Phase)] $($failure.Name): $($failure.Error)"
+  }
 }
 
 function Show-Banner {
@@ -142,9 +206,11 @@ function Install-WingetPackages {
   if (-not (Test-Path $TemplatePath)) {
     Write-Warning "Winget import template not found at $TemplatePath. Falling back to sequential installs."
     foreach ($pkg in $PackageIds) {
-      Write-Host "Installing or updating $pkg via winget..."
-      winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent --disable-interactivity
-      Assert-LastExitCode "winget install $pkg"
+      Invoke-BestEffort -Phase "windows_package" -Name $pkg -ScriptBlock {
+        Write-Host "Installing or updating $pkg via winget..."
+        winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent --disable-interactivity
+        Assert-LastExitCode "winget install $pkg"
+      }
     }
     return
   }
@@ -153,9 +219,11 @@ function Install-WingetPackages {
   if ($null -eq $manifest.Sources -or $manifest.Sources.Count -eq 0) {
     Write-Warning "Winget import template at $TemplatePath is missing Sources data. Falling back to sequential installs."
     foreach ($pkg in $PackageIds) {
-      Write-Host "Installing or updating $pkg via winget..."
-      winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent --disable-interactivity
-      Assert-LastExitCode "winget install $pkg"
+      Invoke-BestEffort -Phase "windows_package" -Name $pkg -ScriptBlock {
+        Write-Host "Installing or updating $pkg via winget..."
+        winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent --disable-interactivity
+        Assert-LastExitCode "winget install $pkg"
+      }
     }
     return
   }
@@ -224,7 +292,9 @@ if (Test-IsCi) {
     Write-Host "Skipping package installs in lightweight CI mode."
 } else {
     Write-Host "Installing packages for $profile profile..."
-    Install-WingetPackages -PackageIds $pkgs -TemplatePath $wingetTemplateFile
+    Invoke-BestEffort -Phase "windows_packages" -Name "winget import" -ScriptBlock {
+      Install-WingetPackages -PackageIds $pkgs -TemplatePath $wingetTemplateFile
+    }
 }
 
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
@@ -232,9 +302,11 @@ $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";"
 if ((-not (Test-IsCi)) -and $null -ne $data.devtools.npm_global_packages -and (Get-Command npm -ErrorAction SilentlyContinue)) {
     Write-Host "Installing or updating global npm development tools..."
     foreach ($pkg in $data.devtools.npm_global_packages) {
-        Write-Host "Installing or updating npm package $pkg..."
-        npm install -g "$pkg@latest"
-        Assert-LastExitCode "npm install -g $pkg@latest"
+        Invoke-BestEffort -Phase "npm_global" -Name $pkg -ScriptBlock {
+            Write-Host "Installing or updating npm package $pkg..."
+            npm install -g "$pkg@latest"
+            Assert-LastExitCode "npm install -g $pkg@latest"
+        }
     }
 }
 
@@ -243,11 +315,13 @@ if ((-not (Test-IsCi)) -and $null -ne $data.ai_clis.clis) {
     foreach ($cli in $data.ai_clis.clis.PSObject.Properties) {
         $cmd = $cli.Value.install.windows
         if ($null -ne $cmd) {
-            Write-Host "Running AI CLI installer for $($cli.Name)..."
-            Invoke-Expression $cmd
-            Assert-LastExitCode "$($cli.Name) installer"
+            Invoke-BestEffort -Phase "ai_cli" -Name $cli.Name -ScriptBlock {
+                Write-Host "Running AI CLI installer for $($cli.Name)..."
+                Invoke-Expression $cmd
+                Assert-LastExitCode "$($cli.Name) installer"
+            }
         }
     }
 }
 
-Write-Host "Bootstrap complete."
+Show-SetupFailureSummary

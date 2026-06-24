@@ -11,6 +11,7 @@ chezmoi_dir="$HOME/.local/share/chezmoi"
 OS="$(uname -s)"
 DISTRO=""
 platform=""
+setup_mode="${DOTFILES_SETUP_MODE:-best_effort}"
 
 if [ "$OS" = "Linux" ] && [ -f /etc/os-release ]; then
   . /etc/os-release
@@ -419,8 +420,16 @@ while [[ $# -gt 0 ]]; do
       platform="$2"
       shift 2
       ;;
+    --strict)
+      setup_mode="strict"
+      shift
+      ;;
+    --best-effort)
+      setup_mode="best_effort"
+      shift
+      ;;
     --help|-h)
-      echo "Usage: $0 [--profile personal|work] [--platform ubuntu|fedora|arch|macos]"
+      echo "Usage: $0 [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--best-effort|--strict]"
       exit 0
       ;;
     *)
@@ -443,6 +452,16 @@ case "$profile" in
   *)
     echo "Invalid profile: $profile"
     echo "Use --profile personal or --profile work."
+    exit 1
+    ;;
+esac
+
+case "$setup_mode" in
+  best_effort|strict)
+    ;;
+  *)
+    echo "Invalid setup mode: $setup_mode"
+    echo "Use --best-effort, --strict, or DOTFILES_SETUP_MODE=best_effort|strict."
     exit 1
     ;;
 esac
@@ -489,6 +508,7 @@ ansible_args=(-i "localhost," "$ansible_playbook")
 if [ -n "$profile" ]; then
   ansible_args+=(-e "profile=$profile")
 fi
+ansible_args+=(-e "dotfiles_setup_mode=$setup_mode")
 
 if [ "$OS" = "Linux" ] && [ -n "$become_password_file" ]; then
   export DOTFILES_SUDO_PASSWORD_FILE="$become_password_file"

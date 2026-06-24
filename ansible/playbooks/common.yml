@@ -15,6 +15,15 @@
         or ((lookup('env', 'CI') | default('', true) | string | lower) in ['1', 'true', 'yes'])
       }}
 
+- name: Detect setup mode
+  set_fact:
+    dotfiles_setup_mode: "{{ dotfiles_setup_mode | default(lookup('env', 'DOTFILES_SETUP_MODE') | default('best_effort', true), true) }}"
+
+- name: Fail when setup mode is invalid
+  fail:
+    msg: "Invalid setup mode '{{ dotfiles_setup_mode }}'. Use best_effort or strict."
+  when: dotfiles_setup_mode not in ['best_effort', 'strict']
+
 - name: Detect CI container environment
   set_fact:
     dotfiles_container_ci: >-
@@ -116,17 +125,41 @@
   include_role:
     name: profile_preflight
 
+- name: Initialize best-effort setup failure summary
+  set_fact:
+    dotfiles_setup_failures: []
+
 - name: Generate Chezmoi setup data
   include_role:
     name: chezmoi_setup_data
 
-- name: Install selected package-set entries
+- name: Install selected package-set entries (strict)
   include_role:
     name: package_installer
+  when: dotfiles_setup_mode == 'strict'
+
+- name: Install selected package-set entries (best effort)
+  block:
+    - include_role:
+        name: package_installer
+  rescue:
+    - name: Record package installation failure
+      set_fact:
+        dotfiles_setup_failures: >-
+          {{
+            dotfiles_setup_failures + [
+              {
+                'phase': 'packages',
+                'name': 'Install selected package-set entries',
+                'task': ansible_failed_task.name | default('unknown task'),
+                'error': ansible_failed_result.msg | default(ansible_failed_result.stderr | default(ansible_failed_result | to_json))
+              }
+            ]
+          }}
+  when: dotfiles_setup_mode == 'best_effort'
 
 - name: Run selected feature roles
-  include_role:
-    name: "features/{{ selected_feature }}"
+  include_tasks: run_feature_best_effort.yml
   loop: "{{ dotfiles_feature_execution_order }}"
   loop_control:
     loop_var: selected_feature
@@ -136,6 +169,40 @@
   include_role:
     name: chezmoi
 
-- name: Enable selected services
+- name: Enable selected services (strict)
   include_role:
     name: services
+  when: dotfiles_setup_mode == 'strict'
+
+- name: Enable selected services (best effort)
+  block:
+    - include_role:
+        name: services
+  rescue:
+    - name: Record service setup failure
+      set_fact:
+        dotfiles_setup_failures: >-
+          {{
+            dotfiles_setup_failures + [
+              {
+                'phase': 'services',
+                'name': 'Enable selected services',
+                'task': ansible_failed_task.name | default('unknown task'),
+                'error': ansible_failed_result.msg | default(ansible_failed_result.stderr | default(ansible_failed_result | to_json))
+              }
+            ]
+          }}
+  when: dotfiles_setup_mode == 'best_effort'
+
+- name: Show setup failure summary
+  debug:
+    msg: |
+      Setup finished with {{ dotfiles_setup_failures | length }} best-effort failure(s).
+      {% if dotfiles_setup_failures | length == 0 %}
+      Everything in the selected setup completed without recorded best-effort failures.
+      {% else %}
+      Items to install or fix manually:
+      {% for failure in dotfiles_setup_failures %}
+      - [{{ failure.phase }}] {{ failure.name }} failed at "{{ failure.task }}": {{ failure.error }}
+      {% endfor %}
+      {% endif %}
