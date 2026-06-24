@@ -40,7 +40,9 @@
         { "PackageIdentifier": "OBSProject.OBSStudio" },
         { "PackageIdentifier": "Anki.Anki" },
         { "PackageIdentifier": "Termius.Termius" },
-        { "PackageIdentifier": "Amazon.Kiro" }
+        { "PackageIdentifier": "Amazon.Kiro" },
+        { "PackageIdentifier": "JAMSoftware.TreeSize.Free" },
+        { "PackageIdentifier": "RevoUninstaller.RevoUninstaller" }
       ]
     }
   ]

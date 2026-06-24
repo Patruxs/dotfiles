@@ -157,6 +157,8 @@ packages:
         - jetbrains-toolbox
     windows:
       packages:
+        - JAMSoftware.TreeSize.Free
+        - RevoUninstaller.RevoUninstaller
         - Oracle.VirtualBox
         - JetBrains.Toolbox
         - Zoom.Zoom
@@ -190,6 +192,7 @@ packages:
       brews: []
       casks: []
     windows:
-      packages: []
+      packages:
+        - JAMSoftware.TreeSize.Free
     flatpak:
       linux: []
