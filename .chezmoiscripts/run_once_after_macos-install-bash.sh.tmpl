@@ -1,0 +1,36 @@
+{{- if eq .chezmoi.os "darwin" -}}
+#!/usr/bin/env bash
+
+# This script automates installing the latest bash on macOS and setting it as the default shell.
+# Note: macOS's default zsh (/bin/zsh) is protected by System Integrity Protection (SIP) 
+# and cannot (and should not) be uninstalled. We simply change the default shell to stop using it.
+
+set -euo pipefail
+
+# Check for Homebrew
+if ! command -v brew &> /dev/null; then
+    echo "Homebrew not found. Skipping bash installation."
+    exit 0
+fi
+
+echo "Installing latest bash via Homebrew..."
+brew install bash
+
+BREW_BASH="$(brew --prefix)/bin/bash"
+
+# Add the new bash to /etc/shells if not already present
+if ! grep -Fxq "$BREW_BASH" /etc/shells; then
+    echo "Adding $BREW_BASH to /etc/shells (you may be prompted for your sudo password)"
+    echo "$BREW_BASH" | sudo tee -a /etc/shells
+fi
+
+# Change the default shell
+if [ "$SHELL" != "$BREW_BASH" ]; then
+    echo "Changing default shell to $BREW_BASH for $USER (you may be prompted for your password)"
+    chsh -s "$BREW_BASH"
+    echo "Default shell changed. Please restart your terminal."
+else
+    echo "Bash is already the default shell."
+fi
+
+{{- end }}

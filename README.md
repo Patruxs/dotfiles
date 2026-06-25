@@ -22,7 +22,7 @@ irm https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.ps1 | iex
 ## 🛠 Usage
 
 ```sh
-chezmoi add ~/.zshrc     # Manage a new file
+chezmoi add ~/.bashrc    # Manage a new file
 chezmoi update -v        # Pull and apply latest changes
 chezmoi diff             # See what will change
 chezmoi doctor           # Troubleshoot issues
@@ -55,7 +55,7 @@ Chezmoi is set to `mode = "symlink"`. Tracked files are symlinked directly into 
 
 ### 2. What is stored in this repo?
 - **Ansible Logic**: Modular playbooks (`setup.yml`, `ubuntu.yml`, `arch.yml`, etc.) and roles for OS detection and package installations.
-- **Chezmoi Dotfiles**: Configuration templates (`*.tmpl`) that safely render secrets and symlink user settings (Zsh, Git, Neovim, etc.) into `$HOME`.
+- **Chezmoi Dotfiles**: Configuration templates (`*.tmpl`) that safely render secrets and symlink user settings (Bash, Git, Neovim, etc.) into `$HOME`.
 - **Package Maps**: Structured YAML files (`package_sets/`) that cleanly map tools to their respective OS package managers.
 - **Bootstrap Scripts**: Quick-start scripts (`bootstrap.sh`, `bootstrap.ps1`) to trigger the setup from zero.
 
@@ -65,7 +65,7 @@ The system is split into two primary profiles to keep work machines lean while f
 
 | Feature / App Category | Personal Profile | Work Profile | Description / Apps Included |
 | :--- | :---: | :---: | :--- |
-| **Core CLI & Shell** | ✅ | ✅ | `git`, `curl`, `wget`, `bash`, `neovim`, `tmux`, `btop`, `ripgrep`, `jq`, `bat`, `fzf`, Zsh, custom aliases (plus `fd`, `eza`, `lazygit`, `gh` on Arch/macOS) |
+| **Core CLI & Shell** | ✅ | ✅ | `git`, `curl`, `wget`, `bash`, `neovim`, `tmux`, `btop`, `ripgrep`, `jq`, `bat`, `fzf`, custom aliases (plus `fd`, `eza`, `lazygit`, `gh` on Arch/macOS) |
 | **Dev Tools & SDKs** | ✅ | ✅ | `nodejs`, `npm`, `python3`, `python-pip`, `gcc`, `go`, global npm tools |
 | **Desktop Base** | ✅ | ✅ | VS Code, GitButler, Obsidian, GParted |
 | **Modern Terminals** | ✅ | ✅ | Warp Terminal, Ghostty |

@@ -28,6 +28,14 @@ export GOPATH="${GOPATH:-$HOME/go}"
 path_prepend "$HOME/.local/go/bin"
 path_prepend "$GOPATH/bin"
 
+export THESIS_DIR="${THESIS_DIR:-$HOME/thesis}"
+export PERSONAL_DIR="${PERSONAL_DIR:-$HOME/personal}"
+
+alias thesis='cd "$THESIS_DIR"'
+alias personal='cd "$PERSONAL_DIR"'
+alias cdt='cd "$THESIS_DIR"'
+alias cdp='cd "$PERSONAL_DIR"'
+
 if [ -d "$HOME/.local/share/JetBrains/Toolbox/scripts" ]; then
   path_prepend "$HOME/.local/share/JetBrains/Toolbox/scripts"
 fi
