@@ -12,6 +12,7 @@ features:
   - shell
   - devtools
   - npm_global_tools
+  - bitwarden_cli
   - ai_clis
   - docker_desktop
   - flatpak_apps

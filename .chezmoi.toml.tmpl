@@ -1,8 +1,8 @@
 {{- $gitName := "CI User" -}}
 {{- $gitEmail := "ci@example.com" -}}
 {{- if not (env "CI") -}}
-{{-   $gitName = promptStringOnce . "git.name" "Git user.name" "Sora0977" -}}
-{{-   $gitEmail = promptStringOnce . "git.email" "Git user.email" "Sora0977@users.noreply.github.com" -}}
+{{-   $gitName = promptStringOnce . "git.name" "Git user.name" "" -}}
+{{-   $gitEmail = promptStringOnce . "git.email" "Git user.email" "" -}}
 {{- end -}}
 encryption = "gpg"
 mode = "symlink"

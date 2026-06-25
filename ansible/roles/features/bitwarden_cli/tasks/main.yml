@@ -1,0 +1,10 @@
+---
+- name: Install Bitwarden CLI via npm
+  community.general.npm:
+    name: "@bitwarden/cli"
+    global: true
+    state: latest
+  environment: "{{ devtools_npm_environment | default(omit) }}"
+  when:
+    - dotfiles_platform.system != 'Windows'
+    - not (dotfiles_ci | default(false))

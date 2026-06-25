@@ -2,6 +2,11 @@ README.md
 bootstrap.sh
 bootstrap.ps1
 packages/**
+ansible/
+ansible.cfg
+docs/
+CONTEXT.md
+patch_ps1.py
 
 # Generated per-machine config written by chezmoi templates.
 .gitconfig.local
@@ -26,6 +31,12 @@ packages/**
 .config/dconf/user
 .config/org.gnome.Ptyxis/session.gvariant
 
+{{- if or (ne .chezmoi.os "linux") (ne (default "personal" (get . "dotfiles_profile")) "personal") }}
+.config/monitors.xml
+.local/bin/auto-headphone-switch
+.config/systemd/user/auto-headphone-switch.service
+{{- end }}
+
 {{- if ne .chezmoi.os "linux" }}
 .config/MangoHud/**
 .config/fcitx5/**
@@ -33,6 +44,8 @@ packages/**
 .config/gpu-screen-recorder/**
 .config/mimeapps.list
 .config/systemd/**
+.config/user-dirs.dirs
+.config/user-dirs.locale
 {{- end }}
 
 {{- if ne .chezmoi.os "darwin" }}

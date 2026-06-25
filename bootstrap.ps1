@@ -342,6 +342,14 @@ if ((-not (Test-IsCi)) -and $null -ne $data.devtools.npm_global_packages -and (G
     }
 }
 
+if ($profile -eq "personal" -and (-not (Test-IsCi)) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
+    Invoke-BestEffort -Phase "bitwarden_cli" -Name "Bitwarden CLI" -ScriptBlock {
+        Write-Host "Installing Bitwarden CLI via NPM..."
+        npm install -g "@bitwarden/cli@latest"
+        Assert-LastExitCode "npm install -g @bitwarden/cli@latest"
+    }
+}
+
 if ((-not (Test-IsCi)) -and $null -ne $data.ai_clis.clis) {
     Write-Host "Installing AI CLIs..."
     foreach ($cli in $data.ai_clis.clis.PSObject.Properties) {
