@@ -1,0 +1,22 @@
+# Minimal Ghostty config.
+# Ghostty already has strong defaults, including JetBrains Mono and Nerd Font support.
+
+font-size = 12
+window-padding-x = 6
+window-padding-y = 4
+window-padding-balance = true
+
+cursor-style = block
+cursor-style-blink = false
+mouse-hide-while-typing = true
+
+# Better terminal behavior for shells, new tabs/splits, prompt marks, etc.
+shell-integration = detect
+shell-integration-features = cursor,sudo,title,ssh-env
+
+# Keep UI native and simple.
+window-theme = auto
+confirm-close-surface = true
+
+# Reload on Linux: Ctrl+Shift+,
+# Reload on macOS: Cmd+Shift+,

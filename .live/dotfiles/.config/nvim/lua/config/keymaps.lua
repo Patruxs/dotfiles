@@ -1,0 +1,11 @@
+-- Minimal LazyVim keymaps.
+-- Intentionally empty: use LazyVim defaults first.
+-- Press <Space> to open which-key and discover built-in commands.
+-- Useful defaults include:
+--   <C-h/j/k/l>  window navigation
+--   <S-h/l>      previous/next buffer
+--   <leader>ff   find files
+--   <leader>fg   live grep
+--   <leader>gg   lazygit, if lazygit is installed
+--   <leader>uw   toggle wrap
+--   <leader>ul   toggle line numbers
