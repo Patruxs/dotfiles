@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Generates wrapper scripts for flatpak applications in ~/.local/bin
+
+WRAPPER_DIR="$HOME/.local/bin"
+mkdir -p "$WRAPPER_DIR"
+
+while read -r app_id; do
+    [ -z "$app_id" ] && continue
+    cmd_name=$(echo "$app_id" | awk -F. '{print $NF}' | tr '[:upper:]' '[:lower:]')
+    
+    if [[ "$cmd_name" == "desktop" || "$cmd_name" == "client" || "$cmd_name" == "app" ]]; then
+        cmd_name=$(echo "$app_id" | awk -F. '{print $(NF-1)}' | tr '[:upper:]' '[:lower:]')
+    fi
+    
+    case "$app_id" in
+        "org.onlyoffice.desktopeditors") cmd_name="onlyoffice" ;;
+        "com.obsproject.Studio") cmd_name="obs" ;;
+        "org.localsend.localsend_app") cmd_name="localsend" ;;
+    esac
+
+    # Ensure flatpak has permission to access the host config directory
+    flatpak override --user --filesystem="$HOME/.config" "$app_id"
+
+    # Get the original command from flatpak metadata
+    orig_cmd=$(flatpak info --show-metadata "$app_id" | grep '^command=' | cut -d= -f2 | head -n1)
+
+    # If we couldn't find the original command, fallback to standard run
+    if [ -z "$orig_cmd" ]; then
+        exec_line="exec flatpak run \"$app_id\" \"\$@\""
+    else
+        exec_line="exec flatpak run --command=env \"$app_id\" XDG_CONFIG_HOME=\"\$HOME/.config\" \"$orig_cmd\" \"\$@\""
+    fi
+
+    wrapper_path="$WRAPPER_DIR/$cmd_name"
+    
+    # Write wrapper script
+    if [[ ! -e "$wrapper_path" ]] || grep -q "flatpak run" "$wrapper_path" 2>/dev/null; then
+        cat <<EOF > "$wrapper_path"
+#!/usr/bin/env bash
+$exec_line
+EOF
+        chmod +x "$wrapper_path"
+    fi
+
+    # Clean up any existing symlinks we might have created previously
+    flatpak_config_dir="$HOME/.var/app/$app_id/config"
+    flatpak_config="$flatpak_config_dir/$cmd_name"
+    if [ -L "$flatpak_config" ]; then
+        rm -f "$flatpak_config"
+    fi
+done < <(flatpak list --app --columns=application)

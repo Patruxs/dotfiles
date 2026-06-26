@@ -21,3 +21,18 @@ export NVM_DIR="$HOME/.nvm"
 if command -v mise >/dev/null 2>&1; then
   eval "$(mise activate bash)"
 fi
+
+# Override flatpak to automatically generate wrappers in ~/.local/bin
+flatpak() {
+  command flatpak "$@"
+  local ret=$?
+  for arg in "$@"; do
+    if [[ "$arg" == "install" || "$arg" == "update" || "$arg" == "remove" || "$arg" == "uninstall" ]]; then
+      if command -v update-flatpak-wrappers >/dev/null 2>&1; then
+        update-flatpak-wrappers
+      fi
+      break
+    fi
+  done
+  return $ret
+}

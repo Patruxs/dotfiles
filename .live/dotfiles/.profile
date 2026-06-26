@@ -28,8 +28,8 @@ export GOPATH="${GOPATH:-$HOME/go}"
 path_prepend "$HOME/.local/go/bin"
 path_prepend "$GOPATH/bin"
 
-export THESIS_DIR="${THESIS_DIR:-$HOME/thesis}"
-export PERSONAL_DIR="${PERSONAL_DIR:-$HOME/personal}"
+export THESIS_DIR="/mnt/Working/Working/School/Y4_2/Thesis"
+export PERSONAL_DIR="/mnt/Personal"
 
 alias thesis='cd "$THESIS_DIR"'
 alias personal='cd "$PERSONAL_DIR"'
