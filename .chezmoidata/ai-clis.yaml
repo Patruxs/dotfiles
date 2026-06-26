@@ -24,3 +24,8 @@ ai_clis:
         unix: npm install -g opencode-ai
         windows: npm install -g opencode-ai
       login: Run `opencode`, then use `/connect`.
+    herdr:
+      command: herdr
+      install:
+        unix: curl -fsSL https://herdr.dev/install.sh | sh
+      login: Run `herdr` to get started.
