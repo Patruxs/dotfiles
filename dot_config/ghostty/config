@@ -2,15 +2,15 @@
 # Change the theme in ~/.config/dwm-titus/themes.toml instead.
 theme = Nord
 window-theme = ghostty
-window-height = 35
-window-width = 100
+window-height = 45
+window-width = 150
 background-opacity = 0.95
 font-family = MesloLGS NF
 font-family-bold = MesloLGS NF
 font-family-italic = MesloLGS NF
 font-family-bold-italic = MesloLGS NF
 font-size = 14
-gtk-titlebar = false
+gtk-titlebar = true
 confirm-close-surface = false
 
 
