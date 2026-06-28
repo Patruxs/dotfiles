@@ -25,7 +25,7 @@ agent_panel_sort = "priority"
 accent = "cyan"
 
 [keys]
-prefix = "ctrl+g"
+prefix = "ctrl+b"
 
 detach = "prefix+q"
 workspace_picker = "prefix+w"
