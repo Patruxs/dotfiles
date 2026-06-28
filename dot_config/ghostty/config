@@ -1,10 +1,9 @@
-# Active theme — managed by theme-apply.sh, do not edit manually.
-# Change the theme in ~/.config/dwm-titus/themes.toml instead.
-theme = Nord
+theme = Adwaita Dark
 window-theme = ghostty
 window-height = 45
 window-width = 150
-background-opacity = 0.95
+background-opacity = 0.9
+background = 222226
 font-family = MesloLGS NF
 font-family-bold = MesloLGS NF
 font-family-italic = MesloLGS NF
