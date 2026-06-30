@@ -1,15 +1,15 @@
-theme = Adwaita Dark
+theme = Nord
 window-theme = ghostty
-window-height = 45
-window-width = 150
-background-opacity = 0.9
-background = 222226
+window-height = 40
+window-width = 140
+background-opacity = 0.85
+#background = 222226
 font-family = MesloLGS NF
 font-family-bold = MesloLGS NF
 font-family-italic = MesloLGS NF
 font-family-bold-italic = MesloLGS NF
 font-size = 14
-gtk-titlebar = true
+gtk-titlebar = false
 confirm-close-surface = false
 
 

@@ -9,8 +9,9 @@ shell_mode = "auto"
 new_cwd = "follow"
 
 [theme]
-name = "terminal"
+name = "nord"
 
+auto_switch = false
 [ui]
 sidebar_width = 28
 sidebar_min_width = 18
@@ -20,8 +21,8 @@ confirm_close = true
 prompt_new_tab_name = false
 pane_borders = true
 pane_gaps = false
-show_agent_labels_on_pane_borders = false
-agent_panel_sort = "priority"
+show_agent_labels_on_pane_borders = true
+agent_panel_sort = "spaces"
 accent = "cyan"
 
 [keys]
@@ -55,3 +56,6 @@ close_pane = "prefix+x"
 zoom = "prefix+z"
 resize_mode = "prefix+r"
 toggle_sidebar = "prefix+b"
+
+[ui.toast]
+delivery = "terminal"
