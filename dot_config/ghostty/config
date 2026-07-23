@@ -1,4 +1,4 @@
-theme = Nord
+theme = Xcode Dark
 window-theme = ghostty
 window-height = 40
 window-width = 140
@@ -10,6 +10,7 @@ font-family-italic = MesloLGS NF
 font-family-bold-italic = MesloLGS NF
 font-size = 14
 gtk-titlebar = false
+window-decoration = server
 confirm-close-surface = false
 
 

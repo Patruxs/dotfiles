@@ -1,3 +1,6 @@
 {
-  "$schema": "https://opencode.ai/config.json"
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "/home/pat/.config/ai-agent-instructions/AGENTS.md"
+  ]
 }
