@@ -1,0 +1,9 @@
+{{- if eq .chezmoi.os "windows" -}}
+if (Get-Command winget -ErrorAction SilentlyContinue) {
+    winget install --id yorukot.superfile
+} elseif (Get-Command scoop -ErrorAction SilentlyContinue) {
+    scoop install superfile
+} else {
+    Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://superfile.dev/install.ps1'))
+}
+{{- end }}

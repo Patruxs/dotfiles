@@ -1,0 +1,4 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/bin/bash
+bash -c "$(curl -sLo- https://superfile.dev/install.sh)"
+{{- end }}
