@@ -44,14 +44,9 @@ The bootstrap script detects your operating system and asks you to choose a `per
 
 ## 🍴 Use It as Your Own
 
-1. Fork this repository.
-2. Replace `Patruxs/dotfiles` with your fork path in the bootstrap scripts, Chezmoi config, and README.
-3. Replace the GPG recipient in `.chezmoi.toml.tmpl` with your own key.
-4. Remove or replace the files in `private_dot_ssh/`. The private-key templates expect matching Bitwarden items and the tracked `.pub` files belong to this repository's owner.
-5. Customize packages in `.chezmoidata/`, profiles in `ansible/vars/profiles/`, and configuration files in `.live/dotfiles/`.
-6. Run `./test/test_harness.sh` before using the bootstrap script on your machine.
+Fork or clone the repository, replace the owner-specific values, and select the software and configs you want. Follow the [customization guide](CUSTOMIZING.md) for the complete process.
 
-Never commit passwords, tokens, private SSH keys, or generated application state. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow.
+Never commit passwords, tokens, private SSH keys, or generated application state.
 
 ## 🛠 Usage
 
