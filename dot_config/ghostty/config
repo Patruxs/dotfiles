@@ -8,8 +8,7 @@ font-family = MesloLGS NF
 font-family-bold = MesloLGS NF
 font-family-italic = MesloLGS NF
 font-family-bold-italic = MesloLGS NF
-font-size = 14
-gtk-titlebar = false
+font-size = 1
 window-decoration = server
 confirm-close-surface = false
 

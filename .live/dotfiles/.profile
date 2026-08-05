@@ -51,3 +51,4 @@ if command -v pnpm >/dev/null 2>&1; then
 fi
 
 export PATH
+. "$HOME/.cargo/env"

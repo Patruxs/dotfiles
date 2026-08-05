@@ -74,3 +74,4 @@ unset __mamba_setup
 # <<< mamba initialize <<<
 
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash)"
+. "$HOME/.cargo/env"

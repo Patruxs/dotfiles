@@ -1,4 +1,5 @@
 {
+  "mcp": {"semble": {"command": ["uvx", "--from", "semble[mcp]==0.5.3", "semble"], "type": "local", "enabled": true}},
   "$schema": "https://opencode.ai/config.json",
   "instructions": [
     "/home/pat/.config/ai-agent-instructions/AGENTS.md"
