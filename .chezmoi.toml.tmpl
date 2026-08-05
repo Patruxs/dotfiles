@@ -1,20 +1,22 @@
 {{- $gitName := "CI User" -}}
 {{- $gitEmail := "ci@example.com" -}}
+{{- $gpgRecipient := env "CHEZMOI_GPG_RECIPIENT" -}}
 {{- if not (env "CI") -}}
 {{-   $gitName = promptStringOnce . "git.name" "Git user.name" "" -}}
 {{-   $gitEmail = promptStringOnce . "git.email" "Git user.email" "" -}}
+{{-   if not $gpgRecipient -}}
+{{-     $gpgRecipient = promptStringOnce . "gpg.recipient" "GPG recipient (optional)" "" -}}
+{{-   end -}}
 {{- end -}}
-encryption = "gpg"
 mode = "symlink"
+sourceDir = {{ .chezmoi.sourceDir | quote }}
 
+{{ if $gpgRecipient }}
+encryption = "gpg"
 [gpg]
-    recipient = "0E923D7CC07C7873C6C4D0F35BC1E5D2E24B1DC9"
+    recipient = {{ $gpgRecipient | quote }}
     args = ["--quiet"]
-
-[data]
-    dotfiles_repo_https = "https://github.com/Patruxs/dotfiles.git"
-    dotfiles_repo_ssh = "git@github.com:Patruxs/dotfiles.git"
-    dotfiles_owner = "Patruxs"
+{{ end }}
 
 [data.git]
     name = {{ $gitName | quote }}

@@ -5,7 +5,11 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$repoHttps = "https://github.com/Patruxs/dotfiles.git"
+$repoHttps = if (-not [string]::IsNullOrWhiteSpace($env:DOTFILES_REPO)) {
+  $env:DOTFILES_REPO
+} else {
+  "https://github.com/Patruxs/dotfiles.git"
+}
 $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } elseif ($PSCommandPath) { Split-Path -Parent $PSCommandPath } else { $null }
 $chezmoiSource = Join-Path $HOME ".local/share/chezmoi"
 $profileCacheFile = Join-Path $HOME ".dotfiles_profile"
@@ -24,14 +28,8 @@ function Test-IsCi {
   return $ciValue -match "^(1|true|yes)$"
 }
 
-function Test-IsAutomation {
-  $ciValue = if ($env:GITHUB_ACTIONS) { $env:GITHUB_ACTIONS } elseif ($env:CI) { $env:CI } else { $env:DOTFILES_CI }
-  return $ciValue -match "^(1|true|yes)$"
-}
-
 function Test-UsingCheckedOutSource {
   return (
-    (Test-IsAutomation) -and
     $null -ne $scriptDir -and
     (Test-Path (Join-Path $scriptDir ".git")) -and
     (Test-Path (Join-Path $scriptDir "packages/winget.json"))
@@ -293,7 +291,11 @@ if (-not (Get-Command chezmoi -ErrorAction SilentlyContinue)) {
   }
 }
 
-if (-not (Test-Path (Join-Path $chezmoiSource ".git"))) {
+if (Test-UsingCheckedOutSource) {
+  Write-Host "Initializing Chezmoi from checked-out source: $chezmoiSource"
+  chezmoi init --source $chezmoiSource
+  Assert-LastExitCode "chezmoi init checked-out source"
+} elseif (-not (Test-Path (Join-Path $chezmoiSource ".git"))) {
   chezmoi init $repoHttps
   Assert-LastExitCode "chezmoi init"
 } else {

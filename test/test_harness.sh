@@ -71,16 +71,51 @@ trap cleanup_tmpdir EXIT
 
 mkdir -p "$tmpdir/home" "$tmpdir/cache"
 
-chezmoi apply \
+log_info "Initializing Chezmoi from the checked-out source with a clean home..."
+HOME="$tmpdir/home" CI=1 chezmoi init \
+    --source "$REPO_ROOT" \
+    --destination "$tmpdir/home" \
+    --config "$tmpdir/chezmoi.toml" \
+    --cache "$tmpdir/cache" \
+    --persistent-state "$tmpdir/chezmoi-state.boltdb" || {
+    log_err "Chezmoi local source initialization failed."
+    exit 1
+}
+
+if ! grep -Fq "sourceDir = \"$REPO_ROOT\"" "$tmpdir/chezmoi.toml"; then
+    log_err "Generated Chezmoi config did not remember the checked-out source."
+    exit 1
+fi
+
+if grep -Fq 'encryption = "gpg"' "$tmpdir/chezmoi.toml"; then
+    log_err "Generated Chezmoi config enabled GPG without a recipient."
+    exit 1
+fi
+
+HOME="$tmpdir/home" CI=1 CHEZMOI_GPG_RECIPIENT="TEST-RECIPIENT" chezmoi init \
+    --source "$REPO_ROOT" \
+    --destination "$tmpdir/home" \
+    --config "$tmpdir/chezmoi-gpg.toml" \
+    --cache "$tmpdir/cache" \
+    --persistent-state "$tmpdir/chezmoi-gpg-state.boltdb" || {
+    log_err "Chezmoi GPG configuration initialization failed."
+    exit 1
+}
+
+if ! grep -Fq 'recipient = "TEST-RECIPIENT"' "$tmpdir/chezmoi-gpg.toml"; then
+    log_err "Generated Chezmoi config did not preserve the provided GPG recipient."
+    exit 1
+fi
+
+HOME="$tmpdir/home" CI=1 chezmoi apply \
     --dry-run \
     --force \
     --no-tty \
-    --mode symlink \
     --source "$REPO_ROOT" \
     --destination "$tmpdir/home" \
+    --config "$tmpdir/chezmoi.toml" \
     --cache "$tmpdir/cache" \
-    --persistent-state "$tmpdir/chezmoi-state.boltdb" \
-    --override-data '{"git":{"name":"CI User","email":"ci@example.com"}}' || {
+    --persistent-state "$tmpdir/chezmoi-state.boltdb" || {
     log_err "Chezmoi dry run failed. Check template syntax."
     exit 1
 }

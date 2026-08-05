@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo="https://github.com/Patruxs/dotfiles.git"
+repo="${DOTFILES_REPO:-https://github.com/Patruxs/dotfiles.git}"
 script_source="${BASH_SOURCE[0]:-}"
 script_dir=""
 if [ -n "$script_source" ]; then
@@ -33,20 +33,9 @@ is_ci() {
   esac
 }
 
-is_automation() {
-  case "${GITHUB_ACTIONS:-${CI:-${DOTFILES_CI:-}}}" in
-    1|true|TRUE|yes|YES)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
 using_checked_out_source() {
-  is_automation &&
-    [ -d "$script_dir/.git" ] &&
+  [ -n "$script_dir" ] &&
+    [ -e "$script_dir/.git" ] &&
     [ -f "$script_dir/ansible/playbooks/setup.yml" ]
 }
 
@@ -485,7 +474,10 @@ else
   chezmoi upgrade || echo "Warning: could not self-upgrade chezmoi. Continuing with the current version."
 fi
 
-if [ ! -d "$chezmoi_dir/.git" ]; then
+if using_checked_out_source; then
+  echo "Initializing Chezmoi from checked-out source: $chezmoi_dir"
+  chezmoi init --source "$chezmoi_dir"
+elif [ ! -d "$chezmoi_dir/.git" ]; then
   chezmoi init "$repo"
 else
   refresh_repo

@@ -47,7 +47,7 @@ fi
 
 
 # pnpm
-export PNPM_HOME="/home/pat/.local/share/pnpm"
+export PNPM_HOME="$HOME/.local/share/pnpm"
 case ":$PATH:" in
   *":$PNPM_HOME/bin:"*) ;;
   *) export PATH="$PNPM_HOME/bin:$PATH" ;;
@@ -61,17 +61,20 @@ export PATH="$HOME/.grok/bin:$PATH"
 # <<< grok installer <<<
 
 # >>> mamba initialize >>>
-# !! Contents within this block are managed by 'micromamba shell init' !!
-export MAMBA_EXE='/tmp/bin/micromamba';
-export MAMBA_ROOT_PREFIX='/home/pat/.local/opt/micromamba';
-__mamba_setup="$("$MAMBA_EXE" shell hook --shell bash --root-prefix "$MAMBA_ROOT_PREFIX" 2> /dev/null)"
-if [ $? -eq 0 ]; then
+if command -v micromamba >/dev/null 2>&1; then
+  export MAMBA_EXE
+  MAMBA_EXE="$(command -v micromamba)"
+  export MAMBA_ROOT_PREFIX="${MAMBA_ROOT_PREFIX:-$HOME/.local/opt/micromamba}"
+  __mamba_setup="$("$MAMBA_EXE" shell hook --shell bash --root-prefix "$MAMBA_ROOT_PREFIX" 2>/dev/null)"
+  if [ $? -eq 0 ]; then
     eval "$__mamba_setup"
-else
-    alias micromamba="$MAMBA_EXE"  # Fallback on help from micromamba activate
+  fi
+  unset __mamba_setup
 fi
-unset __mamba_setup
 # <<< mamba initialize <<<
 
-eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash)"
-. "$HOME/.cargo/env"
+if command -v brew >/dev/null 2>&1; then
+  eval "$(brew shellenv)"
+fi
+
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"

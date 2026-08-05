@@ -189,24 +189,48 @@ if ! search_file 'Skipping system package refresh in lightweight CI mode\.' "$re
 fi
 
 if ! search_file 'Using checked-out dotfiles repo without refreshing it\.' "$repo_root/bootstrap.sh"; then
-  echo "expected bootstrap.sh to preserve the checked-out repo without refreshing it in automation"
+  echo "expected bootstrap.sh to preserve the checked-out repo without refreshing it"
   exit 1
 fi
 
 if ! search_file 'script_dir' "$repo_root/bootstrap.sh"; then
-  echo "expected bootstrap.sh to resolve the checked-out repo during CI"
-  exit 1
-fi
-
-if ! search_file 'Test-IsAutomation' "$windows_bootstrap"; then
-  echo "expected bootstrap.ps1 to distinguish automation from lightweight CI mode"
+  echo "expected bootstrap.sh to resolve the checked-out repo"
   exit 1
 fi
 
 if ! search_file 'Test-UsingCheckedOutSource' "$windows_bootstrap"; then
-  echo "expected bootstrap.ps1 to reuse the checked-out repo source during automation"
+  echo "expected bootstrap.ps1 to reuse the checked-out repo source"
   exit 1
 fi
+
+if search_file '\(Test-IsAutomation\) -and' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to use a local checkout outside automation"
+  exit 1
+fi
+
+if search_file 'is_automation &&' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to use a local checkout outside automation"
+  exit 1
+fi
+
+if ! search_file 'DOTFILES_REPO' "$repo_root/bootstrap.sh" ||
+  ! search_file 'DOTFILES_REPO' "$windows_bootstrap"; then
+  echo "expected both bootstrap scripts to support a custom remote repository"
+  exit 1
+fi
+
+for portable_config in \
+  "$repo_root/.live/dotfiles/.bashrc" \
+  "$repo_root/dot_config/opencode/opencode.jsonc.tmpl"; do
+  if [ ! -f "$portable_config" ]; then
+    echo "expected ${portable_config#$repo_root/} to exist"
+    exit 1
+  fi
+  if search_file '/home/[^/[:space:]]+' "$portable_config"; then
+    echo "expected ${portable_config#$repo_root/} to avoid user-specific home paths"
+    exit 1
+  fi
+done
 
 if ! search_file 'Skipping package installs in lightweight CI mode\.' "$windows_bootstrap"; then
   echo "expected bootstrap.ps1 to reserve winget skipping for lightweight CI mode"

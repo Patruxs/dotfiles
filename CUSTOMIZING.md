@@ -1,36 +1,21 @@
-# Customizing These Dotfiles
+# Customize and Run Your Own Dotfiles
 
-This guide explains how to turn this repository into your own machine setup.
+You can customize this project locally and run that exact checkout. You do not need to publish your changes first.
 
-## 1. Fork and Clone
+## 1. Fork or Clone
 
-Fork the repository on GitHub, then clone your fork:
+Fork the repository if you want to keep your version on GitHub, then clone it:
 
 ```sh
 git clone https://github.com/YOUR_USERNAME/dotfiles.git
 cd dotfiles
 ```
 
-## 2. Replace the Repository Owner
+You can also clone the original repository directly if you only want a local version.
 
-Replace `Patruxs/dotfiles` with `YOUR_USERNAME/dotfiles` in:
+## 2. Choose Your Software
 
-- `bootstrap.sh`
-- `bootstrap.ps1`
-- `.chezmoi.toml.tmpl`
-- `README.md`
-
-Also replace `Patruxs` in GitHub links and repository metadata.
-
-## 3. Configure Your Identity
-
-Chezmoi asks for your Git name and email during setup. Replace the GPG recipient in `.chezmoi.toml.tmpl` if you plan to encrypt files with Chezmoi.
-
-The files in `private_dot_ssh/` belong to the original owner. Remove them or replace them with your own SSH setup before running the bootstrap script. Never commit a private SSH key. The existing private-key templates expect secrets stored in matching Bitwarden items.
-
-## 4. Choose Your Software
-
-Edit these files to select what your machines install:
+Edit the lists that control what gets installed:
 
 - `.chezmoidata/packages.yaml` for system packages and applications
 - `.chezmoidata/devtools.yaml` for development tools
@@ -38,55 +23,101 @@ Edit these files to select what your machines install:
 - `ansible/vars/profiles/personal.yml` for personal machines
 - `ansible/vars/profiles/work.yml` for work machines
 
-Remove anything you do not use before your first installation.
+Remove anything you do not want before the first run.
 
-## 5. Customize Your Configs
+## 3. Customize Your Configs
 
-Edit the tracked configs in `.live/dotfiles/`, including shell, Git, tmux, Neovim, PowerShell, and terminal settings.
+Edit the files in `.live/dotfiles/` for your shell, Git, tmux, Neovim, PowerShell, and terminal preferences.
 
-To add another file after setup:
+Review these machine-specific areas carefully:
+
+- `.live/ssh/config` contains example GitHub host aliases. Replace or remove them.
+- `private_dot_ssh/` contains the original owner's public keys and Bitwarden templates. Remove the directory or replace it with your own setup. Never commit private keys.
+- `dot_config/monitors.xml` contains a display layout that you may not want.
+- `.chezmoidata/gnome_dconf.yaml` contains GNOME desktop preferences.
+- `dot_config/opencode/opencode.jsonc.tmpl` references an optional local agent-instructions file.
+
+Chezmoi asks for your Git name, Git email, and an optional GPG recipient on the first run. Leave the GPG recipient empty if you do not use encrypted Chezmoi files.
+
+## 4. Run Your Local Checkout
+
+The bootstrap script detects the checked-out repository and uses your local changes, including changes you have not committed.
+
+**Linux or macOS**:
+
+```sh
+./bootstrap.sh --profile personal
+```
+
+Use `--profile work` for the work profile.
+
+**Windows PowerShell**:
+
+```powershell
+.\bootstrap.ps1 -ProfileName personal
+```
+
+The bootstrap installs Chezmoi and other required setup tools. Chezmoi remembers this checkout as its source directory, so later commands continue to use your customized repository.
+
+## 5. Preview and Update
+
+After the first setup, preview configuration changes before applying them:
+
+```sh
+chezmoi diff
+chezmoi apply --dry-run --verbose
+chezmoi apply
+```
+
+Add another file with:
 
 ```sh
 chezmoi add ~/.config/example/config
 ```
 
-Preview changes before applying them:
+## 6. Test Your Changes
 
-```sh
-chezmoi diff
-chezmoi apply --dry-run --verbose
-```
-
-## 6. Test Your Fork
-
-Run the fast checks from the repository root:
+If Chezmoi is installed, run the fast checks from the repository root:
 
 ```sh
 ./test/test_harness.sh
 ```
 
-Review the bootstrap script before testing it on a real machine because it installs software and changes system settings.
+ShellCheck and Ansible checks run when those tools are available. The test harness always runs the bootstrap regression checks and a Chezmoi dry run.
 
-## 7. Install From Your Fork
+## 7. Install From Your Published Fork
 
-Update the username in the command for your platform:
+Commit and push your customization before installing it on another machine:
+
+```sh
+git add .
+git commit -m "Customize dotfiles"
+git push
+```
+
+Set `DOTFILES_REPO` so the downloaded bootstrap script clones your fork instead of the original repository.
 
 **Linux**:
 
 ```sh
+export DOTFILES_REPO="https://github.com/YOUR_USERNAME/dotfiles.git"
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/dotfiles/main/bootstrap.sh)"
 ```
 
 **macOS**:
 
 ```sh
+export DOTFILES_REPO="https://github.com/YOUR_USERNAME/dotfiles.git"
 bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/dotfiles/main/bootstrap.sh | bash'
 ```
 
-**Windows**:
+**Windows PowerShell**:
 
 ```powershell
+$env:DOTFILES_REPO = "https://github.com/YOUR_USERNAME/dotfiles.git"
 irm https://raw.githubusercontent.com/YOUR_USERNAME/dotfiles/main/bootstrap.ps1 | iex
 ```
 
-After installation, use `chezmoi diff` before applying updates from your fork.
+## 8. Update Project Links
+
+If you publish the fork for other people, replace the original GitHub URLs in `README.md`, `SECURITY.md`, and `.github/ISSUE_TEMPLATE/config.yml` with your repository URLs. Keep the original MIT License copyright notice as required by the license.
