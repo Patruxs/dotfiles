@@ -14,6 +14,7 @@ git_tools_task_main="$repo_root/ansible/roles/git_tools/tasks/main.yml"
 services_task_main="$repo_root/ansible/roles/services/tasks/main.yml"
 setup_playbook="$repo_root/ansible/playbooks/setup.yml"
 common_playbook="$repo_root/ansible/playbooks/common.yml"
+execution_playbook="$repo_root/ansible/playbooks/execution.yml"
 ubuntu_playbook="$repo_root/ansible/playbooks/ubuntu.yml"
 fedora_playbook="$repo_root/ansible/playbooks/fedora.yml"
 arch_playbook="$repo_root/ansible/playbooks/arch.yml"
@@ -32,7 +33,7 @@ ai_clis_data="$repo_root/.chezmoidata/ai-clis.yaml"
 chezmoi_bootstrap_script="$repo_root/.chezmoiscripts/run_once_before_00-bootstrap.sh.tmpl"
 workflow_file="$repo_root/.github/workflows/ci.yml"
 ansible_config="$repo_root/ansible.cfg"
-run_feature_task="$repo_root/ansible/playbooks/run_feature_best_effort.yml"
+run_feature_task="$repo_root/ansible/playbooks/feature_best_effort.yml"
 setup_outcome_task="$repo_root/ansible/roles/setup_outcome/tasks/main.yml"
 low_memory_task="$repo_root/ansible/roles/low_memory/tasks/main.yml"
 linux_privileged_task_files=(
@@ -279,7 +280,7 @@ fi
 
 if ! search_file '\$setupMode' "$windows_bootstrap" ||
   ! search_file 'DOTFILES_SETUP_MODE' "$windows_bootstrap" ||
-  ! search_file 'Show-SetupFailureSummary' "$windows_bootstrap"; then
+  ! search_file 'Write-SetupReport' "$windows_bootstrap"; then
   echo "expected bootstrap.ps1 to support setup modes and print a final failure summary"
   exit 1
 fi
@@ -542,7 +543,7 @@ fi
 if ! search_file 'DOTFILES_LOW_MEMORY' "$common_playbook" ||
   ! search_file 'DOTFILES_LOW_MEMORY_THRESHOLD_MB' "$common_playbook" ||
   ! search_file 'dotfiles_low_memory_setup' "$common_playbook" ||
-  ! search_file 'name: low_memory' "$common_playbook"; then
+  ! search_file 'name: low_memory' "$execution_playbook"; then
   echo "expected common flow to detect low-memory machines and run the low-memory role"
   exit 1
 fi
