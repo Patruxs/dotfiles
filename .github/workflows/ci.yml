@@ -19,7 +19,7 @@ jobs:
       GITHUB_TOKEN: ${{ github.token }}
     
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
     
     - name: Run Bootstrap
       run: ./bootstrap.sh --profile ${{ matrix.profile }}
@@ -55,7 +55,7 @@ jobs:
       HOMEBREW_NO_INSTALL_CLEANUP: "1"
       HOMEBREW_NO_REQUIRE_TAP_TRUST: "1"
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
     - name: Run Bootstrap
       run: ./bootstrap.sh --profile ${{ matrix.profile }}
     - name: Check Idempotency
@@ -85,7 +85,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
       with:
         set-safe-directory: false
     - name: Run Bootstrap
@@ -120,7 +120,7 @@ jobs:
     steps:
     - name: Install dependencies
       run: dnf install -y git sudo curl
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
     - name: Run Bootstrap (Fedora)
       run: ./bootstrap.sh --profile ${{ matrix.profile }}
     - name: Check Idempotency (Fedora)
@@ -154,7 +154,7 @@ jobs:
     steps:
     - name: Install dependencies
       run: pacman -Syu --noconfirm git sudo curl
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
     - name: Run Bootstrap (Arch)
       run: ./bootstrap.sh --profile ${{ matrix.profile }}
     - name: Check Idempotency (Arch)
