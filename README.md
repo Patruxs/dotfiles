@@ -13,18 +13,21 @@ An opinionated, cross-platform machine bootstrap system and dotfiles manager for
 **Linux**:
 
 ```sh
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh)"
+DOTFILES_REPO="https://github.com/Patruxs/dotfiles.git" \
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh)"
 ```
 
 **macOS**:
 
 ```sh
-bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh | bash'
+DOTFILES_REPO="https://github.com/Patruxs/dotfiles.git" \
+  bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh | bash'
 ```
 
 **Windows (PowerShell)**:
 
 ```powershell
+$env:DOTFILES_REPO = "https://github.com/Patruxs/dotfiles.git"
 irm https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.ps1 | iex
 ```
 

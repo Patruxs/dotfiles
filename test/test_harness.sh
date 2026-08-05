@@ -72,7 +72,7 @@ trap cleanup_tmpdir EXIT
 mkdir -p "$tmpdir/home" "$tmpdir/cache"
 
 log_info "Initializing Chezmoi from the checked-out source with a clean home..."
-HOME="$tmpdir/home" CI=1 chezmoi init \
+HOME="$tmpdir/home" CI=1 CHEZMOI_GPG_RECIPIENT="" chezmoi init \
     --source "$REPO_ROOT" \
     --destination "$tmpdir/home" \
     --config "$tmpdir/chezmoi.toml" \
@@ -89,6 +89,27 @@ fi
 
 if grep -Fq 'encryption = "gpg"' "$tmpdir/chezmoi.toml"; then
     log_err "Generated Chezmoi config enabled GPG without a recipient."
+    exit 1
+fi
+
+if HOME="$tmpdir/home" CI=1 chezmoi managed \
+    --source "$REPO_ROOT" \
+    --destination "$tmpdir/home" \
+    --config "$tmpdir/chezmoi.toml" \
+    --cache "$tmpdir/cache" \
+    --persistent-state "$tmpdir/chezmoi-state.boltdb" | grep -Fxq '.ssh/config'; then
+    log_err "Fresh Chezmoi config unexpectedly enabled the owner-specific SSH config."
+    exit 1
+fi
+
+if ! HOME="$tmpdir/home" CI=1 chezmoi managed \
+    --source "$REPO_ROOT" \
+    --destination "$tmpdir/home" \
+    --config "$tmpdir/chezmoi.toml" \
+    --cache "$tmpdir/cache" \
+    --persistent-state "$tmpdir/chezmoi-state.boltdb" \
+    --override-data '{"manage_ssh_config":true}' | grep -Fxq '.ssh/config'; then
+    log_err "Chezmoi did not enable the SSH config when explicitly requested."
     exit 1
 fi
 

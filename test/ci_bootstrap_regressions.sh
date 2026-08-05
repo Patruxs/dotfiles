@@ -219,6 +219,18 @@ if ! search_file 'DOTFILES_REPO' "$repo_root/bootstrap.sh" ||
   exit 1
 fi
 
+if search_file 'DOTFILES_REPO:-https://' "$repo_root/bootstrap.sh" ||
+  search_file '\$repoHttps = "https://' "$windows_bootstrap"; then
+  echo "expected downloaded bootstrap scripts to avoid an owner-specific remote fallback"
+  exit 1
+fi
+
+if ! search_file 'DOTFILES_REPO is required' "$repo_root/bootstrap.sh" ||
+  ! search_file 'DOTFILES_REPO is required' "$windows_bootstrap"; then
+  echo "expected downloaded bootstrap scripts to explain the required repository URL"
+  exit 1
+fi
+
 for portable_config in \
   "$repo_root/.live/dotfiles/.bashrc" \
   "$repo_root/dot_config/opencode/opencode.jsonc.tmpl"; do

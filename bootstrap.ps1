@@ -5,11 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$repoHttps = if (-not [string]::IsNullOrWhiteSpace($env:DOTFILES_REPO)) {
-  $env:DOTFILES_REPO
-} else {
-  "https://github.com/Patruxs/dotfiles.git"
-}
+$repoHttps = $env:DOTFILES_REPO
 $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } elseif ($PSCommandPath) { Split-Path -Parent $PSCommandPath } else { $null }
 $chezmoiSource = Join-Path $HOME ".local/share/chezmoi"
 $profileCacheFile = Join-Path $HOME ".dotfiles_profile"
@@ -296,6 +292,9 @@ if (Test-UsingCheckedOutSource) {
   chezmoi init --source $chezmoiSource
   Assert-LastExitCode "chezmoi init checked-out source"
 } elseif (-not (Test-Path (Join-Path $chezmoiSource ".git"))) {
+  if ([string]::IsNullOrWhiteSpace($repoHttps)) {
+    throw "DOTFILES_REPO is required when installing from a downloaded bootstrap script. Set it to your repository URL, for example: https://github.com/USER/dotfiles.git"
+  }
   chezmoi init $repoHttps
   Assert-LastExitCode "chezmoi init"
 } else {

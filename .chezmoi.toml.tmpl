@@ -1,12 +1,14 @@
 {{- $gitName := "CI User" -}}
 {{- $gitEmail := "ci@example.com" -}}
 {{- $gpgRecipient := env "CHEZMOI_GPG_RECIPIENT" -}}
+{{- $manageSshConfig := false -}}
 {{- if not (env "CI") -}}
 {{-   $gitName = promptStringOnce . "git.name" "Git user.name" "" -}}
 {{-   $gitEmail = promptStringOnce . "git.email" "Git user.email" "" -}}
 {{-   if not $gpgRecipient -}}
 {{-     $gpgRecipient = promptStringOnce . "gpg.recipient" "GPG recipient (optional)" "" -}}
 {{-   end -}}
+{{-   $manageSshConfig = promptBoolOnce . "ssh.manageConfig" "Apply the example SSH config" false -}}
 {{- end -}}
 mode = "symlink"
 sourceDir = {{ .chezmoi.sourceDir | quote }}
@@ -17,6 +19,9 @@ encryption = "gpg"
     recipient = {{ $gpgRecipient | quote }}
     args = ["--quiet"]
 {{ end }}
+
+[data]
+    manage_ssh_config = {{ $manageSshConfig }}
 
 [data.git]
     name = {{ $gitName | quote }}

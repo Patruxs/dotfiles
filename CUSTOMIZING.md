@@ -31,7 +31,7 @@ Edit the files in `.live/dotfiles/` for your shell, Git, tmux, Neovim, PowerShel
 
 Review these machine-specific areas carefully:
 
-- `.live/ssh/config` contains example GitHub host aliases. Replace or remove them.
+- `.live/ssh/config` contains example GitHub host aliases. Replace or remove them. Fresh installations ignore this file unless you opt in at the first-run prompt.
 - `private_dot_ssh/` contains the original owner's public keys and Bitwarden templates. Remove the directory or replace it with your own setup. Never commit private keys.
 - `dot_config/monitors.xml` contains a display layout that you may not want.
 - `.chezmoidata/gnome_dconf.yaml` contains GNOME desktop preferences.
@@ -77,7 +77,17 @@ chezmoi add ~/.config/example/config
 
 ## 6. Test Your Changes
 
-If Chezmoi is installed, run the fast checks from the repository root:
+The test harness requires Chezmoi. Install it first if needed:
+
+```sh
+mkdir -p "$HOME/.local/bin"
+curl -fsLS https://get.chezmoi.io | sh -s -- -b "$HOME/.local/bin"
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+On Windows, install it with `winget install --id twpayne.chezmoi -e` and run the harness from Git Bash.
+
+Then run the fast checks from the repository root:
 
 ```sh
 ./test/test_harness.sh

@@ -16,6 +16,9 @@ patch_ps1.py
 .ssh/id_*
 .ssh/*.pub
 .ssh/known_hosts*
+{{ if not (default false (get . "manage_ssh_config")) }}
+.ssh/config
+{{ end }}
 .docker/config.json
 .config/gh/**
 .config/Code/User/globalStorage/**

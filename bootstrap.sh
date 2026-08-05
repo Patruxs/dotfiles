@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo="${DOTFILES_REPO:-https://github.com/Patruxs/dotfiles.git}"
+repo="${DOTFILES_REPO:-}"
 script_source="${BASH_SOURCE[0]:-}"
 script_dir=""
 if [ -n "$script_source" ]; then
@@ -478,6 +478,11 @@ if using_checked_out_source; then
   echo "Initializing Chezmoi from checked-out source: $chezmoi_dir"
   chezmoi init --source "$chezmoi_dir"
 elif [ ! -d "$chezmoi_dir/.git" ]; then
+  if [ -z "$repo" ]; then
+    echo "DOTFILES_REPO is required when installing from a downloaded bootstrap script."
+    echo "Set it to your repository URL, for example: https://github.com/USER/dotfiles.git"
+    exit 1
+  fi
   chezmoi init "$repo"
 else
   refresh_repo
