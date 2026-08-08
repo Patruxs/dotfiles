@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 <p align="center">
-  <img src="assets.gif" alt="Dotfiles setup running on Ubuntu">
+  <img width="400" height="250" alt="assets" src="https://github.com/user-attachments/assets/88f9d253-b01b-4b1d-8772-d4dbc80f5e95" />
 </p>
 
 An opinionated, cross-platform machine bootstrap system and dotfiles manager for Linux, macOS, and Windows. It uses **Ansible** for Linux and macOS orchestration and **Chezmoi** for configuration management.
