@@ -1,3 +1,9 @@
+# GNOME preferences applied by the Ansible gnome role when a profile selects
+# desktop_base (the role currently runs on Fedora only, and only inside a
+# running GNOME session). The input-sources entry below adds the Vietnamese
+# ibus-bamboo IME, a personal layout choice - the engine itself is not
+# installed by any package set. Forks: replace it with your own layout (or
+# install ibus-bamboo).
 gnome_dconf:
   entries:
     - key: /org/gnome/desktop/input-sources/per-window

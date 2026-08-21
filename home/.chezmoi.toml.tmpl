@@ -11,7 +11,7 @@
 {{-     $gpgRecipient = promptStringOnce . "gpg_recipient" "GPG recipient (optional)" "" -}}
 {{-   end -}}
 {{-   $manageSshConfig = promptBoolOnce . "manage_ssh_config" "Apply the example SSH config" false -}}
-{{-   $manageSshKeys = promptBoolOnce . "manage_ssh_keys" "Provision GitHub SSH keys from Bitwarden" false -}}
+{{-   $manageSshKeys = promptBoolOnce . "manage_ssh_keys" "Provision GitHub SSH keys from Bitwarden (requires the repo owner's vault items; on a fork, replace home/private_dot_ssh/ first)" false -}}
 {{-   if not $dotfilesProfile -}}
 {{-     $dotfilesProfile = promptStringOnce . "dotfiles_profile" "Dotfiles profile (personal or work)" "personal" -}}
 {{-   end -}}

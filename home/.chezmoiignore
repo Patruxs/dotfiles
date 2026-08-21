@@ -2,6 +2,8 @@
 .env.*
 # Hand-maintained per-machine git settings; keep out of chezmoi entirely.
 .gitconfig.machine
+# Hand-maintained per-machine shell additions, sourced by ~/.profile.
+.profile.local
 .ssh/known_hosts*
 # Guardrail: never manage (or accidentally `chezmoi add`) SSH keys, except the
 # chezmoi-provisioned GitHub keys when manage_ssh_keys is enabled.
@@ -28,13 +30,15 @@
 .config/opencode/node_modules/**
 .config/opencode/**/auth*
 .config/opencode/**/session*
+# Guardrail: display layout is machine state (and leaks hardware serials);
+# never manage (or accidentally `chezmoi add`) it.
+.config/monitors.xml
 .config/monitors.xml~
 .config/monitors.xml.bak-*
 .config/dconf/user
 .config/org.gnome.Ptyxis/session.gvariant
 
 {{- if or (ne .chezmoi.os "linux") (ne (default "personal" (get . "dotfiles_profile")) "personal") }}
-.config/monitors.xml
 .local/bin/auto-headphone-switch
 .config/systemd/user/auto-headphone-switch.service
 {{- end }}

@@ -28,14 +28,6 @@ export GOPATH="${GOPATH:-$HOME/go}"
 path_prepend "$HOME/.local/go/bin"
 path_prepend "$GOPATH/bin"
 
-export THESIS_DIR="/mnt/Working/Working/School/Y4_2/Thesis"
-export PERSONAL_DIR="/mnt/Personal"
-
-alias thesis='cd "$THESIS_DIR"'
-alias personal='cd "$PERSONAL_DIR"'
-alias cdt='cd "$THESIS_DIR"'
-alias cdp='cd "$PERSONAL_DIR"'
-
 if [ -d "$HOME/.local/share/JetBrains/Toolbox/scripts" ]; then
   path_prepend "$HOME/.local/share/JetBrains/Toolbox/scripts"
 fi
@@ -51,4 +43,7 @@ if command -v pnpm >/dev/null 2>&1; then
 fi
 
 export PATH
-. "$HOME/.cargo/env"
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
+# Per-machine paths and aliases; never managed by chezmoi.
+[ -f "$HOME/.profile.local" ] && . "$HOME/.profile.local"
