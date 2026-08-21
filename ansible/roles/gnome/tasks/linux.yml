@@ -1,7 +1,7 @@
 ---
 - name: Load GNOME dconf data
   include_vars:
-    file: "{{ chezmoi_dir }}/.chezmoidata/gnome_dconf.yaml"
+    file: "{{ chezmoi_dir }}/home/.chezmoidata/gnome_dconf.yaml"
     name: gnome_dconf_data
 
 - name: Check if a GNOME session is running

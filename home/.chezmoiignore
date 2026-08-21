@@ -1,15 +1,3 @@
-README.md
-bootstrap.sh
-bootstrap.ps1
-packages/**
-scripts/**
-gnome/**
-ansible/
-ansible.cfg
-docs/
-CONTEXT.md
-patch_ps1.py
-
 # Generated per-machine config written by chezmoi templates.
 .gitconfig.local
 
@@ -60,4 +48,3 @@ patch_ps1.py
 {{- if ne .chezmoi.os "windows" }}
 .AppData/**
 {{- end }}
-test/

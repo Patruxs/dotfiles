@@ -80,4 +80,4 @@ fi
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
 # druk
-export PATH=/home/pat/.druk/bin:$PATH
+export PATH="$HOME/.druk/bin:$PATH"

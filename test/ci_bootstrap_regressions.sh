@@ -29,8 +29,8 @@ ai_tools_unix_task="$repo_root/ansible/roles/ai_tools/tasks/unix.yml"
 ai_tools_unix_best_effort_task="$repo_root/ansible/roles/ai_tools/tasks/install_unix_cli_best_effort.yml"
 devtools_task_main="$repo_root/ansible/roles/devtools/tasks/main.yml"
 devtools_npm_best_effort_task="$repo_root/ansible/roles/devtools/tasks/install_npm_global_best_effort.yml"
-ai_clis_data="$repo_root/.chezmoidata/ai-clis.yaml"
-chezmoi_bootstrap_script="$repo_root/.chezmoiscripts/run_once_before_00-bootstrap.sh.tmpl"
+ai_clis_data="$repo_root/home/.chezmoidata/ai-clis.yaml"
+chezmoi_bootstrap_script="$repo_root/home/.chezmoiscripts/run_once_before_00-bootstrap.sh.tmpl"
 workflow_file="$repo_root/.github/workflows/ci.yml"
 ansible_config="$repo_root/ansible.cfg"
 run_feature_task="$repo_root/ansible/playbooks/feature_best_effort.yml"
@@ -232,8 +232,8 @@ if ! search_file 'DOTFILES_REPO is required' "$repo_root/bootstrap.sh" ||
 fi
 
 for portable_config in \
-  "$repo_root/.live/dotfiles/.bashrc" \
-  "$repo_root/dot_config/opencode/opencode.jsonc.tmpl"; do
+  "$repo_root/home/.live/dotfiles/.bashrc" \
+  "$repo_root/home/dot_config/opencode/opencode.jsonc.tmpl"; do
   if [ ! -f "$portable_config" ]; then
     echo "expected ${portable_config#$repo_root/} to exist"
     exit 1

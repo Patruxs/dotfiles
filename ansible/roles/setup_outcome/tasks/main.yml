@@ -20,7 +20,7 @@
 
 - name: Load devtools data for outcome verification
   include_vars:
-    file: "{{ chezmoi_dir }}/.chezmoidata/devtools.yaml"
+    file: "{{ chezmoi_dir }}/home/.chezmoidata/devtools.yaml"
     name: devtools_data
   when:
     - "'npm_global_tools' in (features | default([]))"
@@ -28,7 +28,7 @@
 
 - name: Load AI CLI data for outcome verification
   include_vars:
-    file: "{{ chezmoi_dir }}/.chezmoidata/ai-clis.yaml"
+    file: "{{ chezmoi_dir }}/home/.chezmoidata/ai-clis.yaml"
     name: ai_clis_data
   when:
     - "'ai_clis' in (features | default([]))"

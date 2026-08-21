@@ -1,7 +1,7 @@
 ---
 - name: Load devtools data
   include_vars:
-    file: "{{ chezmoi_dir }}/.chezmoidata/devtools.yaml"
+    file: "{{ chezmoi_dir }}/home/.chezmoidata/devtools.yaml"
     name: devtools_data
   when:
     - not (dotfiles_ci | default(false))

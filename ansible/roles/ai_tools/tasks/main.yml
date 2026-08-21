@@ -8,7 +8,7 @@
 
 - name: Load AI CLIs data
   include_vars:
-    file: "{{ chezmoi_dir }}/.chezmoidata/ai-clis.yaml"
+    file: "{{ chezmoi_dir }}/home/.chezmoidata/ai-clis.yaml"
     name: ai_clis_data
   when:
     - install_ai_clis | default(false)

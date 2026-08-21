@@ -17,9 +17,9 @@ You can also clone the original repository directly if you only want a local ver
 
 Edit the lists that control what gets installed:
 
-- `.chezmoidata/packages.yaml` for system packages and applications
-- `.chezmoidata/devtools.yaml` for development tools
-- `.chezmoidata/ai-clis.yaml` for AI command-line tools
+- `home/.chezmoidata/packages.yaml` for system packages and applications
+- `home/.chezmoidata/devtools.yaml` for development tools
+- `home/.chezmoidata/ai-clis.yaml` for AI command-line tools
 - `ansible/vars/profiles/personal.yml` for personal machines
 - `ansible/vars/profiles/work.yml` for work machines
 
@@ -27,15 +27,15 @@ Remove anything you do not want before the first run.
 
 ## 3. Customize Your Configs
 
-Edit the files in `.live/dotfiles/` for your shell, Git, tmux, Neovim, PowerShell, and terminal preferences.
+Edit the files in `home/.live/dotfiles/` for your shell, Git, tmux, Neovim, PowerShell, and terminal preferences.
 
 Review these machine-specific areas carefully:
 
-- `.live/ssh/config` contains example GitHub host aliases. Replace or remove them. Fresh installations ignore this file unless you opt in at the first-run prompt.
-- `private_dot_ssh/` contains the original owner's public keys and Bitwarden templates. Remove the directory or replace it with your own setup. Never commit private keys.
-- `dot_config/monitors.xml` contains a display layout that you may not want.
-- `.chezmoidata/gnome_dconf.yaml` contains GNOME desktop preferences.
-- `dot_config/opencode/opencode.jsonc.tmpl` references an optional local agent-instructions file.
+- `home/.live/ssh/config` contains example GitHub host aliases. Replace or remove them. Fresh installations ignore this file unless you opt in at the first-run prompt.
+- `home/private_dot_ssh/` contains the original owner's public keys and Bitwarden templates. Remove the directory or replace it with your own setup. Never commit private keys.
+- `home/dot_config/monitors.xml` contains a display layout that you may not want.
+- `home/.chezmoidata/gnome_dconf.yaml` contains GNOME desktop preferences.
+- `home/dot_config/opencode/opencode.jsonc.tmpl` references an optional local agent-instructions file.
 
 Chezmoi asks for your Git name, Git email, and an optional GPG recipient on the first run. Leave the GPG recipient empty if you do not use encrypted Chezmoi files.
 
