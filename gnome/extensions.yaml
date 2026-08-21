@@ -1,0 +1,37 @@
+# GNOME Shell extensions, captured by scripts/gnome-extensions-sync.sh.
+#
+# Regenerate with:   ./scripts/gnome-extensions-sync.sh capture
+# Restore with:      ./scripts/gnome-extensions-sync.sh apply
+#
+# Per-extension settings live alongside this file in extensions.dconf.
+gnome_extensions:
+  # Loaded by GNOME Shell at startup, in this order.
+  enabled:
+    - caffeine@patapon.info
+    - space-bar@luchrioh
+    - appindicatorsupport@rgcjonas.gmail.com
+    - switcher@landau.fi
+    - just-perfection-desktop@just-perfection
+
+  # Installed but switched off.
+  disabled:
+    - apps-menu@gnome-shell-extensions.gcampax.github.com
+    - dash-to-dock@micxgx.gmail.com
+    - paperwm@paperwm.github.com
+    - blur-my-shell@aunetx
+
+  # Downloaded from extensions.gnome.org into ~/.local/share/gnome-shell/extensions.
+  # The apply mode fetches whichever of these are missing.
+  user_installed:
+    - caffeine@patapon.info
+    - space-bar@luchrioh
+    - switcher@landau.fi
+    - just-perfection-desktop@just-perfection
+    - dash-to-dock@micxgx.gmail.com
+    - paperwm@paperwm.github.com
+    - blur-my-shell@aunetx
+
+  # Shipped by distro packages. Listed for reference - install the package to get them.
+  system_installed:
+    - appindicatorsupport@rgcjonas.gmail.com
+    - apps-menu@gnome-shell-extensions.gcampax.github.com

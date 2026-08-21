@@ -1,0 +1,31 @@
+---
+- name: Check for stored GNOME extension state
+  stat:
+    path: "{{ chezmoi_dir }}/gnome/extensions.dconf"
+  register: gnome_extensions_state
+
+- name: Check whether GNOME extensions already match the repo
+  command:
+    argv:
+      - "{{ chezmoi_dir }}/scripts/gnome-extensions-sync.sh"
+      - check
+  register: gnome_extensions_check
+  failed_when: false
+  changed_when: false
+  when: gnome_extensions_state.stat.exists
+
+- name: Restore GNOME extensions and their settings
+  command:
+    argv:
+      - "{{ chezmoi_dir }}/scripts/gnome-extensions-sync.sh"
+      - apply
+  register: gnome_extensions_apply
+  changed_when: true
+  when:
+    - gnome_extensions_state.stat.exists
+    - gnome_extensions_check.rc | default(1) != 0
+
+- name: Report the GNOME extension restore
+  debug:
+    var: gnome_extensions_apply.stdout_lines
+  when: gnome_extensions_apply is not skipped
