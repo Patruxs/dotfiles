@@ -7,3 +7,6 @@ Thumbs.db
 *.orig
 *.rej
 *~
+
+# Machine-local AI context notes; never commit (a local pre-commit hook also guards this).
+CONTEXT.md
