@@ -2,6 +2,8 @@
 
 You can customize this project locally and run that exact checkout. You do not need to publish your changes first.
 
+If you plan to change *how* setup works rather than *what* it installs, read [Architecture](architecture.md) first and then [Adding a feature](adding-a-feature.md).
+
 ## 1. Fork or Clone
 
 Fork the repository if you want to keep your version on GitHub, then clone it:
@@ -15,13 +17,32 @@ You can also clone the original repository directly if you only want a local ver
 
 ## 2. Choose Your Software
 
-Edit the lists that control what gets installed:
+Two different files answer two different questions. Start with the first one.
 
-- `home/.chezmoidata/packages.yaml` for system packages and applications
-- `home/.chezmoidata/devtools.yaml` for development tools
-- `home/.chezmoidata/ai-clis.yaml` for AI command-line tools
-- `ansible/vars/profiles/personal.yml` for personal machines
-- `ansible/vars/profiles/work.yml` for work machines
+**Which capabilities does this machine want?** That is the profile:
+
+- `ansible/vars/profiles/personal.yml`
+- `ansible/vars/profiles/work.yml`
+
+Delete any entry you do not want from the `features` list. Nothing is installed unless a profile asks for it, so removing a feature name here is the whole switch - there is no second place to also turn it off.
+
+**Which packages actually provide them?** That is the package set for each operating system you use:
+
+- `ansible/vars/package_sets/ubuntu.yml`
+- `ansible/vars/package_sets/fedora.yml`
+- `ansible/vars/package_sets/arch.yml`
+- `ansible/vars/package_sets/macos.yml`
+
+Each file maps feature names to package names for that OS. Edit only the ones you actually run - they are independent, and a run loads just one.
+
+Three lists sit outside that split:
+
+- `home/.chezmoidata/devtools.yaml` - global npm tools, shared across platforms
+- `home/.chezmoidata/ai-clis.yaml` - AI command-line tools, shared across platforms
+- `home/.chezmoidata/packages.yaml` - the Windows package list, read by `bootstrap.ps1` through `chezmoi data`
+
+> [!NOTE]
+> `packages.yaml` also still contains Linux and macOS sections. Those are leftovers from before per-platform package sets existed, and nothing reads them during setup. Edit `ansible/vars/package_sets/` for Linux and macOS; the `windows:` sections of `packages.yaml` are still live.
 
 Remove anything you do not want before the first run.
 

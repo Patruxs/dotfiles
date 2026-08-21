@@ -49,6 +49,15 @@ Apply configs with Chezmoi
 
 The bootstrap script detects your operating system and asks you to choose a `personal` or `work` profile. It then installs the selected packages and apps using Ansible on Linux and macOS, or PowerShell and Winget on Windows. Finally, Chezmoi applies your configs: shell, Git, tmux, and editors on Linux and macOS; Git, PowerShell, and Neovim on Windows. On Windows the configs are created as symlinks, which requires Developer Mode or an elevated shell (bootstrap checks this before applying). If OneDrive redirects your Documents folder, PowerShell loads its profile from `OneDrive\Documents` instead; link `Documents\PowerShell` there yourself.
 
+## 📚 Documentation
+
+| Document | What it covers |
+| :--- | :--- |
+| [Architecture](docs/architecture.md) | How a setup run works, the model behind it, and why it is built this way |
+| [Adding a feature](docs/adding-a-feature.md) | Adding a tool, profile, or platform, as a checklist |
+| [Reference](docs/reference.md) | Bootstrap flags, `DOTFILES_*` variables, and file formats |
+| [Customizing](docs/customizing.md) | Forking this and making it your own |
+
 ## 🛠 Everyday usage
 
 ```sh
@@ -92,7 +101,7 @@ ssh-keygen -t ed25519 -C "you@example.com"
 
 ## 🍴 Make it your own
 
-Fork or clone the repository, replace the owner-specific values, and select the software and configs you want. Follow the [customization guide](CUSTOMIZING.md) for the complete process.
+Fork or clone the repository, replace the owner-specific values, and select the software and configs you want. Follow the [customization guide](docs/customizing.md) for the complete process.
 
 > [!IMPORTANT]
 > Never commit passwords, tokens, private SSH keys, or generated application state.

@@ -2,6 +2,14 @@
 
 Thanks for helping improve this project. Bug reports, documentation fixes, platform support, and focused feature changes are welcome.
 
+## Understand the Design First
+
+This repository separates *what a machine is for* (profiles) from *how each operating system installs it* (platforms), connected by feature names. Changes that ignore that split are the most common reason a pull request needs rework.
+
+- [Architecture](docs/architecture.md) - how a setup run works end to end, and why the rules exist.
+- [Adding a feature](docs/adding-a-feature.md) - the checklist for adding a tool, profile, or platform.
+- [Reference](docs/reference.md) - flags, environment variables, and file formats.
+
 ## Before You Start
 
 - Search existing issues before opening a new one.
@@ -20,7 +28,12 @@ Thanks for helping improve this project. Bug reports, documentation fixes, platf
    ./test/test_harness.sh
    ```
 
-5. If your change affects bootstrap behavior, test the relevant operating system and profile as closely as possible to a real installation.
+5. If your change affects bootstrap behavior, test the relevant operating system and profile as closely as possible to a real installation. Use `--strict` while developing so the run stops at the first failure instead of collecting it into the final report:
+
+   ```sh
+   ./bootstrap.sh --profile personal --strict
+   ```
+
 6. Open a pull request and explain the problem, solution, platforms tested, and any remaining limitations.
 
 ## Pull Request Checklist
