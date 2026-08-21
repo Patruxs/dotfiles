@@ -44,7 +44,9 @@ EOF
 chmod +x "$tmpdir/sudo"
 
 PATH="$tmpdir:$PATH"
+# shellcheck disable=SC2034  # consumed by the bootstrap functions eval'd below
 OS="Linux"
+# shellcheck disable=SC2034  # consumed by the bootstrap functions eval'd below
 sudo_password=""
 become_password_file=""
 
@@ -53,6 +55,7 @@ is_ci() {
 }
 
 prompt_sudo_password() {
+  # shellcheck disable=SC2034  # consumed by the bootstrap functions eval'd below
   sudo_password="secret"
 }
 

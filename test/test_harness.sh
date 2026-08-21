@@ -27,7 +27,7 @@ if ! command -v shellcheck >/dev/null 2>&1; then
 else
     log_info "Running ShellCheck on shell scripts..."
     # Find scripts but exclude templates (.tmpl)
-    find . -type f -name "*.sh" -not -path "*/.git/*" | xargs shellcheck || {
+    find . -type f -name "*.sh" -not -path "*/.git/*" -print0 | xargs -0 shellcheck || {
         log_err "ShellCheck failed."
         exit 1
     }
@@ -72,7 +72,7 @@ trap cleanup_tmpdir EXIT
 mkdir -p "$tmpdir/home" "$tmpdir/cache"
 
 log_info "Initializing Chezmoi from the checked-out source with a clean home..."
-HOME="$tmpdir/home" CI=1 CHEZMOI_GPG_RECIPIENT="" chezmoi init \
+HOME="$tmpdir/home" DOTFILES_CI=1 CHEZMOI_GPG_RECIPIENT="" chezmoi init \
     --source "$REPO_ROOT" \
     --destination "$tmpdir/home" \
     --config "$tmpdir/chezmoi.toml" \
@@ -82,7 +82,7 @@ HOME="$tmpdir/home" CI=1 CHEZMOI_GPG_RECIPIENT="" chezmoi init \
     exit 1
 }
 
-if ! grep -Fq "sourceDir = \"$REPO_ROOT\"" "$tmpdir/chezmoi.toml"; then
+if ! grep -Fq "sourceDir = \"$REPO_ROOT/home\"" "$tmpdir/chezmoi.toml"; then
     log_err "Generated Chezmoi config did not remember the checked-out source."
     exit 1
 fi
@@ -92,7 +92,7 @@ if grep -Fq 'encryption = "gpg"' "$tmpdir/chezmoi.toml"; then
     exit 1
 fi
 
-if HOME="$tmpdir/home" CI=1 chezmoi managed \
+if HOME="$tmpdir/home" DOTFILES_CI=1 chezmoi managed \
     --source "$REPO_ROOT" \
     --destination "$tmpdir/home" \
     --config "$tmpdir/chezmoi.toml" \
@@ -102,7 +102,7 @@ if HOME="$tmpdir/home" CI=1 chezmoi managed \
     exit 1
 fi
 
-if ! HOME="$tmpdir/home" CI=1 chezmoi managed \
+if ! HOME="$tmpdir/home" DOTFILES_CI=1 chezmoi managed \
     --source "$REPO_ROOT" \
     --destination "$tmpdir/home" \
     --config "$tmpdir/chezmoi.toml" \
@@ -113,7 +113,7 @@ if ! HOME="$tmpdir/home" CI=1 chezmoi managed \
     exit 1
 fi
 
-HOME="$tmpdir/home" CI=1 CHEZMOI_GPG_RECIPIENT="TEST-RECIPIENT" chezmoi init \
+HOME="$tmpdir/home" DOTFILES_CI=1 CHEZMOI_GPG_RECIPIENT="TEST-RECIPIENT" chezmoi init \
     --source "$REPO_ROOT" \
     --destination "$tmpdir/home" \
     --config "$tmpdir/chezmoi-gpg.toml" \
@@ -128,7 +128,7 @@ if ! grep -Fq 'recipient = "TEST-RECIPIENT"' "$tmpdir/chezmoi-gpg.toml"; then
     exit 1
 fi
 
-HOME="$tmpdir/home" CI=1 chezmoi apply \
+HOME="$tmpdir/home" DOTFILES_CI=1 chezmoi apply \
     --dry-run \
     --force \
     --no-tty \

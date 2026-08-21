@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016  # patterns below are literal grep needles, $ is intentional
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -79,7 +80,7 @@ search_file_literal() {
 
 for linux_task in "${linux_privileged_task_files[@]}"; do
   if search_file 'become:' "$linux_task"; then
-    echo "expected ${linux_task#$repo_root/} to avoid Ansible become for Linux localhost setup"
+    echo "expected ${linux_task#"$repo_root"/} to avoid Ansible become for Linux localhost setup"
     exit 1
   fi
 done
@@ -235,11 +236,11 @@ for portable_config in \
   "$repo_root/home/.live/dotfiles/.bashrc" \
   "$repo_root/home/dot_config/opencode/opencode.jsonc.tmpl"; do
   if [ ! -f "$portable_config" ]; then
-    echo "expected ${portable_config#$repo_root/} to exist"
+    echo "expected ${portable_config#"$repo_root"/} to exist"
     exit 1
   fi
   if search_file '/home/[^/[:space:]]+' "$portable_config"; then
-    echo "expected ${portable_config#$repo_root/} to avoid user-specific home paths"
+    echo "expected ${portable_config#"$repo_root"/} to avoid user-specific home paths"
     exit 1
   fi
 done
