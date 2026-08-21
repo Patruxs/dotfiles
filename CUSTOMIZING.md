@@ -27,11 +27,11 @@ Remove anything you do not want before the first run.
 
 ## 3. Customize Your Configs
 
-Edit the files in `home/.live/dotfiles/` for your shell, Git, tmux, Neovim, PowerShell, and terminal preferences.
+Edit the shell, Git, tmux, Neovim, PowerShell, and terminal files under `home/` (for example `home/dot_bashrc`, `home/dot_config/nvim/`). Chezmoi runs in symlink mode, so the deployed files in `$HOME` are symlinks back to these sources and edits take effect immediately either way.
 
 Review these machine-specific areas carefully:
 
-- `home/.live/ssh/config` contains example GitHub host aliases. Replace or remove them. Fresh installations ignore this file unless you opt in at the first-run prompt.
+- `home/private_dot_ssh/private_config` contains example GitHub host aliases. Replace or remove them. Fresh installations ignore this file unless you opt in at the first-run prompt.
 - `home/private_dot_ssh/` contains the original owner's public keys and Bitwarden templates. Remove the directory or replace it with your own setup. Never commit private keys. Fresh installations skip these keys unless you opt in at the first-run prompt (the keys are then rendered from Bitwarden, so `bw` must be installed and unlocked when you apply).
 - `home/dot_config/monitors.xml` contains a display layout that you may not want.
 - `home/.chezmoidata/gnome_dconf.yaml` contains GNOME desktop preferences.

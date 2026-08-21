@@ -233,7 +233,7 @@ if ! search_file 'DOTFILES_REPO is required' "$repo_root/bootstrap.sh" ||
 fi
 
 for portable_config in \
-  "$repo_root/home/.live/dotfiles/.bashrc" \
+  "$repo_root/home/dot_bashrc" \
   "$repo_root/home/dot_config/opencode/opencode.jsonc.tmpl"; do
   if [ ! -f "$portable_config" ]; then
     echo "expected ${portable_config#"$repo_root"/} to exist"
