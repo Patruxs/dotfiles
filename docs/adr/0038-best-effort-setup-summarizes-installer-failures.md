@@ -1,0 +1,5 @@
+# Best-Effort Setup Prints a Verified Outcome Summary
+
+Local setup defaults to `best_effort` mode so package installs, app installers, downloads, AI CLIs, Chezmoi apply, configuration roles, and service enablement can continue after one item fails and print final manual follow-up work. Profile, platform, unsupported-feature, and sudo availability checks remain strict because those failures mean setup cannot safely know which machine state it is trying to produce; `strict` mode remains available for fail-fast debugging and CI-style verification.
+
+The final report is a setup outcome summary, not merely an attempt log. It verifies selected direct package entries after setup finishes where a stable local query exists, then groups what is present by installer type such as apt, dnf, pacman, brew, cask, flatpak, npm, and AI CLI command. It also lists completed setup phases, entries that were selected but not detected afterward, intentionally skipped entries, and detailed errors collected from best-effort failures.
