@@ -14,11 +14,13 @@ An opinionated, cross-platform machine bootstrap system and dotfiles manager for
 
 ## 🚀 Quick start
 
+Prerequisites: macOS needs [Homebrew](https://brew.sh) installed first; Windows needs `winget` (ships with App Installer on Windows 10/11). Linux needs only `curl` and `sudo`.
+
 **Linux**:
 
 ```sh
 DOTFILES_REPO="https://github.com/Patruxs/dotfiles.git" \
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh)"
+  bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/Patruxs/dotfiles/main/bootstrap.sh | bash'
 ```
 
 **macOS**:
@@ -76,7 +78,8 @@ To run the bootstrap script manually with a specific profile:
 ## 🧩 GNOME extensions
 
 Extension settings are captured into `gnome/` and restored automatically by the
-Ansible `gnome` role on Linux profiles that include `desktop_base`.
+Ansible `gnome` role on Fedora profiles that include `desktop_base` (the role
+currently gates on Fedora; run the sync script manually on other distros).
 
 ```sh
 ./scripts/gnome-extensions-sync.sh capture   # machine -> repo, then commit
@@ -119,14 +122,14 @@ The system is split into two primary profiles to keep work machines lean while f
 
 | Feature / App Category | OS | Personal Profile | Work Profile | Description / Apps Included |
 | :--- | :--- | :---: | :---: | :--- |
-| **Core CLI & Shell** | Linux, macOS, Windows | ✅ | ✅ | **Tools**: `git`, `curl`, `wget`, `unzip`, `gnupg`, `bash`, `neovim`, `ripgrep`, `jq`, `bat`, `fzf`, `zoxide`, `fd`, `eza`, `lazygit`, `gh`, `mole` (macOS). `tmux` and `btop` on Linux/macOS only. <br> **Configs**: Multi-shell integrations (`bash`, `zsh`, `powershell`), aliases, `.gitconfig` with GitHub CLI credential helper. |
+| **Core CLI & Shell** | Linux, macOS, Windows | ✅ | ✅ | **Tools**: `git`, `curl`, `wget`, `unzip`, `gnupg`, `bash`, `neovim`, `ripgrep`, `jq`, `bat`, `fzf`, `zoxide`, `fd`, `eza`, `lazygit`, `gh`, `mole` (macOS). `tmux` and `btop` on Linux/macOS only. <br> **Configs**: Multi-shell integrations (`bash`, `zsh`, `powershell`), aliases, `.gitconfig` with GitHub CLI credential helper. The `shell` feature sets bash as the login shell on Linux and macOS. |
 | **Dev Tools & SDKs** | Linux, macOS, Windows | ✅ | ✅ | **Languages**: `nodejs`, `python3`, `gcc`, `go`, `java`. (Plus POSIX UCRT on Windows). <br> **Package Mgrs**: `npm`, `python-pip`, `pnpm`, `uv`, `maven`, `gradle`. <br> **Testing**: `playwright`. |
 | **Security / Passwords** | Linux, macOS, Windows | ✅ | ❌ | Bitwarden CLI (`bw`) installed via npm globally. |
 | **Desktop Base** | Linux, macOS, Windows | ✅ | ✅ | **Editors**: VS Code, Obsidian. <br> **Utils**: GitButler, LocalSend, GParted (Linux), flatpak (Linux). |
 | **Modern Terminals** | Linux, macOS, Windows | ✅ | ✅ | Warp Terminal. Ghostty on Linux and macOS (no Windows build). |
-| **Docker Ecosystem** | Linux, macOS, Windows | ✅ | ✅ | Native Docker Engine + Docker Desktop. |
+| **Docker Ecosystem** | Linux, macOS, Windows | ✅ | ✅ | Docker Desktop. A separate `docker_engine` feature exists for the native engine; no shipped profile selects it. |
 | **AI CLIs** | Linux, macOS, Windows | ✅ | ✅ | `codex`, `agy`, `droid`, `opencode`, `herdr` (Plus `llmfit` installed natively on Personal only). |
-| **System & Desktop Configs** | Linux, macOS, Windows | ✅ | ✅ | SSH host aliases. <br> **Linux-only**: GNOME `dconf` keybindings & UI tweaks, `monitors.xml` (display layout), `user-dirs.dirs` (XDG dirs), `auto-headphone-switch.service` (Systemd), swap/low-memory tuning. |
+| **System & Desktop Configs** | Linux, macOS, Windows | ✅ | ✅ | SSH host aliases. <br> **Linux-only**: GNOME `dconf` keybindings & UI tweaks, `user-dirs.dirs` (XDG dirs), `auto-headphone-switch.service` (Systemd), swap/low-memory tuning. |
 | **Heavy IDEs** | Linux, macOS, Windows | ✅ | ❌ | JetBrains Toolbox, Kiro IDE. |
 | **Virtualization** | Linux, macOS, Windows | ✅ | ❌ | Oracle VirtualBox. |
 | **Desktop Apps** | Linux, macOS, Windows | ✅ | ❌ | **Comm/Media**: Telegram, Zoom, Spotify, OBS Studio. <br> **Work/Utils**: Postman, ONLYOFFICE, Edge, Anki, Termius, Bazaar (Linux). <br> **System**: `nvtop` (Linux), TreeSize (Win), RevoUninstaller (Win). |

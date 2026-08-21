@@ -10,12 +10,12 @@ Flags, environment variables, and file formats. See [Architecture](architecture.
 
 | Flag | Default | Description |
 | :--- | :--- | :--- |
-| `--profile <name>` | prompt, or the cached profile | Which profile to install. Must match a file in `ansible/vars/profiles/`. |
+| `--profile <name>` | `DOTFILES_PROFILE`, or prompt | Which profile to install. Accepted values are `personal` and `work`, validated in `bootstrap.sh`, `bootstrap.ps1`, and `home/.chezmoi.toml.tmpl` (new profiles must be added to all three). |
 | `--platform <name>` | detected from the OS | Override platform detection. **Rejected unless `DOTFILES_CI=1`** - a real machine must not be able to lie about its OS. |
 | `--best-effort` | this is the default | Continue past installer failures and collect them into the final report. |
 | `--strict` | | Stop at the first failure. Use this while developing. |
 
-The script detects the OS, maps it to a platform, installs chezmoi, git, Ansible, and the required collections, then runs exactly one playbook: `ansible/playbooks/<platform>.yml`.
+The script detects the OS, maps it to a platform, installs chezmoi, git, Ansible, and the required collections, then runs exactly one playbook: `ansible/playbooks/<platform>.yml`. On macOS, Homebrew must already be installed - the script exits early without it.
 
 Distro mapping: `ubuntu` to `ubuntu`, `fedora` to `fedora`, `arch` and `manjaro` to `arch`, Darwin to `macos`. Anything else fails early with an explicit message.
 
@@ -25,7 +25,7 @@ Distro mapping: `ubuntu` to `ubuntu`, `fedora` to `fedora`, `arch` and `manjaro`
 .\bootstrap.ps1 [-ProfileName personal|work] [-SetupMode best_effort|strict]
 ```
 
-Windows uses winget and PowerShell rather than Ansible. It shares the profile and setup-mode vocabulary but not the playbook structure.
+Windows uses winget and PowerShell rather than Ansible. It shares the profile and setup-mode vocabulary but not the playbook structure. `winget` must be available (it ships with App Installer); the script fails early without it. The chosen profile is cached in `~/.dotfiles_profile` and offered as the default on later runs.
 
 ## Environment variables
 
@@ -56,7 +56,7 @@ Low-memory setup turns on automatically on Linux at or below the memory threshol
 | `DOTFILES_SWAPFILE_SIZE_MB` | 4096 at 2 GB RAM or less, otherwise 2048 | Size of the swapfile to create. |
 | `DOTFILES_MIN_SWAP_MB` | same default as above | Swap total considered sufficient, below which a swapfile is created. |
 
-Setup mode and CI detection are also read from `GITHUB_ACTIONS` and `CI`, which mark the run as an automation environment.
+CI detection is also read from `GITHUB_ACTIONS` and `CI`, which mark the run as an automation environment (setup mode comes only from the flags and `DOTFILES_SETUP_MODE`).
 
 ## Profile file format
 

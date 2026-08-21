@@ -105,7 +105,7 @@ Use `--strict` while developing. The default `best_effort` mode is right for rea
 
 1. Create `ansible/vars/profiles/<name>.yml` with `profile_name`, `supported_platforms`, and `features`. All three are required - preflight rejects a profile that omits `supported_platforms` or `features`.
 2. List only the platforms the profile is genuinely meant for. A `server` profile that lists just `ubuntu` will fail clearly on a Mac instead of half-installing.
-3. Add the profile to the accepted values in `bootstrap.sh`, which validates the `--profile` argument.
+3. Add the profile name to every place that validates it - there are three: `bootstrap.sh` (the `--profile` case statement), `bootstrap.ps1` (the `Get-Profile` regex), and `home/.chezmoi.toml.tmpl` (which makes `chezmoi init` fail for unknown profiles). Missing one produces a confusing failure partway through a run.
 4. Prefer feature checks over profile-name checks anywhere else. Profile names carry no behavior, and templates that branch on `personal` need editing every time a profile is added.
 
 ## Adding a platform

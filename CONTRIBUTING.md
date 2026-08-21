@@ -14,6 +14,7 @@ This repository separates *what a machine is for* (profiles) from *how each oper
 
 - Search existing issues before opening a new one.
 - Do not include passwords, tokens, private keys, private hostnames, or other sensitive machine data.
+- `CONTEXT.md` is a machine-local AI-context file. It is gitignored and must never be committed; keep any equivalent local notes out of the repository too.
 - Open an issue before making a large behavior or architecture change.
 - Keep changes focused and preserve cross-platform behavior where applicable.
 

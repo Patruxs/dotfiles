@@ -26,6 +26,9 @@ Two different files answer two different questions. Start with the first one.
 
 Delete any entry you do not want from the `features` list. Nothing is installed unless a profile asks for it, so removing a feature name here is the whole switch - there is no second place to also turn it off.
 
+> [!NOTE]
+> The `shell` feature sets bash as your login shell (`chsh`) on Linux and macOS. Remove it from your profile if you prefer zsh, fish, or another shell.
+
 **Which packages actually provide them?** That is the package set for each operating system you use:
 
 - `ansible/vars/package_sets/ubuntu.yml`
@@ -54,9 +57,14 @@ Review these machine-specific areas carefully:
 
 - `home/private_dot_ssh/private_config` contains example GitHub host aliases. Replace or remove them. Fresh installations ignore this file unless you opt in at the first-run prompt.
 - `home/private_dot_ssh/` contains the original owner's public keys and Bitwarden templates. Remove the directory or replace it with your own setup. Never commit private keys. Fresh installations skip these keys unless you opt in at the first-run prompt (the keys are then rendered from Bitwarden, so `bw` must be installed and unlocked when you apply).
-- `home/dot_config/monitors.xml` contains a display layout that you may not want.
-- `home/.chezmoidata/gnome_dconf.yaml` contains GNOME desktop preferences.
+- `home/.chezmoidata/gnome_dconf.yaml` contains GNOME desktop preferences, including a keyboard input source with the Vietnamese ibus-bamboo IME. Replace that entry with your own layout (the IME engine itself is not installed by setup).
+- `gnome/extensions.dconf` and `gnome/extensions.yaml` are the original owner's captured GNOME Shell extension set. On Fedora desktops the Ansible `gnome` role installs and applies them automatically. Delete `gnome/extensions.dconf` or re-capture with `./scripts/gnome-extensions-sync.sh capture` before your first run.
+- `home/dot_profile` sources `~/.profile.local` at the end. Put per-machine paths and aliases there; that file is never managed or committed.
+- `home/.chezmoiscripts/` holds run-once scripts that download and run upstream installers (zoxide, superfile, llmfit) on the first `chezmoi apply`. Review them and delete any you do not want.
+- `home/dot_config/ghostty/config` sets the `MesloLGS NF` font, which setup does not install. Install a Meslo Nerd Font manually or change the `font-family` entries.
 - `home/dot_config/opencode/opencode.jsonc.tmpl` references an optional local agent-instructions file.
+
+Display layout (`~/.config/monitors.xml`) is deliberately not managed - it is machine state, and `home/.chezmoiignore` guards it against an accidental `chezmoi add`.
 
 Chezmoi asks for your Git name, Git email, an optional GPG recipient, whether to apply the example SSH config, whether to provision the GitHub SSH keys from Bitwarden, and your dotfiles profile (`personal` or `work`) on the first run. Leave the GPG recipient empty if you do not use encrypted Chezmoi files. Answers are stored in `~/.config/chezmoi/chezmoi.toml`; to change one, edit that file (or delete it and re-run `chezmoi init`).
 
@@ -136,7 +144,7 @@ Set `DOTFILES_REPO` so the downloaded bootstrap script clones your fork instead 
 
 ```sh
 export DOTFILES_REPO="https://github.com/YOUR_USERNAME/dotfiles.git"
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/dotfiles/main/bootstrap.sh)"
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/dotfiles/main/bootstrap.sh | bash'
 ```
 
 **macOS**:

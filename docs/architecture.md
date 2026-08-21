@@ -77,7 +77,7 @@ flowchart TD
 
 ### 1. Bootstrap picks exactly one playbook
 
-`bootstrap.sh` detects the operating system and maps it to a platform, failing early if the distro has no playbook. It installs the prerequisites (chezmoi, git, Ansible and its collections), then runs a single playbook:
+`bootstrap.sh` detects the operating system and maps it to a platform, failing early if the distro has no playbook. It installs the prerequisites (chezmoi, git, Ansible and its collections - on macOS this requires Homebrew to be installed already), then runs a single playbook:
 
 ```sh
 ansible-playbook -i localhost, ansible/playbooks/ubuntu.yml -e profile=personal
