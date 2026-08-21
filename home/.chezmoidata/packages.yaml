@@ -121,6 +121,7 @@ packages:
         - eza-community.eza
         - JesseDuffield.lazygit
         - GitHub.cli
+        - ajeetdsouza.zoxide
         - Warp.Warp
         - Microsoft.VisualStudioCode
         - GitButler.GitButler

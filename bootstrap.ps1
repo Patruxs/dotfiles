@@ -287,6 +287,13 @@ if (-not (Get-Command chezmoi -ErrorAction SilentlyContinue)) {
   }
 }
 
+Show-WelcomeScreen
+$profile = Get-Profile
+Write-Host "Using profile: $profile"
+# chezmoi init persists this into its config so a later plain `chezmoi apply`
+# uses the same profile the bootstrap ran with.
+$env:DOTFILES_PROFILE = $profile
+
 if (Test-UsingCheckedOutSource) {
   Write-Host "Initializing Chezmoi from checked-out source: $chezmoiSource"
   chezmoi init --source $chezmoiSource
@@ -301,9 +308,28 @@ if (Test-UsingCheckedOutSource) {
   Refresh-Repo
 }
 
-Show-WelcomeScreen
-$profile = Get-Profile
-Write-Host "Using profile: $profile"
+# chezmoi runs in symlink mode, which Windows only allows with Developer Mode
+# enabled or an elevated shell. Probe before apply so the failure is actionable.
+$symlinkProbeTarget = Join-Path ([System.IO.Path]::GetTempPath()) ("chezmoi-symlink-probe-" + [System.IO.Path]::GetRandomFileName())
+$symlinkProbeLink = "$symlinkProbeTarget-link"
+New-Item -ItemType File -Path $symlinkProbeTarget -Force | Out-Null
+$symlinkOk = $false
+try {
+  New-Item -ItemType SymbolicLink -Path $symlinkProbeLink -Target $symlinkProbeTarget -ErrorAction Stop | Out-Null
+  $symlinkOk = $true
+} catch {
+  # Windows PowerShell 5.1 cannot create unprivileged symlinks even with
+  # Developer Mode enabled (it never passes
+  # SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE); cmd's mklink does pass it,
+  # matching what chezmoi itself can do.
+  cmd /c mklink "$symlinkProbeLink" "$symlinkProbeTarget" > $null 2>&1
+  if ($LASTEXITCODE -eq 0) { $symlinkOk = $true }
+}
+Remove-Item $symlinkProbeLink -Force -ErrorAction SilentlyContinue
+Remove-Item $symlinkProbeTarget -Force -ErrorAction SilentlyContinue
+if (-not $symlinkOk) {
+  throw "This setup creates symlinks (chezmoi mode = ""symlink""), but this Windows session is not allowed to create them. Enable Developer Mode (Settings > System > For developers) or re-run bootstrap from an elevated PowerShell."
+}
 
 chezmoi apply --source $chezmoiSource --force -v
 Assert-LastExitCode "chezmoi apply"
