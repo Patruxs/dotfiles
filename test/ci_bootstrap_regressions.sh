@@ -550,6 +550,15 @@ if ! search_file_literal 'dpkg-query -W' "$repo_root/ansible/roles/linux_apps/ta
   exit 1
 fi
 
+# Ansible Galaxy can be unreachable (outages, regional TLS resets); the distro
+# ansible package already bundles community.general, so a failed refresh must
+# fall back to installed collections instead of aborting bootstrap.
+if ! search_file_literal 'required_ansible_collections_present' "$repo_root/bootstrap.sh" ||
+  ! search_file_literal 'Continuing with the already-installed versions' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to fall back to installed Ansible collections when Galaxy is unreachable"
+  exit 1
+fi
+
 # A half-installed Docker Desktop (dpkg reinstreq, e.g. from an interrupted
 # install) aborts every apt transaction because the package has no repository
 # archive; bootstrap must self-heal that state before it touches apt.

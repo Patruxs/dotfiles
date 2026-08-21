@@ -352,8 +352,22 @@ resolve_platform() {
   esac
 }
 
+required_ansible_collections_present() {
+  # Presence check only; the distro ansible bundles ship versions well past the
+  # pinned minimums, and a real version conflict still fails loudly in the play.
+  local requirements_file collection_name
+
+  requirements_file="$1"
+
+  while IFS= read -r collection_name; do
+    if ! ansible-galaxy collection list "$collection_name" 2>/dev/null | grep -q "$collection_name"; then
+      return 1
+    fi
+  done < <(sed -n 's/^[[:space:]]*-[[:space:]]*name:[[:space:]]*//p' "$requirements_file")
+}
+
 ensure_ansible_collections() {
-  local requirements_file
+  local requirements_file attempt
 
   requirements_file="$chezmoi_dir/ansible/collections/requirements.yml"
 
@@ -362,7 +376,26 @@ ensure_ansible_collections() {
   fi
 
   echo "Installing or updating required Ansible collections..."
-  ansible-galaxy collection install --upgrade -r "$requirements_file"
+  for attempt in 1 2 3; do
+    if ansible-galaxy collection install --upgrade -r "$requirements_file"; then
+      return
+    fi
+    if [ "$attempt" -lt 3 ]; then
+      echo "Ansible Galaxy did not respond (attempt $attempt of 3). Retrying..."
+      sleep 5
+    fi
+  done
+
+  # Galaxy can be unreachable (outages, flaky networks, regional TLS resets).
+  # The distro ansible package already bundles community.general, so continue
+  # with installed collections and fail only when one is actually missing.
+  if required_ansible_collections_present "$requirements_file"; then
+    echo "WARNING: Could not refresh Ansible collections from Galaxy. Continuing with the already-installed versions."
+    return
+  fi
+
+  echo "Could not reach Ansible Galaxy and a required collection is missing. Check network access to galaxy.ansible.com and re-run bootstrap.sh."
+  exit 1
 }
 
 choose_profile() {
