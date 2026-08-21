@@ -20,3 +20,15 @@ gtk-titlebar = false
 
 keybind = ctrl+up=scroll_page_up
 keybind = ctrl+down=scroll_page_down
+
+window-padding-x = 6
+window-padding-y = 4
+window-padding-balance = true
+
+cursor-style = block
+cursor-style-blink = false
+mouse-hide-while-typing = true
+
+# Better terminal behavior for shells, new tabs/splits, prompt marks, etc.
+shell-integration = detect
+shell-integration-features = cursor,sudo,title,ssh-env
