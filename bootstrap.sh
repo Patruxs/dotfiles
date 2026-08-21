@@ -423,7 +423,9 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      shift
+      echo "Unknown argument: $1"
+      echo "Usage: $0 [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--best-effort|--strict]"
+      exit 1
       ;;
   esac
 done

@@ -1,4 +1,10 @@
 ---
+- name: Check current login shell (Linux)
+  ansible.builtin.command: getent passwd {{ ansible_facts['user_id'] | quote }}
+  register: shell_passwd_entry
+  changed_when: false
+  failed_when: false
+
 - name: Set bash as default shell (Linux)
   ansible.builtin.shell: |
     set -euo pipefail
@@ -10,5 +16,7 @@
     fi
   args:
     executable: /bin/bash
+  when:
+    - shell_passwd_entry.rc == 0
+    - not shell_passwd_entry.stdout.endswith('/bin/bash')
   ignore_errors: yes
-  changed_when: false

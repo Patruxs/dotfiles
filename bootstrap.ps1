@@ -162,6 +162,10 @@ function Show-WelcomeScreen {
 }
 
 function Get-Profile {
+  if ([string]::IsNullOrWhiteSpace($ProfileName) -and -not [string]::IsNullOrWhiteSpace($env:DOTFILES_PROFILE)) {
+    $ProfileName = $env:DOTFILES_PROFILE
+  }
+
   if (-not [string]::IsNullOrWhiteSpace($ProfileName)) {
     if ($ProfileName -match "^(personal|work)$") {
       Set-Content -Path $profileCacheFile -Value $ProfileName
@@ -270,6 +274,10 @@ function Install-WingetPackages {
   } finally {
     Remove-Item $tempWingetManifest -ErrorAction SilentlyContinue
   }
+}
+
+if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+  throw "winget is required but was not found. Install 'App Installer' from the Microsoft Store (or update Windows), then re-run bootstrap."
 }
 
 if (-not (Get-Command chezmoi -ErrorAction SilentlyContinue)) {

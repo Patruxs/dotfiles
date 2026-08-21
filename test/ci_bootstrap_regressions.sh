@@ -51,8 +51,8 @@ linux_privileged_task_files=(
   "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"
 )
 
-if ! bash -c "$(cat "$repo_root/bootstrap.sh")" -- --help >/dev/null; then
-  echo "expected bootstrap.sh to support README curl execution with bash -c"
+if ! bash -s -- --help < "$repo_root/bootstrap.sh" >/dev/null; then
+  echo "expected bootstrap.sh to support README curl execution piped into bash"
   exit 1
 fi
 

@@ -7,6 +7,7 @@ fi
 if command -v brew >/dev/null 2>&1; then
     brew install AlexsJones/llmfit/llmfit || brew install llmfit
 else
-    curl -fsSL https://llmfit.axjns.dev/install.sh | sh
+    # Pinned to a release tag so a compromised main branch cannot inject code here.
+    curl -fsSL https://raw.githubusercontent.com/AlexsJones/llmfit/v1.1.10/install.sh | sh
 fi
 {{- end }}
