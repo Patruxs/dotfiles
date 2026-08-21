@@ -1,11 +1,20 @@
-# Generated per-machine config written by chezmoi templates.
-.gitconfig.local
-
 .env
 .env.*
+# Hand-maintained per-machine git settings; keep out of chezmoi entirely.
+.gitconfig.machine
+.ssh/known_hosts*
+# Guardrail: never manage (or accidentally `chezmoi add`) SSH keys, except the
+# chezmoi-provisioned GitHub keys when manage_ssh_keys is enabled.
 .ssh/id_*
 .ssh/*.pub
-.ssh/known_hosts*
+{{ if default false (get . "manage_ssh_keys") }}
+!.ssh/id_ed25519_github
+!.ssh/id_ed25519_github.pub
+!.ssh/id_ed25519_github_personal
+!.ssh/id_ed25519_github_personal.pub
+!.ssh/id_ed25519_github_work
+!.ssh/id_ed25519_github_work.pub
+{{ end }}
 {{ if not (default false (get . "manage_ssh_config")) }}
 .ssh/config
 {{ end }}
@@ -39,12 +48,33 @@
 .config/systemd/**
 .config/user-dirs.dirs
 .config/user-dirs.locale
+.local/bin/update-flatpak-wrappers
 {{- end }}
 
 {{- if ne .chezmoi.os "darwin" }}
-.Library/**
+Library
+Library/**
 {{- end }}
 
 {{- if ne .chezmoi.os "windows" }}
-.AppData/**
+AppData
+AppData/**
+Documents
+Documents/**
+{{- end }}
+
+{{- if eq .chezmoi.os "windows" }}
+.bashrc
+.bash_profile
+.profile
+.zshrc
+.tmux.conf
+.config/ghostty
+.config/ghostty/**
+.config/herdr
+.config/herdr/**
+.config/nvim
+.config/nvim/**
+.config/powershell
+.config/powershell/**
 {{- end }}

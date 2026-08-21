@@ -1,3 +1,11 @@
+{{- $name := dig "git" "name" "" . -}}
+{{- $email := dig "git" "email" "" . -}}
+{{- if or $name $email -}}
 [user]
-	name = {{ .git.name | quote }}
-	email = {{ .git.email | quote }}
+{{- if $name }}
+	name = {{ $name | quote }}
+{{- end }}
+{{- if $email }}
+	email = {{ $email | quote }}
+{{- end }}
+{{- end }}

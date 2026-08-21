@@ -32,12 +32,16 @@ Edit the files in `home/.live/dotfiles/` for your shell, Git, tmux, Neovim, Powe
 Review these machine-specific areas carefully:
 
 - `home/.live/ssh/config` contains example GitHub host aliases. Replace or remove them. Fresh installations ignore this file unless you opt in at the first-run prompt.
-- `home/private_dot_ssh/` contains the original owner's public keys and Bitwarden templates. Remove the directory or replace it with your own setup. Never commit private keys.
+- `home/private_dot_ssh/` contains the original owner's public keys and Bitwarden templates. Remove the directory or replace it with your own setup. Never commit private keys. Fresh installations skip these keys unless you opt in at the first-run prompt (the keys are then rendered from Bitwarden, so `bw` must be installed and unlocked when you apply).
 - `home/dot_config/monitors.xml` contains a display layout that you may not want.
 - `home/.chezmoidata/gnome_dconf.yaml` contains GNOME desktop preferences.
 - `home/dot_config/opencode/opencode.jsonc.tmpl` references an optional local agent-instructions file.
 
-Chezmoi asks for your Git name, Git email, and an optional GPG recipient on the first run. Leave the GPG recipient empty if you do not use encrypted Chezmoi files.
+Chezmoi asks for your Git name, Git email, an optional GPG recipient, whether to apply the example SSH config, whether to provision the GitHub SSH keys from Bitwarden, and your dotfiles profile (`personal` or `work`) on the first run. Leave the GPG recipient empty if you do not use encrypted Chezmoi files. Answers are stored in `~/.config/chezmoi/chezmoi.toml`; to change one, edit that file (or delete it and re-run `chezmoi init`).
+
+Chezmoi generates `~/.gitconfig.local` (your Git identity) and overwrites it on apply. Put hand-maintained per-machine Git settings in `~/.gitconfig.machine` instead; it is included by the shared gitconfig and never touched by Chezmoi.
+
+For automation outside GitHub Actions, set `DOTFILES_CI=1` so `chezmoi init` uses non-interactive defaults instead of prompting.
 
 ## 4. Run Your Local Checkout
 
