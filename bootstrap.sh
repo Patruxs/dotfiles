@@ -14,6 +14,7 @@ platform=""
 setup_mode="${DOTFILES_SETUP_MODE:-best_effort}"
 
 if [ "$OS" = "Linux" ] && [ -f /etc/os-release ]; then
+  # shellcheck disable=SC1091  # system file, not part of this repo
   . /etc/os-release
   DISTRO="$ID"
 fi
@@ -444,6 +445,10 @@ case "$profile" in
     exit 1
     ;;
 esac
+
+# chezmoi init persists this into its config so a later plain `chezmoi apply`
+# uses the same profile the bootstrap ran with.
+export DOTFILES_PROFILE="$profile"
 
 case "$setup_mode" in
   best_effort|strict)

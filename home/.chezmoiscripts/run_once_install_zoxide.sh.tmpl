@@ -1,0 +1,9 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/bin/bash
+set -euo pipefail
+if command -v zoxide >/dev/null 2>&1; then
+    exit 0
+fi
+# Pinned to a release tag so a compromised main branch cannot inject code here.
+curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/v0.10.0/install.sh | sh
+{{- end }}

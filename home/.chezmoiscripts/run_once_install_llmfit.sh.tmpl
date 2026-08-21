@@ -1,0 +1,12 @@
+{{- if and (ne .chezmoi.os "windows") (not (env "GITHUB_ACTIONS")) (eq (default "personal" (get . "dotfiles_profile")) "personal") -}}
+#!/bin/bash
+set -euo pipefail
+if command -v llmfit >/dev/null 2>&1; then
+    exit 0
+fi
+if command -v brew >/dev/null 2>&1; then
+    brew install AlexsJones/llmfit/llmfit || brew install llmfit
+else
+    curl -fsSL https://llmfit.axjns.dev/install.sh | sh
+fi
+{{- end }}

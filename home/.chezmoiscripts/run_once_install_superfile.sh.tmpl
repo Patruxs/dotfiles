@@ -1,4 +1,8 @@
 {{- if ne .chezmoi.os "windows" -}}
 #!/bin/bash
-bash -c "$(curl -sLo- https://superfile.dev/install.sh)"
+set -euo pipefail
+if command -v spf >/dev/null 2>&1; then
+    exit 0
+fi
+bash -c "$(curl -fsSLo- https://superfile.dev/install.sh)"
 {{- end }}
