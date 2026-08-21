@@ -22,3 +22,8 @@
   loop: "{{ gnome_dconf_data.gnome_dconf.entries | default([]) }}"
   when:
     - gnome_running.rc == 0
+
+- name: Restore GNOME Shell extensions
+  include_tasks: extensions.yml
+  when:
+    - gnome_running.rc == 0

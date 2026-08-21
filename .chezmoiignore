@@ -2,6 +2,8 @@ README.md
 bootstrap.sh
 bootstrap.ps1
 packages/**
+scripts/**
+gnome/**
 ansible/
 ansible.cfg
 docs/

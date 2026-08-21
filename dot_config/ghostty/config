@@ -12,6 +12,8 @@ font-size = 1
 window-decoration = server
 confirm-close-surface = false
 
+gtk-titlebar = false
+
 
 #keybind = ctrl+up=scroll_page_lines:5
 #keybind = ctrl+down=scroll_page_lines:-5 

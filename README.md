@@ -64,6 +64,24 @@ To run the bootstrap script manually with a specific profile:
 ./bootstrap.sh --profile personal
 ```
 
+## 🧩 GNOME extensions
+
+Extension settings are captured into `gnome/` and restored automatically by the
+Ansible `gnome` role on Linux profiles that include `desktop_base`.
+
+```sh
+./scripts/gnome-extensions-sync.sh capture   # machine -> repo, then commit
+./scripts/gnome-extensions-sync.sh apply     # repo -> machine
+./scripts/gnome-extensions-sync.sh diff      # what drifted since the last capture
+./scripts/gnome-extensions-sync.sh check     # exit 0 when already in sync
+```
+
+`capture` writes two files: `gnome/extensions.dconf`, a `dconf` dump of every
+per-extension setting, and `gnome/extensions.yaml`, the list of which extensions
+are enabled and whether they come from extensions.gnome.org or a distro package.
+`apply` downloads the missing extensions.gnome.org ones, loads the settings, then
+enables them - log out and back in afterwards for GNOME Shell to pick them up.
+
 ## 🔑 Manual logins
 
 ```sh

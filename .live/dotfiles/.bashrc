@@ -78,3 +78,6 @@ if command -v brew >/dev/null 2>&1; then
 fi
 
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
+# druk
+export PATH=/home/pat/.druk/bin:$PATH
