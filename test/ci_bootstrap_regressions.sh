@@ -550,6 +550,15 @@ if ! search_file_literal 'dpkg-query -W' "$repo_root/ansible/roles/linux_apps/ta
   exit 1
 fi
 
+# A half-installed Docker Desktop (dpkg reinstreq, e.g. from an interrupted
+# install) aborts every apt transaction because the package has no repository
+# archive; bootstrap must self-heal that state before it touches apt.
+if ! search_file_literal 'force-remove-reinstreq docker-desktop' "$repo_root/bootstrap.sh" ||
+  ! search_file_literal "repair_broken_docker_desktop" "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to remove a half-installed Docker Desktop before running apt"
+  exit 1
+fi
+
 # The Docker Desktop Ubuntu codename whitelist must be defined once in
 # common.yml and referenced everywhere else, so the preflight check and the
 # install task can never drift apart (preflight passing while install skips).

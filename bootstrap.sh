@@ -217,6 +217,23 @@ install_packages() {
   fi
 }
 
+repair_broken_docker_desktop() {
+  # Docker Desktop installs from a direct .deb, so no apt repository can repair
+  # it. If an interrupted install left dpkg demanding a reinstall (reinstreq),
+  # every apt transaction aborts with "needs to be reinstalled, but I can't
+  # find an archive for it". Remove the broken package; setup reinstalls it.
+  if ! have dpkg-query; then
+    return
+  fi
+
+  if [ "$(dpkg-query -W -f '${db:Status-Eflag}' docker-desktop 2>/dev/null)" != "reinstreq" ]; then
+    return
+  fi
+
+  echo "Docker Desktop is half-installed and blocks apt. Removing the broken package so setup can reinstall it..."
+  run_privileged dpkg --remove --force-remove-reinstreq docker-desktop
+}
+
 update_system() {
   if [ "$OS" != "Linux" ]; then
     return
@@ -233,6 +250,7 @@ update_system() {
       run_privileged dnf upgrade --refresh -y
       ;;
     debian|ubuntu)
+      repair_broken_docker_desktop
       run_privileged apt-get update
       run_privileged apt-get upgrade -y
       ;;
