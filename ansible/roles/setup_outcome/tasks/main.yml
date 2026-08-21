@@ -248,4 +248,5 @@
   copy:
     content: "{{ dotfiles_setup_report_text }}\n"
     dest: "{{ lookup('env', 'HOME') }}/.dotfiles_setup_report.md"
+  changed_when: false
   ignore_errors: yes

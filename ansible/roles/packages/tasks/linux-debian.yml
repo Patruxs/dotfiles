@@ -10,6 +10,9 @@
     fi
   args:
     executable: /bin/bash
+  register: dotfiles_apt_strict_install_result
+  changed_when: >-
+    '0 upgraded, 0 newly installed' not in dotfiles_apt_strict_install_result.stdout
   when:
     - dotfiles_setup_mode | default('best_effort') == 'strict'
     - not (dotfiles_low_memory_setup | default(false) | bool)
@@ -37,6 +40,9 @@
   loop: "{{ system_packages }}"
   loop_control:
     label: "{{ item }}"
+  register: dotfiles_apt_low_memory_install_results
+  changed_when: >-
+    '0 upgraded, 0 newly installed' not in dotfiles_apt_low_memory_install_results.stdout
   when:
     - dotfiles_setup_mode | default('best_effort') == 'strict'
     - dotfiles_low_memory_setup | default(false) | bool
@@ -65,7 +71,9 @@
   loop_control:
     label: "{{ item }}"
   register: dotfiles_apt_package_install_results
-  changed_when: dotfiles_apt_package_install_results.rc == 0
+  changed_when: >-
+    dotfiles_apt_package_install_results.rc == 0
+    and '0 upgraded, 0 newly installed' not in dotfiles_apt_package_install_results.stdout
   failed_when: false
   when: dotfiles_setup_mode | default('best_effort') == 'best_effort'
 

@@ -4,6 +4,7 @@
     name: "{{ homebrew_brews }}"
     state: latest
     update_homebrew: true
+  changed_when: false
   when:
     - homebrew_brews | length > 0
     - dotfiles_setup_mode | default('best_effort') == 'strict'
@@ -14,6 +15,7 @@
     state: latest
     greedy: true
     update_homebrew: true
+  changed_when: false
   when:
     - homebrew_casks | length > 0
     - dotfiles_setup_mode | default('best_effort') == 'strict'
@@ -27,6 +29,7 @@
   loop_control:
     label: "{{ item }}"
   register: dotfiles_homebrew_brew_install_results
+  changed_when: false
   failed_when: false
   when:
     - homebrew_brews | length > 0
@@ -62,6 +65,7 @@
   loop_control:
     label: "{{ item }}"
   register: dotfiles_homebrew_cask_install_results
+  changed_when: false
   failed_when: false
   when:
     - homebrew_casks | length > 0

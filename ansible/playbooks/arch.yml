@@ -18,6 +18,7 @@
       distribution_major_version: "{{ ansible_facts['distribution_major_version'] | default('') }}"
       architecture: "{{ ansible_facts['architecture'] | default('') }}"
       distro_key: arch
+      ubuntu_codename: ''
 
   pre_tasks:
     - name: Load Arch package set

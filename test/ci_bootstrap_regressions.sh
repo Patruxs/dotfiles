@@ -531,6 +531,38 @@ for playbook in "$fedora_playbook" "$arch_playbook" "$macos_playbook"; do
   fi
 done
 
+# Package installs must detect package-manager no-ops, or the second bootstrap
+# run reports changes and the CI idempotency check fails.
+if ! search_file_literal '0 upgraded, 0 newly installed' "$debian_packages_task" ||
+  ! search_file_literal 'Nothing to do' "$fedora_packages_task" ||
+  ! search_file_literal 'there is nothing to do' "$arch_packages_task"; then
+  echo "expected system package install tasks to report changed only when the package manager did work"
+  exit 1
+fi
+
+# Docker Desktop is delivered as a direct package download, so each distro block
+# must skip itself when the package is already installed instead of
+# re-downloading and reinstalling on every run.
+if ! search_file_literal 'dpkg-query -W' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml" ||
+  ! search_file_literal 'rpm -q docker-desktop' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml" ||
+  ! search_file_literal 'pacman -Qi docker-desktop' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+  echo "expected Docker Desktop install blocks to check for an existing installation first"
+  exit 1
+fi
+
+# Every dotfiles_platform key referenced by roles or shared playbooks must exist
+# in each per-platform playbook's dotfiles_platform block, or templating fails at
+# runtime on that platform (e.g. ubuntu_codename missing from ubuntu.yml).
+referenced_platform_keys="$(grep -rhoE 'dotfiles_platform\.[a-z_]+' "$repo_root/ansible" --include='*.yml' | sed 's/^dotfiles_platform\.//' | sort -u)"
+for playbook in "$ubuntu_playbook" "$fedora_playbook" "$arch_playbook" "$macos_playbook"; do
+  for key in $referenced_platform_keys; do
+    if ! search_file "^ {6}${key}:" "$playbook"; then
+      echo "expected ${playbook##*/} to define dotfiles_platform.${key} (referenced under ansible/)"
+      exit 1
+    fi
+  done
+done
+
 if ! search_file 'supported_platforms' "$repo_root/ansible/vars/profiles/personal.yml" ||
   ! search_file 'features:' "$repo_root/ansible/vars/profiles/personal.yml" ||
   ! search_file 'supported_platforms' "$repo_root/ansible/vars/profiles/work.yml" ||

@@ -131,7 +131,7 @@ Prefer platform and feature checks over `dotfiles_profile`. Branching on a profi
 
 | Variable | Set by | Meaning |
 | :--- | :--- | :--- |
-| `dotfiles_platform` | platform playbook | Name, package family, system, distribution, version, architecture. |
+| `dotfiles_platform` | platform playbook | Name, package family, system, distribution, version, architecture, Ubuntu codename. |
 | `platform_package_data` | platform playbook | The one package set loaded for this run. |
 | `features` | profile file | Selected feature names. |
 | `dotfiles_setup_mode` | flag or env | `best_effort` or `strict`. |

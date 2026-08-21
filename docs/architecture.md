@@ -87,7 +87,7 @@ ansible-playbook -i localhost, ansible/playbooks/ubuntu.yml -e profile=personal
 
 ### 2. The platform playbook loads its own data
 
-Each platform playbook (`ubuntu.yml`, `fedora.yml`, `arch.yml`, `macos.yml`) is thin. It defines the `dotfiles_platform` facts - name, package family, distribution, version, architecture - loads its package set into `platform_package_data`, and imports the shared `common.yml`.
+Each platform playbook (`ubuntu.yml`, `fedora.yml`, `arch.yml`, `macos.yml`) is thin. It defines the `dotfiles_platform` facts - name, package family, distribution, version, architecture, Ubuntu codename - loads its package set into `platform_package_data`, and imports the shared `common.yml`.
 
 `setup.yml` also exists as a compatibility entrypoint that detects the platform itself and forwards to the same `common.yml`.
 
