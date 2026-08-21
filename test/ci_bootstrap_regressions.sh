@@ -550,6 +550,21 @@ if ! search_file_literal 'dpkg-query -W' "$repo_root/ansible/roles/linux_apps/ta
   exit 1
 fi
 
+# The Docker Desktop Ubuntu codename whitelist must be defined once in
+# common.yml and referenced everywhere else, so the preflight check and the
+# install task can never drift apart (preflight passing while install skips).
+if ! search_file_literal 'dotfiles_docker_desktop_ubuntu_codenames:' "$common_playbook" ||
+  ! search_file_literal 'dotfiles_docker_desktop_ubuntu_codenames' "$profile_preflight" ||
+  ! search_file_literal 'dotfiles_docker_desktop_ubuntu_codenames' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+  echo "expected the Docker Desktop Ubuntu codename list to be shared via dotfiles_docker_desktop_ubuntu_codenames"
+  exit 1
+fi
+if search_file_literal "'focal'" "$profile_preflight" ||
+  search_file_literal "'focal'" "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+  echo "expected no duplicated literal Ubuntu codename whitelist outside common.yml"
+  exit 1
+fi
+
 # Every dotfiles_platform key referenced by roles or shared playbooks must exist
 # in each per-platform playbook's dotfiles_platform block, or templating fails at
 # runtime on that platform (e.g. ubuntu_codename missing from ubuntu.yml).

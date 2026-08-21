@@ -12,7 +12,7 @@
     docker_ubuntu_release: "{{ dotfiles_platform.ubuntu_codename }}"
   when:
     - dotfiles_platform.distro_key == 'debian'
-    - dotfiles_platform.ubuntu_codename in ['focal', 'jammy', 'noble', 'oracular', 'plucky']
+    - dotfiles_platform.ubuntu_codename in dotfiles_docker_desktop_ubuntu_codenames
     - dotfiles_platform.architecture in ['x86_64', 'amd64']
     - (dotfiles_docker_desktop_installed_debian.stdout | default('')) != 'installed'
   block:

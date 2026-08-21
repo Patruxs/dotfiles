@@ -137,6 +137,17 @@
         + (['kiro'] if 'kiro_ide' in (features | default([])) else [])
       }}
 
+- name: Define Ubuntu releases supported by Docker's apt repository
+  set_fact:
+    dotfiles_docker_desktop_ubuntu_codenames:
+      - focal
+      - jammy
+      - noble
+      - oracular
+      - plucky
+      - questing
+      - resolute
+
 - name: Validate selected profile, platform, and features
   include_role:
     name: profile_preflight
