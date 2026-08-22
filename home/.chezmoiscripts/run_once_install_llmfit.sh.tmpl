@@ -8,8 +8,10 @@ if command -v brew >/dev/null 2>&1; then
     brew install AlexsJones/llmfit/llmfit || brew install llmfit
 else
     # Upstream's installer, unpinned: it resolves the latest llmfit release at
-    # run time (test/upstream_installers_latest.sh checks this). --local
-    # installs to ~/.local/bin without sudo.
+    # run time (test/upstream_installers_latest.sh checks this).
+    # --local installs to ~/.local/bin without sudo. Without it the installer
+    # redirects a sudo prompt from /dev/tty, which fails (and aborts the script
+    # under its set -e) when bootstrap runs without a controlling terminal.
     curl -fsSL https://raw.githubusercontent.com/AlexsJones/llmfit/main/install.sh | sh -s -- --local
 fi
 {{- end }}
