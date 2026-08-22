@@ -1,7 +1,33 @@
 ---
+# Apple's /bin/bash is the 2007 bash 3.2; the Homebrew `bash` formula from the
+# core_cli package set is the current release, so that is the login shell
+# whenever it is present. Homebrew is located by its known prefixes rather
+# than PATH, because the Ansible process does not always inherit brew's PATH
+# while the homebrew module still finds it.
+- name: Check for the Homebrew bash (macOS)
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /opt/homebrew/bin/bash
+    - /usr/local/bin/bash
+  register: shell_brew_bash
+
+- name: Choose the login shell (macOS)
+  set_fact:
+    shell_macos_login_shell: >-
+      {{
+        (shell_brew_bash.results | selectattr('stat.exists') | map(attribute='item') | list + ['/bin/bash']) | first
+      }}
+
+- name: Allow the Homebrew bash as a login shell (macOS)
+  become: yes
+  ansible.builtin.lineinfile:
+    path: /etc/shells
+    line: "{{ shell_macos_login_shell }}"
+  when: shell_macos_login_shell != '/bin/bash'
+
 - name: Set bash as default shell (macOS)
   become: yes
   user:
     name: "{{ ansible_facts['user_id'] }}"
-    shell: /bin/bash
-  ignore_errors: yes
+    shell: "{{ shell_macos_login_shell }}"

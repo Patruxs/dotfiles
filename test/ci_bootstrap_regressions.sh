@@ -31,6 +31,8 @@ ai_tools_unix_best_effort_task="$repo_root/ansible/roles/ai_tools/tasks/install_
 devtools_task_main="$repo_root/ansible/roles/devtools/tasks/main.yml"
 devtools_npm_best_effort_task="$repo_root/ansible/roles/devtools/tasks/install_npm_global_best_effort.yml"
 ai_clis_data="$repo_root/home/.chezmoidata/ai-clis.yaml"
+packages_data="$repo_root/home/.chezmoidata/packages.yaml"
+winget_manifest="$repo_root/packages/winget.json"
 chezmoi_bootstrap_script="$repo_root/home/.chezmoiscripts/run_once_before_00-bootstrap.sh.tmpl"
 workflow_file="$repo_root/.github/workflows/ci.yml"
 ansible_config="$repo_root/ansible.cfg"
@@ -278,6 +280,42 @@ fi
 
 if ! search_file 'Assert-LastExitCode "winget import"' "$windows_bootstrap"; then
   echo "expected bootstrap.ps1 to fail when winget import returns a non-zero exit code"
+  exit 1
+fi
+
+# winget import installs the latest version only with --ignore-versions (the
+# upgrade-installed-packages check lives with the other winget checks above).
+if ! search_file 'winget import.*--ignore-versions' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to pass --ignore-versions to winget import so packages install at their latest version"
+  exit 1
+fi
+
+# Tool versions are resolved at install time; the repo must not hardcode a
+# release in a download URL, and upstream installer scripts are fetched from
+# their default branch rather than a tag or a checksum pin so the installer
+# itself stays current too. lazygit templates its version from the GitHub
+# API, so its URL contains a Jinja expression rather than a literal version.
+if grep -rnE 'releases/download/v?[0-9]+\.[0-9]+|raw\.githubusercontent\.com/[^/ ]+/[^/ ]+/v?[0-9]+\.[0-9]+' "$repo_root/ansible" "$repo_root/home/.chezmoiscripts" "$repo_root/home/.chezmoidata" "$repo_root/bootstrap.sh" "$repo_root/bootstrap.ps1" "$repo_root/scripts"; then
+  echo "expected no hardcoded release versions in download or installer URLs; installers must resolve the latest release at run time"
+  exit 1
+fi
+
+if grep -rnE 'expected_sha256|sha256sum|shasum' "$repo_root/home/.chezmoiscripts"; then
+  echo "expected no checksum-pinned upstream installers; a pinned installer breaks instead of picking up upstream changes"
+  exit 1
+fi
+
+# winget publishes one Python package id per minor version, so that id is the
+# only place a runtime version line is spelled out. Keep the template manifest
+# and the chezmoi package data on the same line.
+python_winget_id="$(grep -oE 'Python\.Python\.3\.[0-9]+' "$packages_data" | sort -u || true)"
+if [ -z "$python_winget_id" ] || [ "$(printf '%s\n' "$python_winget_id" | wc -l)" -ne 1 ]; then
+  echo "expected exactly one Python winget package id in home/.chezmoidata/packages.yaml, found: ${python_winget_id:-<none>}"
+  exit 1
+fi
+
+if ! search_file_literal "\"PackageIdentifier\": \"$python_winget_id\"" "$winget_manifest"; then
+  echo "expected packages/winget.json to reference the same Python winget id ($python_winget_id) as packages.yaml"
   exit 1
 fi
 
@@ -541,13 +579,112 @@ if ! search_file_literal '0 upgraded, 0 newly installed' "$debian_packages_task"
   exit 1
 fi
 
-# Docker Desktop is delivered as a direct package download, so each distro block
-# must skip itself when the package is already installed instead of
-# re-downloading and reinstalling on every run.
+# Docker Desktop is delivered as a direct package download with no in-app
+# updater, so each distro block must compare the installed version with the
+# vendor appcast: skip when they match, reinstall when upstream moved on.
 if ! search_file_literal 'dpkg-query -W' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml" ||
   ! search_file_literal 'rpm -q docker-desktop' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml" ||
-  ! search_file_literal 'pacman -Qi docker-desktop' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+  ! search_file_literal 'pacman -Q docker-desktop' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
   echo "expected Docker Desktop install blocks to check for an existing installation first"
+  exit 1
+fi
+
+if ! search_file_literal 'desktop.docker.com/linux/main/amd64/appcast.xml' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml" ||
+  ! search_file_literal 'sparkle:shortVersionString' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+  echo "expected Docker Desktop tasks to resolve the latest release from Docker's Linux appcast"
+  exit 1
+fi
+
+if [ "$(grep -c 'dotfiles_docker_desktop_install_needed | default(false) | bool' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml")" -ne 3 ]; then
+  echo "expected all three Docker Desktop install blocks to be gated on the version comparison"
+  exit 1
+fi
+
+# Inside a YAML folded scalar Jinja receives backslashes as written and does
+# not unescape them (ansible-core 2.19+), so a doubled backslash in a regex
+# never matches. That silently broke lazygit's installed-version check once
+# and would break the Docker Desktop comparison the same way.
+if grep -rnE "regex_(search|replace|findall)\([\"'][^\"']*\\\\\\\\" "$repo_root/ansible" --include='*.yml'; then
+  echo "expected Ansible regex filters to use single backslashes; doubled backslashes never match inside folded scalars"
+  exit 1
+fi
+
+# VirtualBox on Ubuntu comes from Oracle's repository so it is not stuck on
+# the archive's older line; the release line is read from LATEST.TXT at run
+# time and the archive package remains the fallback.
+if ! search_file_literal 'download.virtualbox.org/virtualbox/LATEST.TXT' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml" ||
+  ! search_file_literal 'apt-get install -y "$vbox_package"' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml" ||
+  ! search_file_literal 'apt-cache search --names-only' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml" ||
+  ! search_file_literal 'leaving the installed ${oracle_installed} alone' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml" ||
+  ! search_file_literal 'keeping the installed ${oracle_installed}' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml" ||
+  ! search_file_literal 'keyring_tmp="$(mktemp)"' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml" ||
+  ! search_file_literal 'apt-get install -y virtualbox virtualbox-dkms virtualbox-qt' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml"; then
+  echo "expected the Debian VirtualBox task to use Oracle's repository with the release line resolved at run time, falling back to the archive package"
+  exit 1
+fi
+
+if search_file 'virtualbox-[0-9]+\.[0-9]+' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml"; then
+  echo "expected no hardcoded VirtualBox release line in the Debian VirtualBox task"
+  exit 1
+fi
+
+# The macOS login shell must be the Homebrew bash (kept current by the brew
+# pass), not Apple's frozen /bin/bash, whenever Homebrew bash is present. The
+# role owns /etc/shells and the login shell, so the old run_once chsh script
+# (which always re-ran because it compared $SHELL) must stay gone, and the
+# become tasks must report failures instead of hiding them.
+if ! search_file_literal '/opt/homebrew/bin/bash' "$repo_root/ansible/roles/shell/tasks/macos.yml" ||
+  ! search_file_literal 'shell_macos_login_shell' "$repo_root/ansible/roles/shell/tasks/macos.yml" ||
+  ! search_file_literal 'path: /etc/shells' "$repo_root/ansible/roles/shell/tasks/macos.yml" ||
+  search_file 'ignore_errors' "$repo_root/ansible/roles/shell/tasks/macos.yml" ||
+  [ -e "$repo_root/home/.chezmoiscripts/run_once_after_macos-install-bash.sh.tmpl" ]; then
+  echo "expected the macOS shell role to own the Homebrew bash login shell, without ignore_errors and without the duplicate run_once chsh script"
+  exit 1
+fi
+
+# The macOS become tasks need a sudo password just like Linux, so bootstrap
+# collects it on both and passes the password file to Ansible on both.
+if ! search_file_literal 'ensure_sudo_access() {' "$repo_root/bootstrap.sh" ||
+  search_file_literal 'ensure_linux_sudo_access' "$repo_root/bootstrap.sh" ||
+  ! search_file_literal 'skip_macos_sudo "$USER is not an administrator' "$repo_root/bootstrap.sh" ||
+  ! search_file_literal 'DOTFILES_SUDO_PASSWORD_FILE:-' "$repo_root/bootstrap.sh" ||
+  ! search_file_literal 'if [ -n "$become_password_file" ]; then' "$repo_root/bootstrap.sh" ||
+  search_file_literal 'if [ "$OS" = "Linux" ] && [ -n "$become_password_file" ]' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to collect the sudo password and pass --become-password-file on macOS as well as Linux"
+  exit 1
+fi
+
+# Ansible is installed from Homebrew on macOS and must be upgraded by
+# bootstrap.sh before the playbook starts: upgrading the formula from inside
+# the running playbook lets brew cleanup delete the keg it executes from.
+if ! search_file_literal 'plan_step run "Upgrade Ansible" upgrade_ansible' "$repo_root/bootstrap.sh" ||
+  search_file '^      - ansible$' "$repo_root/ansible/vars/package_sets/macos.yml"; then
+  echo "expected bootstrap.sh to upgrade Ansible on macOS before the playbook, and not via the brew package set"
+  exit 1
+fi
+
+# llmfit is not on winget and nothing installs scoop, so the Windows bootstrap
+# installs it from the latest GitHub release itself.
+if [ -e "$repo_root/home/.chezmoiscripts/run_once_install_llmfit.ps1.tmpl" ]; then
+  echo "expected the scoop-only llmfit run_once script to be gone; bootstrap.ps1 installs llmfit from GitHub"
+  exit 1
+fi
+
+if ! search_file_literal 'function Install-Llmfit' "$windows_bootstrap" ||
+  ! search_file_literal 'https://github.com/$repo/releases/latest' "$windows_bootstrap" ||
+  ! search_file_literal 'if (Test-Path -LiteralPath $managedExe)' "$windows_bootstrap" ||
+  [ "$(grep -n 'if (Test-Path -LiteralPath \$managedExe)' "$windows_bootstrap" | cut -d: -f1)" -gt "$(grep -n '\$response = \$request.GetResponse()' "$windows_bootstrap" | cut -d: -f1)" ] ||
+  ! search_file_literal 'keeping installed llmfit $installedVersion' "$windows_bootstrap" ||
+  ! search_file_literal 'RegistryValueKind]::ExpandString' "$windows_bootstrap" ||
+  ! search_file_literal 'Get-FileHash -Path $zipPath -Algorithm SHA256' "$windows_bootstrap" ||
+  ! search_file_literal 'Invoke-BestEffort -Phase "llmfit"' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to install llmfit from the latest GitHub release with checksum verification"
+  exit 1
+fi
+
+if ! search_file_literal 'Start-Progress -Total 9' "$windows_bootstrap" ||
+  [ "$(grep -c '^Complete-ProgressStep$' "$windows_bootstrap")" -ne 9 ]; then
+  echo "expected the Windows progress bar total to match the number of Complete-ProgressStep calls"
   exit 1
 fi
 

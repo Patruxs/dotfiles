@@ -4,6 +4,7 @@ set -euo pipefail
 if command -v zoxide >/dev/null 2>&1; then
     exit 0
 fi
-# Pinned to a release tag so a compromised main branch cannot inject code here.
-curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/v0.10.0/install.sh | sh
+# Upstream's installer, unpinned: it resolves the latest zoxide release from
+# the GitHub API at run time (test/upstream_installers_latest.sh checks this).
+curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
 {{- end }}

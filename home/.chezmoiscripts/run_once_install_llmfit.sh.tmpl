@@ -7,7 +7,9 @@ fi
 if command -v brew >/dev/null 2>&1; then
     brew install AlexsJones/llmfit/llmfit || brew install llmfit
 else
-    # Pinned to a release tag so a compromised main branch cannot inject code here.
-    curl -fsSL https://raw.githubusercontent.com/AlexsJones/llmfit/v1.1.10/install.sh | sh
+    # Upstream's installer, unpinned: it resolves the latest llmfit release at
+    # run time (test/upstream_installers_latest.sh checks this). --local
+    # installs to ~/.local/bin without sudo.
+    curl -fsSL https://raw.githubusercontent.com/AlexsJones/llmfit/main/install.sh | sh -s -- --local
 fi
 {{- end }}

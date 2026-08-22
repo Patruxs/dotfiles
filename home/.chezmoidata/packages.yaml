@@ -110,7 +110,7 @@ packages:
         - Git.Git
         - OpenJS.NodeJS.LTS
         - GoLang.Go
-        - Python.Python.3.13
+        - Python.Python.3.14
         - Neovim.Neovim
         - BrechtSanders.WinLibs.POSIX.UCRT
         - BurntSushi.ripgrep.MSVC

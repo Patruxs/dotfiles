@@ -1,20 +1,79 @@
 ---
+# The Ubuntu archive ships VirtualBox releases that are a minor line or more
+# behind Oracle, so on amd64 the Debian path uses Oracle's own repository and
+# picks the newest release line Oracle publishes for this Ubuntu release at
+# run time (LATEST.TXT names upstream's newest line, but older releases do not
+# always receive it). The archive package is the fallback when Oracle has no
+# build for this release and nothing from Oracle is installed yet; an existing
+# Oracle install is never replaced by the archive package.
 - name: Install or update VirtualBox on Debian-based Linux
   ansible.builtin.shell: |
     set -euo pipefail
+    root_script="$(mktemp)"
+    trap 'rm -f "$root_script"' EXIT
+    cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
+    set -euo pipefail
+    codename="{{ dotfiles_platform.ubuntu_codename }}"
+    oracle_repo="https://download.virtualbox.org/virtualbox/debian"
+    oracle_list="/etc/apt/sources.list.d/virtualbox.list"
+    oracle_keyring="/etc/apt/keyrings/oracle-virtualbox-2016.gpg"
+    oracle_installed="$(dpkg-query -W -f '${Package} ${db:Status-Status}\n' 'virtualbox-[0-9]*' 2>/dev/null | awk '$2 == "installed" {print $1; exit}' || true)"
+    probe_status="000"
+    if [ -n "$codename" ]; then
+      probe_status="$(curl -sS --connect-timeout 10 --max-time 30 -o /dev/null -w '%{http_code}' "${oracle_repo}/dists/${codename}/Release" || true)"
+    fi
+
+    vbox_package=""
+    if [ "$probe_status" = "200" ]; then
+      install -d -m 0755 /etc/apt/keyrings
+      if [ ! -f "$oracle_keyring" ]; then
+        keyring_tmp="$(mktemp)"
+        curl -fsSL https://www.virtualbox.org/download/oracle_vbox_2016.asc | gpg --dearmor > "$keyring_tmp"
+        install -D -o root -g root -m 0644 "$keyring_tmp" "$oracle_keyring"
+        rm -f "$keyring_tmp"
+      fi
+      printf '%s\n' "deb [arch=amd64 signed-by=${oracle_keyring}] ${oracle_repo} ${codename} contrib" > "$oracle_list"
+      apt-get update
+      latest_line="$(curl -fsSL --max-time 30 https://download.virtualbox.org/virtualbox/LATEST.TXT | grep -oE '^[0-9]+\.[0-9]+' | head -n 1 || true)"
+      available_lines="$(apt-cache search --names-only '^virtualbox-[0-9]+\.[0-9]+$' | awk '{print $1}' | sort -t- -k2,2V || true)"
+      if [ -n "$latest_line" ] && printf '%s\n' "$available_lines" | grep -qx "virtualbox-${latest_line}"; then
+        vbox_package="virtualbox-${latest_line}"
+      else
+        vbox_package="$(printf '%s\n' "$available_lines" | tail -n 1)"
+      fi
+    fi
+
+    if [ -n "$vbox_package" ]; then
+      echo "Installing ${vbox_package} from Oracle's repository."
+      apt-get install -y "$vbox_package"
+    elif [ -n "$oracle_installed" ]; then
+      # Never replace an Oracle build with the older archive package: after a
+      # release upgrade Oracle may not have published this codename yet (404),
+      # and a transient outage must not downgrade anything either.
+      if [ "$probe_status" = "404" ]; then
+        echo "Oracle's VirtualBox repository has no build for ${codename} yet; keeping the installed ${oracle_installed}."
+      else
+        echo "Oracle's VirtualBox repository is unreachable (HTTP ${probe_status}); leaving the installed ${oracle_installed} alone."
+      fi
+    else
+      echo "Oracle's VirtualBox repository has no build for ${codename:-this release}; installing the distribution package instead."
+      rm -f "$oracle_list"
+      apt-get update
+      apt-get install -y virtualbox virtualbox-dkms virtualbox-qt
+    fi
+    DOTFILES_ROOT_SCRIPT
 
     if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
-      sudo -S -p '' apt-get update < {{ dotfiles_sudo_password_file | quote }}
-      sudo -S -p '' apt-get install -y virtualbox virtualbox-dkms virtualbox-qt < {{ dotfiles_sudo_password_file | quote }}
+      sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
     else
-      sudo -n apt-get update
-      sudo -n apt-get install -y virtualbox virtualbox-dkms virtualbox-qt
+      sudo -n /bin/bash "$root_script"
     fi
   args:
     executable: /bin/bash
   changed_when: false
   when:
     - dotfiles_platform.distro_key == 'debian'
+    - dotfiles_platform.architecture in ['x86_64', 'amd64']
 
 - name: Install or update VirtualBox on Fedora
   ansible.builtin.shell: |

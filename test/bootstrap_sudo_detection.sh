@@ -54,6 +54,7 @@ is_ci() {
   return 1
 }
 
+# shellcheck disable=SC2329  # invoked by the bootstrap functions eval'd below
 prompt_sudo_password() {
   # shellcheck disable=SC2034  # consumed by the bootstrap functions eval'd below
   sudo_password="secret"
@@ -63,20 +64,75 @@ validate_sudo_password() {
   :
 }
 
+# macOS-only gates: the test host is Linux, so stand in for an admin account
+# with a terminal; the sudo detection under test is the same on both.
+# shellcheck disable=SC2329  # invoked by the bootstrap functions eval'd below
+is_macos_admin() {
+  return 0
+}
+
+# shellcheck disable=SC2329  # invoked by the bootstrap functions eval'd below
+have_tty_device() {
+  return 0
+}
+
+# shellcheck disable=SC2329  # invoked by the bootstrap functions eval'd below
+skip_macos_sudo() {
+  echo "unexpected macOS sudo skip: $1"
+  exit 1
+}
+
 eval "$(extract_function have)"
 eval "$(extract_function create_become_password_file)"
 eval "$(extract_function have_passwordless_sudo)"
-eval "$(extract_function ensure_linux_sudo_access)"
+eval "$(extract_function ensure_sudo_access)"
 
-ensure_linux_sudo_access
+for os in Linux Darwin; do
+  # shellcheck disable=SC2034  # consumed by the bootstrap functions eval'd below
+  OS="$os"
+  sudo_password=""
+  become_password_file=""
+  ensure_sudo_access
 
-if [ -z "$become_password_file" ]; then
-  echo "expected bootstrap to create a become password file when only cached sudo is available"
+  if [ -z "$become_password_file" ]; then
+    echo "expected bootstrap to create a become password file on $os when only cached sudo is available"
+    exit 1
+  fi
+
+  if [ "$(cat "$become_password_file")" != "secret" ]; then
+    echo "expected bootstrap to persist the prompted sudo password on $os"
+    exit 1
+  fi
+  rm -f "$become_password_file"
+done
+
+# A non-admin macOS account must degrade with a warning, never abort.
+# shellcheck disable=SC2329  # invoked by the bootstrap functions eval'd above
+is_macos_admin() {
+  return 1
+}
+# shellcheck disable=SC2329  # invoked by the bootstrap functions eval'd above
+skip_macos_sudo() {
+  :
+}
+# shellcheck disable=SC2034  # consumed by the bootstrap functions eval'd above
+OS="Darwin"
+# shellcheck disable=SC2034  # consumed by the bootstrap functions eval'd above
+sudo_password=""
+become_password_file=""
+# shellcheck disable=SC2329  # invoked by the bootstrap functions eval'd above
+prompt_sudo_password() {
+  echo "expected bootstrap not to prompt a non-admin macOS account for a sudo password"
+  exit 1
+}
+ensure_sudo_access
+if [ -n "$become_password_file" ]; then
+  echo "expected no become password file for a non-admin macOS account"
   exit 1
 fi
 
-if [ "$(cat "$become_password_file")" != "secret" ]; then
-  echo "expected bootstrap to persist the prompted sudo password"
+if false; then
+  echo "unreachable"
   exit 1
 fi
 

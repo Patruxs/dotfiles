@@ -33,6 +33,8 @@ Distro mapping: `ubuntu` to `ubuntu`, `fedora` to `fedora`, `arch` and `manjaro`
 
 Windows uses winget and PowerShell rather than Ansible. It shares the profile and setup-mode vocabulary but not the playbook structure. `winget` must be available (it ships with App Installer); the script fails early without it. The chosen profile is cached in `~/.dotfiles_profile` and offered as the default on later runs.
 
+Packages are installed with one `winget import --ignore-versions`, which installs whatever is missing at its latest version and converts already-installed packages to an upgrade (winget only leaves them alone when `--no-upgrade` is passed), so every re-run keeps the managed packages current.
+
 ## Environment variables
 
 ### Common
@@ -47,11 +49,11 @@ Windows uses winget and PowerShell rather than Ansible. It shares the profile an
 | `DOTFILES_CI` | unset | Lightweight CI mode. Enables `--platform`, skips chezmoi self-upgrade, makes `chezmoi init` non-interactive, and skips unstable upstream installers. |
 | `DOTFILES_BOOTSTRAP_OUTCOMES_FILE` | set by bootstrap | Internal. Path of the JSON-lines file in which `bootstrap.sh` records the outcome of each prerequisite step; `setup_outcome` merges it into the report. |
 
-### Linux privileged setup
+### Privileged setup (Linux and macOS)
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `DOTFILES_SUDO_PASSWORD_FILE` | none | File holding the sudo password for non-interactive runs. Without it, and without passwordless sudo, preflight fails with an explicit message rather than hanging. |
+| `DOTFILES_SUDO_PASSWORD_FILE` | none | File holding the sudo password for non-interactive runs; `bootstrap.sh` validates it and passes it to the playbook. Without it, and without passwordless sudo, `bootstrap.sh` prompts once on Linux and macOS. On Linux a missing or rejected password stops the run, and preflight fails with an explicit message rather than hanging. On macOS only the `shell` feature needs sudo (to register the Homebrew bash in `/etc/shells` and change the login shell): a non-administrator account, a run without a terminal, or CI without passwordless sudo continues with a warning and that feature is reported as failed. |
 
 ### Low-memory machines
 
@@ -150,6 +152,25 @@ Prefer platform and feature checks over `dotfiles_profile`. Branching on a profi
 | `dotfiles_setup_failures` | `execution.yml`, roles, bootstrap handoff | Failures collected for the final report, each with `phase`, `name`, `task`, and `error`. |
 | `dotfiles_setup_aborted` | `common.yml` | True when a failure stopped the run (strict mode, preflight, or an error no best-effort wrapper caught); the report names it and the play still fails. |
 
+## Tool versions
+
+Every install path resolves the latest release at run time; no installer pins a tool version. How each surface gets there:
+
+| Surface | How the latest version is chosen |
+| :--- | :--- |
+| System packages (`apt`, `dnf`, `pacman`), Homebrew, Flatpak, npm globals | Package manager `latest` state, so re-running bootstrap upgrades what is already installed. |
+| winget (Windows) | `winget import --ignore-versions`, which installs missing packages and upgrades installed ones. Node is installed from the `OpenJS.NodeJS.LTS` channel on purpose (newest LTS rather than Node current). winget publishes Python as one package id per minor version (`Python.Python.3.x`), so that id is the one place a version line is spelled out; bump it in `home/.chezmoidata/packages.yaml` and `packages/winget.json` together when a new minor ships. |
+| lazygit, Kiro, Docker Desktop (Linux) | The installed version is compared with the upstream release feed (GitHub API, Kiro's metadata, Docker's appcast) on every run and the package is downloaded again only when it differs. Docker Desktop for Linux has no in-app updater, so this is the only thing that keeps it current. |
+| JetBrains Toolbox, chezmoi | Downloaded from the vendor's permanent "latest" URL on every run. |
+| Warp, Ghostty, VirtualBox | Vendor or distro repository; the package manager picks the newest build. On Ubuntu (amd64 only; preflight rejects the `virtualbox` feature on other architectures, as on Arch) VirtualBox comes from Oracle's repository: the newest release line Oracle publishes for this Ubuntu codename is installed (the `LATEST.TXT` line when the repository carries it, otherwise the newest `virtualbox-X.Y` it offers). The archive package is used only when Oracle has no build for the codename and nothing from Oracle is installed yet; an existing Oracle install is never replaced, whether the repository is unreachable or the codename is not published yet. |
+| AI CLIs | Upstream installer scripts, which fetch their own latest release. |
+| zoxide, llmfit, superfile (`home/.chezmoiscripts/`) | Upstream installer scripts, fetched unpinned from the project's default branch exactly as each project's README recommends; each resolves the latest GitHub release itself at run time. These scripts run once per machine and skip when the command already exists, so they do not upgrade an existing install; re-run the upstream installer by hand, or delete the chezmoi run-once state, to update them. |
+| llmfit (Windows) | Not on winget, so `bootstrap.ps1` resolves the latest GitHub release tag, verifies the published checksum, and installs to `%LOCALAPPDATA%\Programs\llmfit` whenever the installed version differs. |
+| Login shell (macOS) | The `shell` feature uses the Homebrew `bash` (kept current by the brew pass) as the login shell and falls back to `/bin/bash` only when it is missing. `bootstrap.sh` also runs `brew upgrade ansible` before the playbook so Ansible itself stays current. |
+| opencode MCP servers | Runtime configuration rather than an install path: `home/dot_config/opencode/opencode.jsonc.tmpl` pins `semble[mcp]==0.5.3` on purpose so the editor starts the same server offline; bump it deliberately. |
+
+`test/upstream_installers_latest.sh` fails if any installer URL in `home/.chezmoiscripts/` carries a version or a checksum pin, then downloads each installer and fails if it has stopped resolving the latest release. `test/ci_bootstrap_regressions.sh` rejects GitHub release download URLs (`releases/download/vX.Y...`) that hardcode a version, and Ansible regex filters written with doubled backslashes (which never match inside folded scalars).
+
 ## Output
 
 | Path | Contents |
@@ -161,8 +182,8 @@ Prefer platform and feature checks over `dotfiles_profile`. Branching on a profi
 ## Testing
 
 ```sh
-./test/test_harness.sh          # shellcheck, Ansible checks, bootstrap regressions, chezmoi dry run
+./test/test_harness.sh          # shellcheck, Ansible checks, bootstrap regressions, upstream installer checks, chezmoi dry run
 ./bootstrap.sh --profile personal --strict
 ```
 
-The harness needs chezmoi on `PATH`. ShellCheck and Ansible checks run only when those tools are available.
+The harness needs chezmoi on `PATH`. ShellCheck and Ansible checks run only when those tools are available; the upstream installer checks need network access to GitHub for their live part and skip it without it.

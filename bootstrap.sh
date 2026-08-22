@@ -81,13 +81,19 @@ show_welcome_screen() {
 sudo_password=""
 become_password_file=""
 
+have_tty_device() {
+  # Opening /dev/tty is the only reliable probe: the permission tests pass
+  # even when there is no controlling terminal, and the open then fails.
+  { : >/dev/tty && : </dev/tty; } 2>/dev/null
+}
+
 require_tty_device() {
-  if [ -r /dev/tty ] && [ -w /dev/tty ]; then
+  if have_tty_device; then
     printf '%s\n' "/dev/tty"
     return 0
   fi
 
-  echo "An interactive terminal is required for this setup."
+  echo "An interactive terminal is required for this setup." >&2
   exit 1
 }
 
@@ -123,21 +129,56 @@ have_passwordless_sudo() {
   sudo -k -n true >/dev/null 2>&1
 }
 
-ensure_linux_sudo_access() {
-  if [ "$OS" != "Linux" ]; then
+is_macos_admin() {
+  id -Gn 2>/dev/null | tr ' ' '\n' | grep -qx admin
+}
+
+skip_macos_sudo() {
+  echo "Warning: $1 The shell feature (Homebrew bash as the login shell) will be reported as failed; everything else on macOS runs without sudo." >&2
+}
+
+ensure_sudo_access() {
+  # Linux system packages and the macOS login shell both need sudo inside the
+  # playbook; collect the password once here so Ansible never prompts. Linux
+  # cannot proceed without it; macOS only loses the shell feature, so it
+  # degrades with a warning instead of aborting.
+  if [ "$OS" != "Linux" ] && [ "$OS" != "Darwin" ]; then
     return
   fi
 
   if ! have sudo; then
-    abort "sudo is required for Linux setup."
+    abort "sudo is required for setup."
   fi
 
   if have_passwordless_sudo; then
     return
   fi
 
-  if is_ci; then
-    abort "CI Linux setup requires passwordless sudo."
+  if [ -n "${DOTFILES_SUDO_PASSWORD_FILE:-}" ] && [ -r "$DOTFILES_SUDO_PASSWORD_FILE" ]; then
+    IFS= read -r sudo_password <"$DOTFILES_SUDO_PASSWORD_FILE" || true
+    if [ -z "$sudo_password" ]; then
+      abort "DOTFILES_SUDO_PASSWORD_FILE is empty."
+    fi
+    validate_sudo_password
+    create_become_password_file
+    return
+  fi
+
+  if [ "$OS" = "Darwin" ]; then
+    if is_ci; then
+      skip_macos_sudo "passwordless sudo is unavailable in CI."
+      return
+    fi
+    if ! is_macos_admin; then
+      skip_macos_sudo "$USER is not an administrator, so sudo is unavailable."
+      return
+    fi
+    if ! have_tty_device; then
+      skip_macos_sudo "no interactive terminal is available to ask for the sudo password."
+      return
+    fi
+  elif is_ci; then
+    abort "CI setup requires passwordless sudo."
   fi
 
   prompt_sudo_password
@@ -905,6 +946,13 @@ upgrade_chezmoi() {
   chezmoi upgrade
 }
 
+upgrade_ansible() {
+  # macOS only: Ansible is installed from Homebrew and nothing else keeps it
+  # current. It must happen here, before the playbook starts, because brew's
+  # cleanup would delete the keg the running playbook is executing from.
+  brew upgrade ansible
+}
+
 init_chezmoi_from_source() {
   echo "Initializing Chezmoi from checked-out source: $chezmoi_dir"
   chezmoi init --source "$chezmoi_dir"
@@ -1154,7 +1202,7 @@ esac
 
 trap on_exit EXIT
 
-ensure_linux_sudo_access
+ensure_sudo_access
 
 # chezmoi's installer puts the binary in ~/.local/bin; make it visible before
 # deciding whether chezmoi needs installing and for every later step.
@@ -1210,6 +1258,8 @@ fi
 
 if ! have ansible-playbook; then
   plan_step critical "Install Ansible" install_ansible
+elif [ "$OS" = "Darwin" ] && ! is_ci && brew list --formula --versions ansible >/dev/null 2>&1; then
+  plan_step run "Upgrade Ansible" upgrade_ansible
 fi
 plan_step run "Refresh Ansible collections from Galaxy" refresh_ansible_collections
 plan_step critical "Required Ansible collections" verify_ansible_collections
@@ -1246,7 +1296,7 @@ if [ -n "$profile" ]; then
 fi
 ansible_args+=(-e "dotfiles_setup_mode=$setup_mode")
 
-if [ "$OS" = "Linux" ] && [ -n "$become_password_file" ]; then
+if [ -n "$become_password_file" ]; then
   export DOTFILES_SUDO_PASSWORD_FILE="$become_password_file"
   ansible_args=(--become-password-file "$become_password_file" "${ansible_args[@]}")
 fi

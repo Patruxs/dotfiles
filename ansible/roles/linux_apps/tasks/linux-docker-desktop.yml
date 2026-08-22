@@ -1,20 +1,102 @@
 ---
+# Docker Desktop for Linux has no in-app updater: the UI only notifies, and the
+# new package has to be downloaded and installed again. The unversioned
+# download URLs below always serve the latest release, so the only question
+# each run has to answer is whether the installed version already matches it.
+- name: Resolve the latest Docker Desktop release for Linux
+  ansible.builtin.shell: |
+    set -euo pipefail
+    curl -fsSL https://desktop.docker.com/linux/main/amd64/appcast.xml \
+      | grep -oE 'sparkle:shortVersionString="[^"]+"' \
+      | head -n 1 \
+      | cut -d'"' -f2
+  args:
+    executable: /bin/bash
+  register: dotfiles_docker_desktop_latest
+  changed_when: false
+  failed_when: false
+  when:
+    - dotfiles_platform.distro_key in ['debian', 'fedora', 'arch']
+    - dotfiles_platform.architecture in ['x86_64', 'amd64']
+
 - name: Check whether Docker Desktop is already installed (Debian)
-  ansible.builtin.command: dpkg-query -W -f '${db:Status-Status}' docker-desktop
+  ansible.builtin.command: dpkg-query -W -f '${db:Status-Status} ${Version}' docker-desktop
   register: dotfiles_docker_desktop_installed_debian
   changed_when: false
   failed_when: false
   when:
     - dotfiles_platform.distro_key == 'debian'
 
-- name: Install Docker Desktop on Debian-based Distros
+- name: Check whether Docker Desktop is already installed (Fedora)
+  ansible.builtin.command: rpm -q docker-desktop --qf '%{VERSION}'
+  register: dotfiles_docker_desktop_installed_fedora
+  changed_when: false
+  failed_when: false
+  when:
+    - dotfiles_platform.distro_key == 'fedora'
+
+- name: Check whether Docker Desktop is already installed (Arch)
+  ansible.builtin.command: pacman -Q docker-desktop
+  register: dotfiles_docker_desktop_installed_arch
+  changed_when: false
+  failed_when: false
+  when:
+    - dotfiles_platform.distro_key == 'arch'
+
+- name: Decide whether Docker Desktop needs installing or updating
+  vars:
+    docker_desktop_installed_output: >-
+      {{
+        (dotfiles_docker_desktop_installed_debian.stdout | default(''))
+        if (dotfiles_platform.distro_key == 'debian' and (dotfiles_docker_desktop_installed_debian.stdout | default('')).startswith('installed '))
+        else (dotfiles_docker_desktop_installed_fedora.stdout | default(''))
+        if (dotfiles_platform.distro_key == 'fedora' and (dotfiles_docker_desktop_installed_fedora.rc | default(1)) == 0)
+        else (dotfiles_docker_desktop_installed_arch.stdout | default(''))
+        if (dotfiles_platform.distro_key == 'arch' and (dotfiles_docker_desktop_installed_arch.rc | default(1)) == 0)
+        else ''
+      }}
+  set_fact:
+    dotfiles_docker_desktop_installed_version: >-
+      {{ docker_desktop_installed_output | regex_search('[0-9]+\.[0-9]+\.[0-9]+') | default('', true) }}
+    dotfiles_docker_desktop_latest_version: >-
+      {{ dotfiles_docker_desktop_latest.stdout | default('') | regex_search('^[0-9]+\.[0-9]+\.[0-9]+$') | default('', true) }}
+  when:
+    - dotfiles_platform.distro_key in ['debian', 'fedora', 'arch']
+
+# Install when nothing is installed; update when the appcast reports a newer
+# release. If the appcast could not be read, an existing install is left alone
+# rather than re-downloaded blindly.
+- name: Record whether Docker Desktop needs installing or updating
+  set_fact:
+    dotfiles_docker_desktop_install_needed: >-
+      {{
+        dotfiles_docker_desktop_installed_version | default('') == ''
+        or (
+          dotfiles_docker_desktop_latest_version | default('') != ''
+          and dotfiles_docker_desktop_installed_version != dotfiles_docker_desktop_latest_version
+        )
+      }}
+  when:
+    - dotfiles_platform.distro_key in ['debian', 'fedora', 'arch']
+
+- name: Report when the latest Docker Desktop release could not be resolved
+  debug:
+    msg: >-
+      Could not read the Docker Desktop appcast, so the installed version
+      ({{ dotfiles_docker_desktop_installed_version }}) was left as is.
+  when:
+    - dotfiles_platform.distro_key in ['debian', 'fedora', 'arch']
+    - dotfiles_docker_desktop_installed_version | default('') != ''
+    - dotfiles_docker_desktop_latest_version | default('') == ''
+
+- name: Install or update Docker Desktop on Debian-based Distros
   vars:
     docker_ubuntu_release: "{{ dotfiles_platform.ubuntu_codename }}"
   when:
     - dotfiles_platform.distro_key == 'debian'
     - dotfiles_platform.ubuntu_codename in dotfiles_docker_desktop_ubuntu_codenames
     - dotfiles_platform.architecture in ['x86_64', 'amd64']
-    - (dotfiles_docker_desktop_installed_debian.stdout | default('')) != 'installed'
+    - dotfiles_docker_desktop_install_needed | default(false) | bool
   block:
     - name: Create temporary directory for Docker Desktop Debian package
       tempfile:
@@ -68,20 +150,12 @@
       changed_when: false
       when: docker_desktop_tmpdir_debian is defined and docker_desktop_tmpdir_debian.path is defined
 
-- name: Check whether Docker Desktop is already installed (Fedora)
-  ansible.builtin.command: rpm -q docker-desktop
-  register: dotfiles_docker_desktop_installed_fedora
-  changed_when: false
-  failed_when: false
-  when:
-    - dotfiles_platform.distro_key == 'fedora'
-
-- name: Install Docker Desktop on Fedora
+- name: Install or update Docker Desktop on Fedora
   when:
     - dotfiles_platform.distro_key == 'fedora'
     - (dotfiles_platform.distribution_major_version | int) >= 43
     - dotfiles_platform.architecture in ['x86_64', 'amd64']
-    - (dotfiles_docker_desktop_installed_fedora.rc | default(1)) != 0
+    - dotfiles_docker_desktop_install_needed | default(false) | bool
   block:
     - name: Create temporary directory for Docker Desktop Fedora package
       tempfile:
@@ -125,19 +199,11 @@
       changed_when: false
       when: docker_desktop_tmpdir_fedora is defined and docker_desktop_tmpdir_fedora.path is defined
 
-- name: Check whether Docker Desktop is already installed (Arch)
-  ansible.builtin.command: pacman -Qi docker-desktop
-  register: dotfiles_docker_desktop_installed_arch
-  changed_when: false
-  failed_when: false
-  when:
-    - dotfiles_platform.distro_key == 'arch'
-
-- name: Install Docker Desktop on Arch Linux
+- name: Install or update Docker Desktop on Arch Linux
   when:
     - dotfiles_platform.distro_key == 'arch'
     - dotfiles_platform.architecture in ['x86_64', 'amd64']
-    - (dotfiles_docker_desktop_installed_arch.rc | default(1)) != 0
+    - dotfiles_docker_desktop_install_needed | default(false) | bool
   block:
     - name: Create temporary directory for Docker Desktop Arch package
       tempfile:

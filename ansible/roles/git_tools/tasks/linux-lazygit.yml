@@ -17,11 +17,14 @@
   changed_when: false
   failed_when: false
 
+# Inside a folded scalar, YAML keeps backslashes as written and Jinja does not
+# unescape them, so the regex must use single backslashes; a doubled one
+# never matches and would re-download lazygit on every run.
 - name: Capture installed lazygit version
   set_fact:
     lazygit_installed_version: >-
       {{
-        (lazygit_check.stdout | regex_search('[0-9]+\\.[0-9]+\\.[0-9]+'))
+        (lazygit_check.stdout | regex_search('[0-9]+\.[0-9]+\.[0-9]+'))
         | default('', true)
       }}
     lazygit_requested_version: "{{ lazygit_version | default('latest') }}"

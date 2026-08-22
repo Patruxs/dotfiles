@@ -4,22 +4,8 @@ set -euo pipefail
 if command -v spf >/dev/null 2>&1; then
     exit 0
 fi
-# The upstream installer is not published at a pinned tag, so pin it by
-# checksum instead - a compromised host cannot inject code here. When the
-# upstream script changes, review it and update the hash deliberately.
-expected_sha256="65d89ff5dd0f25942021c7dbed68a9d8b4732220ba5cb113f409b83ad49b0818"
-installer="$(mktemp)"
-trap 'rm -f "$installer"' EXIT
-curl -fsSL https://superfile.dev/install.sh -o "$installer"
-if command -v sha256sum >/dev/null 2>&1; then
-    actual_sha256="$(sha256sum "$installer" | awk '{print $1}')"
-else
-    actual_sha256="$(shasum -a 256 "$installer" | awk '{print $1}')"
-fi
-if [ "$actual_sha256" != "$expected_sha256" ]; then
-    echo "superfile install.sh checksum mismatch: got $actual_sha256, expected $expected_sha256." >&2
-    echo "Review https://superfile.dev/install.sh and update the pinned hash in run_once_install_superfile.sh.tmpl." >&2
-    exit 1
-fi
-bash "$installer"
+# Upstream's installer, unpinned: it resolves the latest superfile release
+# from the GitHub API at run time (test/upstream_installers_latest.sh checks
+# this).
+curl -fsSL https://superfile.dev/install.sh | bash
 {{- end }}

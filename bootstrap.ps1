@@ -406,6 +406,10 @@ function Install-WingetPackages {
     }
   )
 
+  # winget import installs missing packages at their latest version
+  # (--ignore-versions) and converts already-installed packages to an upgrade
+  # by default, so one import keeps every managed package on its latest
+  # release. Never add the flag that skips installed packages here.
   $tempWingetManifest = Join-Path ([System.IO.Path]::GetTempPath()) ("dotfiles-winget-{0}.json" -f ([System.Guid]::NewGuid().ToString()))
   try {
     $manifest | ConvertTo-Json -Depth 8 | Set-Content -Path $tempWingetManifest -Encoding utf8
@@ -413,6 +417,136 @@ function Install-WingetPackages {
     Assert-LastExitCode "winget import"
   } finally {
     Remove-Item $tempWingetManifest -ErrorAction SilentlyContinue
+  }
+}
+
+function Install-Llmfit {
+  # llmfit is not published on winget, so it is installed straight from its
+  # GitHub release: resolve the latest tag at run time, compare it with the
+  # installed binary, and download only when they differ. This mirrors the
+  # upstream Linux installer, which does the same from a shell script.
+  $repo = "AlexsJones/llmfit"
+  $installDir = Join-Path $env:LOCALAPPDATA "Programs\llmfit"
+  $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq [System.Runtime.InteropServices.Architecture]::Arm64) { "aarch64" } else { "x86_64" }
+
+  # Compare against the binary this function manages, not whatever llmfit is
+  # first on PATH: an older copy elsewhere (a scoop shim, a manual install)
+  # must not make every run re-download the release.
+  $managedExe = Join-Path $installDir "llmfit.exe"
+  $installedVersion = ""
+  if (Test-Path -LiteralPath $managedExe) {
+    $versionOutput = [string](& $managedExe --version 2>$null | Out-String)
+    if ($versionOutput -match '[0-9]+\.[0-9]+\.[0-9]+') {
+      $installedVersion = $Matches[0]
+    }
+  }
+
+  # The releases/latest redirect carries the tag without touching GitHub's
+  # rate-limited API. When GitHub cannot be reached, an existing install is
+  # kept rather than reported as a failure, like the Linux installers do.
+  $releasesUrl = "https://github.com/$repo/releases/latest"
+  $location = ""
+  try {
+    $request = [System.Net.HttpWebRequest]::Create($releasesUrl)
+    $request.AllowAutoRedirect = $false
+    $request.UserAgent = "dotfiles-bootstrap"
+    $response = $request.GetResponse()
+    try {
+      $location = [string]$response.Headers["Location"]
+    } finally {
+      $response.Close()
+    }
+  } catch {
+    if (-not [string]::IsNullOrEmpty($installedVersion)) {
+      Write-Warning "Could not reach $releasesUrl to check for a newer llmfit ($($_.Exception.Message)); keeping installed llmfit $installedVersion."
+      return
+    }
+    throw
+  }
+  if ([string]::IsNullOrWhiteSpace($location) -or $location -notmatch '/tag/(v[0-9]+\.[0-9]+\.[0-9]+)$') {
+    throw "Could not resolve the latest llmfit release from $releasesUrl (got '$location')."
+  }
+  $tag = $Matches[1]
+  $latestVersion = $tag.TrimStart('v')
+
+  if ($installedVersion -eq $latestVersion) {
+    Write-Host "llmfit $installedVersion is already the latest release."
+    return
+  }
+
+  $asset = "llmfit-$tag-$arch-pc-windows-msvc.zip"
+  $baseUrl = "https://github.com/$repo/releases/download/$tag"
+  $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("dotfiles-llmfit-{0}" -f ([System.Guid]::NewGuid().ToString()))
+  New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+  try {
+    $zipPath = Join-Path $tempDir $asset
+    $checksumPath = "$zipPath.sha256"
+    Invoke-WebRequest -Uri "$baseUrl/$asset" -OutFile $zipPath -UseBasicParsing
+    Invoke-WebRequest -Uri "$baseUrl/$asset.sha256" -OutFile $checksumPath -UseBasicParsing
+    $checksumText = [string](Get-Content -Path $checksumPath -Raw)
+    if ($checksumText -notmatch '[0-9a-fA-F]{64}') {
+      throw "Could not read the llmfit checksum for $asset."
+    }
+    $expectedHash = $Matches[0].ToLowerInvariant()
+    $actualHash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualHash -ne $expectedHash) {
+      throw "llmfit checksum mismatch for ${asset}: got $actualHash, expected $expectedHash."
+    }
+
+    $extractDir = Join-Path $tempDir "extract"
+    Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
+    $exe = Get-ChildItem -Path $extractDir -Filter "llmfit.exe" -Recurse -File | Select-Object -First 1
+    if ($null -eq $exe) {
+      throw "llmfit.exe was not found inside $asset."
+    }
+    New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+    Copy-Item -Path $exe.FullName -Destination $managedExe -Force
+  } finally {
+    Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+  }
+
+  Add-UserPathEntry -Directory $installDir
+  Write-Host "Installed llmfit $latestVersion to $installDir."
+
+  $onPath = Get-Command llmfit -ErrorAction SilentlyContinue
+  if ($null -ne $onPath -and $onPath.Source -ne $managedExe) {
+    Write-Warning "Another llmfit at $($onPath.Source) precedes $managedExe on PATH; remove it (for example 'scoop uninstall llmfit') so the latest release is the one that runs."
+  }
+}
+
+function Add-UserPathEntry {
+  param(
+    [string]$Directory
+  )
+
+  # Persist the directory on the user PATH for new shells, and add it to this
+  # process's PATH so later steps in the same run can call the binary.
+  # [Environment]::SetEnvironmentVariable would rewrite the value as REG_SZ
+  # with every %VAR% reference expanded, so go through the registry directly
+  # and keep the REG_EXPAND_SZ kind, then broadcast the change the way
+  # SetEnvironmentVariable does so new windows pick it up.
+  $envKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Environment", $true)
+  try {
+    $rawUserPath = [string]$envKey.GetValue("Path", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+    $rawEntries = @($rawUserPath -split ';' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($rawEntries -notcontains $Directory) {
+      $envKey.SetValue("Path", (($rawEntries + $Directory) -join ';'), [Microsoft.Win32.RegistryValueKind]::ExpandString)
+      if (-not ("Dotfiles.NativeMethods" -as [type])) {
+        Add-Type -Namespace Dotfiles -Name NativeMethods -MemberDefinition @"
+[DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);
+"@
+      }
+      $result = [UIntPtr]::Zero
+      # HWND_BROADCAST, WM_SETTINGCHANGE, SMTO_ABORTIFHUNG, 5 second timeout.
+      [Dotfiles.NativeMethods]::SendMessageTimeout([IntPtr]0xffff, 0x001A, [UIntPtr]::Zero, "Environment", 0x0002, 5000, [ref]$result) | Out-Null
+    }
+  } finally {
+    $envKey.Close()
+  }
+
+  if (@($env:Path -split ';') -notcontains $Directory) {
+    $env:Path = "$env:Path;$Directory"
   }
 }
 
@@ -448,9 +582,9 @@ Write-Host "Using profile: $selectedProfile"
 $env:DOTFILES_PROFILE = $selectedProfile
 
 # One unit per phase below: chezmoi init, symlink check, apply, data, winget
-# packages, npm tools, Bitwarden CLI, AI CLIs. Phases that do not apply to this
+# packages, npm tools, Bitwarden CLI, llmfit, AI CLIs. Phases that do not apply to this
 # run still count, so the bar always reaches 100%.
-Start-Progress -Total 8
+Start-Progress -Total 9
 
 Set-ProgressLabel "chezmoi init"
 if (Test-UsingCheckedOutSource) {
@@ -543,6 +677,14 @@ if ($selectedProfile -eq "personal" -and (-not (Test-IsCi)) -and (Get-Command np
         Write-Host "Installing Bitwarden CLI via NPM..."
         npm install -g "@bitwarden/cli@latest"
         Assert-LastExitCode "npm install -g @bitwarden/cli@latest"
+    }
+}
+Complete-ProgressStep
+
+if ($selectedProfile -eq "personal" -and (-not (Test-IsCi))) {
+    Invoke-BestEffort -Phase "llmfit" -Name "llmfit" -ScriptBlock {
+        Write-Host "Installing or updating llmfit from its latest GitHub release..."
+        Install-Llmfit
     }
 }
 Complete-ProgressStep

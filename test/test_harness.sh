@@ -68,6 +68,13 @@ log_info "Running CI bootstrap regression checks..."
 }
 log_info "CI bootstrap regression checks passed."
 
+log_info "Running upstream installer latest-version checks..."
+./test/upstream_installers_latest.sh || {
+    log_err "Upstream installer latest-version checks failed."
+    exit 1
+}
+log_info "Upstream installer latest-version checks passed."
+
 # 2. Chezmoi Dry Run
 log_info "Running Chezmoi Dry Run (verifies templates render without errors)..."
 tmpdir="$(mktemp -d)"

@@ -112,7 +112,7 @@ Each platform playbook (`ubuntu.yml`, `fedora.yml`, `arch.yml`, `macos.yml`) is 
 - the current platform is in the profile's `supported_platforms`
 - every selected feature has a package-set entry, a matching feature role directory, or both
 - every selected feature supports this platform version and architecture (for example, `docker_desktop` on a supported Ubuntu codename and `x86_64`)
-- Linux privileged setup can actually authenticate, via passwordless sudo or a supplied password file
+- privileged setup can actually authenticate, via passwordless sudo or a supplied password file (Linux; on macOS bootstrap degrades with a warning and only the `shell` feature fails)
 
 An unknown or unsupported feature is an error, never a silent skip. This is the guarantee the rest of the run depends on: by the time a package is installed, the requested machine state is already known to be reachable.
 
@@ -279,5 +279,6 @@ test/                                 harness and bootstrap regression checks
 - `--platform` works under CI and is rejected on real machines
 - a failed bootstrap step is recorded and skipped in best-effort mode, stops the run in strict mode or when critical, and always reaches the Markdown report (`test/bootstrap_best_effort.sh`)
 - best-effort `chezmoi apply` isolates managed files from each `run_` script and records per-script failures
+- no install path hardcodes a tool version: download URLs must resolve the release at run time, `winget import` runs without `--no-upgrade` so installed packages are upgraded, Docker Desktop and VirtualBox resolve their current release from the vendor feed, and the upstream installers (zoxide, llmfit, superfile) are fetched unpinned and still resolve the latest release themselves (`test/upstream_installers_latest.sh`)
 
 CI runs the full bootstrap and an idempotency check for both profiles on Ubuntu, Fedora, Arch, macOS, and Windows. It skips installer surfaces that are known to be unreliable in hosted runners - Flatpak app payloads in containers, upstream AI CLI shell installers - rather than switching on lightweight `DOTFILES_CI` mode, which would skip too much of the real path to be meaningful.

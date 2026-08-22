@@ -64,7 +64,7 @@
         + (['docker_desktop'] if 'docker_desktop' in features and dotfiles_platform.name == 'fedora' and not ((dotfiles_platform.distribution_major_version | int) >= 43 and dotfiles_platform.architecture in ['x86_64', 'amd64']) else [])
         + (['docker_desktop'] if 'docker_desktop' in features and dotfiles_platform.name == 'arch' and dotfiles_platform.architecture not in ['x86_64', 'amd64'] else [])
         + (['kiro_ide'] if 'kiro_ide' in features and dotfiles_platform.system == 'Linux' and dotfiles_platform.architecture not in ['x86_64', 'amd64'] else [])
-        + (['virtualbox'] if 'virtualbox' in features and dotfiles_platform.name == 'arch' and dotfiles_platform.architecture not in ['x86_64', 'amd64'] else [])
+        + (['virtualbox'] if 'virtualbox' in features and dotfiles_platform.name in ['ubuntu', 'arch'] and dotfiles_platform.architecture not in ['x86_64', 'amd64'] else [])
       }}
 
 - name: Fail when selected features are unsupported on this platform
