@@ -1,10 +1,4 @@
 ---
-# A single `chezmoi apply` stops at the first failing run_ script and leaves
-# every later file and script unapplied. In best-effort mode the apply is split
-# into isolated steps instead: each before-script, then all managed files, then
-# each remaining script, each as its own chezmoi invocation. A failing script is
-# recorded for the report and skipped; chezmoi does not mark a failed run_once
-# script as run, so the next apply retries it.
 
 - name: List managed chezmoi scripts
   command:

@@ -115,15 +115,6 @@ function Invoke-BestEffort {
   }
 }
 
-# ---------------------------------------------------------------------------
-# Progress bar.
-#
-# On an interactive console that understands VT sequences, the last row is
-# reserved for a bar that tracks setup as a whole, one unit per phase; a scroll
-# region keeps normal output scrolling above it. Off when output is redirected,
-# in lightweight CI mode, or with DOTFILES_PROGRESS=0.
-# ---------------------------------------------------------------------------
-
 $progress = @{
   Enabled = $false
   Total = 0
@@ -147,7 +138,6 @@ function Measure-Progress {
 }
 
 function Set-ProgressRegion {
-  # Confine scrolling to every row above the bar.
   [Console]::Write("$esc" + "7$esc[1;$($script:progress.Rows - 1)r$esc" + "8")
 }
 
@@ -160,7 +150,6 @@ function Start-Progress {
   Measure-Progress
   if ($script:progress.Rows -lt 4 -or $script:progress.Cols -lt 30) { return }
   $script:progress.Enabled = $true
-  # Open a fresh line so the bar never covers output already on the last row.
   [Console]::Write("`n$esc[A")
   Set-ProgressRegion
   Update-Progress
@@ -169,15 +158,12 @@ function Start-Progress {
 function Stop-Progress {
   if (-not $script:progress.Enabled) { return }
   $script:progress.Enabled = $false
-  # Clear the bar row and give the whole screen back to scrolling.
   [Console]::Write("$esc" + "7$esc[$($script:progress.Rows);1H$esc[2K$esc[r$esc" + "8")
 }
 
 function Update-Progress {
   if (-not $script:progress.Enabled) { return }
 
-  # There is no resize signal to catch, so re-measure on every draw and move
-  # the region when the window changed.
   $rows = $script:progress.Rows
   $cols = $script:progress.Cols
   Measure-Progress
@@ -194,7 +180,6 @@ function Update-Progress {
     $filled = [int][Math]::Floor($width * $script:progress.Done / $script:progress.Total)
   }
   $bar = ("█" * $filled) + ("░" * ($width - $filled))
-  # "bar 100%  " plus one spare column so the line never wraps.
   $maxLabel = [Math]::Max(0, $script:progress.Cols - $width - 10)
   $label = $script:progress.Label
   if ($label.Length -gt $maxLabel) { $label = $label.Substring(0, $maxLabel) }
@@ -217,8 +202,6 @@ function Complete-ProgressStep {
 }
 
 function Write-SetupReport {
-  # Written from the finally block, so every run leaves a report behind: a
-  # best-effort run lists what it skipped, an aborted run says where it stopped.
   $reportPath = Join-Path $HOME ".dotfiles_setup_report.md"
   $profileLabel = if ([string]::IsNullOrWhiteSpace($script:selectedProfile)) { "(not selected)" } else { $script:selectedProfile }
   $result = if ($null -ne $script:setupAbortReason) {
@@ -295,7 +278,6 @@ function Show-WelcomeScreen {
     try {
       Clear-Host
     } catch {
-      # Ignore non-interactive hosts that do not expose a usable console handle.
     }
   }
   Show-Banner
@@ -363,6 +345,34 @@ function Refresh-Repo {
   }
 }
 
+function Resolve-WingetPackageIds {
+  [CmdletBinding()]
+  param(
+    [string[]]$PackageIds
+  )
+
+  $resolved = @()
+  foreach ($pkg in $PackageIds) {
+    if ($pkg -notmatch '^(?<family>[A-Za-z0-9]+\.[A-Za-z0-9]+)\.(?<major>[0-9]+)$') {
+      $resolved += $pkg
+      continue
+    }
+    $family = $Matches.family
+    $major = [int]$Matches.major
+    $searchOutput = [string](& winget search --id "$family.$major." --source winget --accept-source-agreements --disable-interactivity 2>$null | Out-String)
+    $minors = @([regex]::Matches($searchOutput, [regex]::Escape("$family.$major.") + '(?<minor>[0-9]+)') | ForEach-Object { [int]$_.Groups['minor'].Value } | Sort-Object -Unique)
+    if ($minors.Count -eq 0) {
+      Write-Warning "Could not resolve the newest $family.$major.x package id from winget; leaving $pkg as is (winget import will report it unavailable)."
+      $resolved += $pkg
+      continue
+    }
+    $newest = "$family.$major.$($minors[-1])"
+    Write-Host "Resolved $pkg to $newest (newest minor line published on winget)."
+    $resolved += $newest
+  }
+  return ,$resolved
+}
+
 function Install-WingetPackages {
   param(
     [string[]]$PackageIds,
@@ -406,10 +416,6 @@ function Install-WingetPackages {
     }
   )
 
-  # winget import installs missing packages at their latest version
-  # (--ignore-versions) and converts already-installed packages to an upgrade
-  # by default, so one import keeps every managed package on its latest
-  # release. Never add the flag that skips installed packages here.
   $tempWingetManifest = Join-Path ([System.IO.Path]::GetTempPath()) ("dotfiles-winget-{0}.json" -f ([System.Guid]::NewGuid().ToString()))
   try {
     $manifest | ConvertTo-Json -Depth 8 | Set-Content -Path $tempWingetManifest -Encoding utf8
@@ -421,17 +427,10 @@ function Install-WingetPackages {
 }
 
 function Install-Llmfit {
-  # llmfit is not published on winget, so it is installed straight from its
-  # GitHub release: resolve the latest tag at run time, compare it with the
-  # installed binary, and download only when they differ. This mirrors the
-  # upstream Linux installer, which does the same from a shell script.
   $repo = "AlexsJones/llmfit"
   $installDir = Join-Path $env:LOCALAPPDATA "Programs\llmfit"
   $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq [System.Runtime.InteropServices.Architecture]::Arm64) { "aarch64" } else { "x86_64" }
 
-  # Compare against the binary this function manages, not whatever llmfit is
-  # first on PATH: an older copy elsewhere (a scoop shim, a manual install)
-  # must not make every run re-download the release.
   $managedExe = Join-Path $installDir "llmfit.exe"
   $installedVersion = ""
   if (Test-Path -LiteralPath $managedExe) {
@@ -441,9 +440,6 @@ function Install-Llmfit {
     }
   }
 
-  # The releases/latest redirect carries the tag without touching GitHub's
-  # rate-limited API. When GitHub cannot be reached, an existing install is
-  # kept rather than reported as a failure, like the Linux installers do.
   $releasesUrl = "https://github.com/$repo/releases/latest"
   $location = ""
   try {
@@ -519,12 +515,6 @@ function Add-UserPathEntry {
     [string]$Directory
   )
 
-  # Persist the directory on the user PATH for new shells, and add it to this
-  # process's PATH so later steps in the same run can call the binary.
-  # [Environment]::SetEnvironmentVariable would rewrite the value as REG_SZ
-  # with every %VAR% reference expanded, so go through the registry directly
-  # and keep the REG_EXPAND_SZ kind, then broadcast the change the way
-  # SetEnvironmentVariable does so new windows pick it up.
   $envKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Environment", $true)
   try {
     $rawUserPath = [string]$envKey.GetValue("Path", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
@@ -538,7 +528,6 @@ public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wP
 "@
       }
       $result = [UIntPtr]::Zero
-      # HWND_BROADCAST, WM_SETTINGCHANGE, SMTO_ABORTIFHUNG, 5 second timeout.
       [Dotfiles.NativeMethods]::SendMessageTimeout([IntPtr]0xffff, 0x001A, [UIntPtr]::Zero, "Environment", 0x0002, 5000, [ref]$result) | Out-Null
     }
   } finally {
@@ -550,9 +539,6 @@ public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wP
   }
 }
 
-# Everything below runs inside one try block so that a fatal error (a missing
-# prerequisite, a failed clone) is still recorded and reported before the
-# script exits; best-effort failures are collected by Invoke-BestEffort.
 try {
 
 if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
@@ -577,13 +563,8 @@ if (-not (Get-Command chezmoi -ErrorAction SilentlyContinue)) {
 Show-WelcomeScreen
 $selectedProfile = Get-Profile
 Write-Host "Using profile: $selectedProfile"
-# chezmoi init persists this into its config so a later plain `chezmoi apply`
-# uses the same profile the bootstrap ran with.
 $env:DOTFILES_PROFILE = $selectedProfile
 
-# One unit per phase below: chezmoi init, symlink check, apply, data, winget
-# packages, npm tools, Bitwarden CLI, llmfit, AI CLIs. Phases that do not apply to this
-# run still count, so the bar always reaches 100%.
 Start-Progress -Total 9
 
 Set-ProgressLabel "chezmoi init"
@@ -602,8 +583,6 @@ if (Test-UsingCheckedOutSource) {
 }
 Complete-ProgressStep
 
-# chezmoi runs in symlink mode, which Windows only allows with Developer Mode
-# enabled or an elevated shell. Probe before apply so the failure is actionable.
 Set-ProgressLabel "Symlink support check"
 $symlinkProbeTarget = Join-Path ([System.IO.Path]::GetTempPath()) ("chezmoi-symlink-probe-" + [System.IO.Path]::GetRandomFileName())
 $symlinkProbeLink = "$symlinkProbeTarget-link"
@@ -613,10 +592,6 @@ try {
   New-Item -ItemType SymbolicLink -Path $symlinkProbeLink -Target $symlinkProbeTarget -ErrorAction Stop | Out-Null
   $symlinkOk = $true
 } catch {
-  # Windows PowerShell 5.1 cannot create unprivileged symlinks even with
-  # Developer Mode enabled (it never passes
-  # SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE); cmd's mklink does pass it,
-  # matching what chezmoi itself can do.
   cmd /c mklink "$symlinkProbeLink" "$symlinkProbeTarget" > $null 2>&1
   if ($LASTEXITCODE -eq 0) { $symlinkOk = $true }
 }
@@ -646,7 +621,10 @@ if ($null -ne $data.packages.common.windows.packages) {
 if ($null -ne $data.packages.$selectedProfile.windows.packages) {
     $pkgs += $data.packages.$selectedProfile.windows.packages
 }
-$pkgs = $pkgs | Select-Object -Unique
+$pkgs = @($pkgs | Select-Object -Unique)
+if (-not (Test-IsCi)) {
+    $pkgs = Resolve-WingetPackageIds -PackageIds $pkgs
+}
 
 if (Test-IsCi) {
     Write-Host "Skipping package installs in lightweight CI mode."

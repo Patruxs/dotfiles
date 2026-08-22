@@ -1,7 +1,3 @@
-# Minimal Herdr config.
-# Important: tmux and Herdr both default to Ctrl-b.
-# Keep tmux on Ctrl-b, move Herdr to Ctrl-g to avoid nested-prefix conflicts.
-
 onboarding = false
 
 [terminal]

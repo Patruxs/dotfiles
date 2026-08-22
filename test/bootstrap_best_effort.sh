@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034  # globals below are consumed by the bootstrap functions eval'd from bootstrap.sh
-# Exercises the bootstrap.sh step runner and report writer in isolation:
-# failed steps are recorded and skipped in best-effort mode, stop the run in
-# strict mode or when critical, and always end up in a Markdown report.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -31,7 +28,6 @@ fail() {
   exit 1
 }
 
-# Globals the extracted functions read and write.
 setup_mode="best_effort"
 profile="personal"
 platform="ubuntu"
@@ -80,13 +76,11 @@ for required in progress_draw progress_set_label progress_advance progress_ansib
   fi
 done
 
-# 1. A succeeding step is recorded as ok.
 run_step "Works" true >/dev/null
 if [ "${bootstrap_outcome_status[0]}" != "ok" ] || [ "${bootstrap_outcome_name[0]}" != "Works" ]; then
   fail "expected a succeeding step to be recorded as ok"
 fi
 
-# 2. A failing step is recorded, skipped, and does not stop the run.
 failing_step() {
   echo "Reading package lists..."
   echo "E: Unable to locate package example" >&2
@@ -108,7 +102,6 @@ case "${bootstrap_outcome_detail[1]}" in
   *) fail "expected the failure detail to keep the captured step output" ;;
 esac
 
-# 3. A multi-command step stops at its first failing command.
 partial_step() {
   false
   echo "should not run"
@@ -118,17 +111,14 @@ case "${bootstrap_outcome_detail[2]}" in
   *"should not run"*) fail "expected a failing command to stop the rest of its step" ;;
 esac
 
-# 4. Strict mode stops at the first failure.
 if (setup_mode="strict"; run_step "Strict" false >/dev/null 2>&1); then
   fail "expected strict mode to exit on a failed step"
 fi
 
-# 5. Critical steps stop the run even in best-effort mode.
 if (run_step --critical "Critical" false >/dev/null 2>&1); then
   fail "expected a critical step failure to exit"
 fi
 
-# 6. Carriage-return progress output and colour codes never reach the record.
 progress_step() {
   printf 'Downloading  10%%\r  50%%\r 100%%\n'
   printf '%s[0;31mE: download failed%s[0m\n' "$(printf '\033')" "$(printf '\033')"
@@ -142,11 +132,8 @@ case "${bootstrap_outcome_detail[3]}" in
   *) fail "expected the progress step failure to lead with the real error line, got: ${bootstrap_outcome_detail[3]}" ;;
 esac
 
-# 7. Skipped steps are recorded with their reason.
 record_outcome skipped "Optional" "Skipped in lightweight CI mode."
 
-# 8. The Ansible handoff file is valid JSON lines that round-trip awkward text,
-#    and a stray control character recorded directly still cannot break it.
 awkward_detail="$(printf 'line with "quotes" and back\\slash\n\tindented tab line')"
 record_outcome failed "Awkward" "$awkward_detail"
 record_outcome failed "Control" "$(printf 'before\rafter\033[0m\007')"
@@ -181,8 +168,6 @@ else
 fi
 rm -f "$bootstrap_outcomes_file"
 
-# 9. The fallback report is Markdown, names the abort, quotes failures, strips
-#    ANSI colour from the captured Ansible log, and lists completed steps.
 ansible_started=1
 ansible_exit_code=2
 ansible_log="$tmpdir/ansible.log"
@@ -211,8 +196,6 @@ if grep -q "$(printf '\033')" "$report_file"; then
   fail "expected the fallback report to strip ANSI escape sequences"
 fi
 
-# 8. The progress bar maps Ansible task names onto playbook phases in order,
-#    by role prefix, and leaves tasks outside any phase unmapped.
 progress_ansible_phase_index "Gathering Facts"
 if [ -n "$progress_phase_index" ]; then
   fail "expected a task outside the playbook phases to map to no phase"
@@ -230,8 +213,6 @@ if [ "$progress_phase_index" != "5" ]; then
   fail "expected feature role tasks to map to phase 5, got '$progress_phase_index'"
 fi
 
-# 9. run_step moves the bar forward by one unit whether the step passed or
-#    failed, and never past the total.
 progress_total=2
 progress_done=0
 run_step "Counted" true >/dev/null

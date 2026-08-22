@@ -155,10 +155,6 @@
     dotfiles_setup_skipped: []
     dotfiles_setup_aborted: false
 
-# Validation and execution run inside one block so that any failure, whether a
-# preflight rejection, a strict-mode stop, or an error no best-effort wrapper
-# caught, is still recorded and reported. The rescue only records the failure;
-# the task after the block re-raises it so the play still fails.
 - name: Execute setup tasks
   block:
     - name: Validate selected profile, platform, and features

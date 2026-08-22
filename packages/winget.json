@@ -13,7 +13,7 @@
         { "PackageIdentifier": "Git.Git" },
         { "PackageIdentifier": "OpenJS.NodeJS.LTS" },
         { "PackageIdentifier": "GoLang.Go" },
-        { "PackageIdentifier": "Python.Python.3.14" },
+        { "PackageIdentifier": "Python.Python.3" },
         { "PackageIdentifier": "Neovim.Neovim" },
         { "PackageIdentifier": "BrechtSanders.WinLibs.POSIX.UCRT" },
         { "PackageIdentifier": "BurntSushi.ripgrep.MSVC" },

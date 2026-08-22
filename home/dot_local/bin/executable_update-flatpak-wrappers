@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Generates wrapper scripts for flatpak applications in ~/.local/bin
 
 WRAPPER_DIR="$HOME/.local/bin"
 mkdir -p "$WRAPPER_DIR"
@@ -18,13 +17,10 @@ while read -r app_id; do
         "org.localsend.localsend_app") cmd_name="localsend" ;;
     esac
 
-    # Ensure flatpak has permission to access the host config directory
     flatpak override --user --filesystem="$HOME/.config" "$app_id"
 
-    # Get the original command from flatpak metadata
     orig_cmd=$(flatpak info --show-metadata "$app_id" | grep '^command=' | cut -d= -f2 | head -n1)
 
-    # If we couldn't find the original command, fallback to standard run
     if [ -z "$orig_cmd" ]; then
         exec_line="exec flatpak run \"$app_id\" \"\$@\""
     else
@@ -33,7 +29,6 @@ while read -r app_id; do
 
     wrapper_path="$WRAPPER_DIR/$cmd_name"
     
-    # Write wrapper script
     if [[ ! -e "$wrapper_path" ]] || grep -q "flatpak run" "$wrapper_path" 2>/dev/null; then
         cat <<EOF > "$wrapper_path"
 #!/usr/bin/env bash
@@ -42,7 +37,6 @@ EOF
         chmod +x "$wrapper_path"
     fi
 
-    # Clean up any existing symlinks we might have created previously
     flatpak_config_dir="$HOME/.var/app/$app_id/config"
     flatpak_config="$flatpak_config_dir/$cmd_name"
     if [ -L "$flatpak_config" ]; then

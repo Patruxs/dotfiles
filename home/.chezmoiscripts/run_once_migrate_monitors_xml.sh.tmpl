@@ -1,9 +1,6 @@
 {{- if eq .chezmoi.os "linux" -}}
 #!/bin/bash
 set -euo pipefail
-# monitors.xml used to be chezmoi-managed in symlink mode; it is machine state
-# now. Replace a leftover symlink with a real copy so GNOME writes stay local
-# instead of flowing back into the repo (or hitting a dangling link).
 target="$HOME/.config/monitors.xml"
 if [ -L "$target" ]; then
     if [ -e "$target" ]; then
@@ -11,7 +8,6 @@ if [ -L "$target" ]; then
         rm "$target"
         cp "$real" "$target"
     else
-        # Dangling symlink; GNOME regenerates the layout on the next change.
         rm "$target"
     fi
 fi

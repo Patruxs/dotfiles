@@ -1,13 +1,6 @@
 devtools:
-  runtimes:
-    node: lts
-    java: "21"
-    go: latest
-    python: "3"
-  tools:
-    pnpm: latest
-    uv: latest
-    maven: latest
-    gradle: latest
+  # Global npm tools, installed or updated to @latest by the devtools role
+  # (Linux, macOS) and bootstrap.ps1 (Windows). Language runtimes come from
+  # the platform package sets, always at their newest available version.
   npm_global_packages:
     - playwright

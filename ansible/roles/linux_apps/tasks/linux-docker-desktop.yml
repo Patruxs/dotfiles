@@ -1,8 +1,4 @@
 ---
-# Docker Desktop for Linux has no in-app updater: the UI only notifies, and the
-# new package has to be downloaded and installed again. The unversioned
-# download URLs below always serve the latest release, so the only question
-# each run has to answer is whether the installed version already matches it.
 - name: Resolve the latest Docker Desktop release for Linux
   ansible.builtin.shell: |
     set -euo pipefail
@@ -63,9 +59,6 @@
   when:
     - dotfiles_platform.distro_key in ['debian', 'fedora', 'arch']
 
-# Install when nothing is installed; update when the appcast reports a newer
-# release. If the appcast could not be read, an existing install is left alone
-# rather than re-downloaded blindly.
 - name: Record whether Docker Desktop needs installing or updating
   set_fact:
     dotfiles_docker_desktop_install_needed: >-

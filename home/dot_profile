@@ -1,4 +1,3 @@
-# ~/.profile
 path_prepend() {
   [ $# -eq 1 ] || return 0
   [ -n "$1" ] || return 0
@@ -45,5 +44,4 @@ fi
 export PATH
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
-# Per-machine paths and aliases; never managed by chezmoi.
 [ -f "$HOME/.profile.local" ] && . "$HOME/.profile.local"

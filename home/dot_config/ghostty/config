@@ -3,7 +3,6 @@ window-theme = ghostty
 window-height = 40
 window-width = 140
 background-opacity = 0.85
-#background = 222226
 font-family = MesloLGS NF
 font-family-bold = MesloLGS NF
 font-family-italic = MesloLGS NF
@@ -14,9 +13,6 @@ confirm-close-surface = false
 
 gtk-titlebar = false
 
-
-#keybind = ctrl+up=scroll_page_lines:5
-#keybind = ctrl+down=scroll_page_lines:-5 
 
 keybind = ctrl+up=scroll_page_up
 keybind = ctrl+down=scroll_page_down
@@ -29,6 +25,5 @@ cursor-style = block
 cursor-style-blink = false
 mouse-hide-while-typing = true
 
-# Better terminal behavior for shells, new tabs/splits, prompt marks, etc.
 shell-integration = detect
 shell-integration-features = cursor,sudo,title,ssh-env

@@ -22,10 +22,6 @@
     dotfiles_bootstrap_outcomes_file: "{{ lookup('env', 'DOTFILES_BOOTSTRAP_OUTCOMES_FILE') | default('', true) }}"
     dotfiles_bootstrap_outcomes: []
 
-# bootstrap.sh records the outcome of every prerequisite step it ran before
-# Ansible (system refresh, curl, git, chezmoi, repository, Ansible itself) as
-# JSON lines and hands the file over through DOTFILES_BOOTSTRAP_OUTCOMES_FILE,
-# so the report covers the whole run and not only the playbook.
 - name: Check for bootstrap step outcomes
   stat:
     path: "{{ dotfiles_bootstrap_outcomes_file }}"

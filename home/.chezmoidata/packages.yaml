@@ -110,7 +110,9 @@ packages:
         - Git.Git
         - OpenJS.NodeJS.LTS
         - GoLang.Go
-        - Python.Python.3.14
+        # Major line only: bootstrap.ps1 resolves the newest Python.Python.3.x
+        # id winget publishes at run time.
+        - Python.Python.3
         - Neovim.Neovim
         - BrechtSanders.WinLibs.POSIX.UCRT
         - BurntSushi.ripgrep.MSVC

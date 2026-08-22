@@ -64,8 +64,6 @@ validate_sudo_password() {
   :
 }
 
-# macOS-only gates: the test host is Linux, so stand in for an admin account
-# with a terminal; the sudo detection under test is the same on both.
 # shellcheck disable=SC2329  # invoked by the bootstrap functions eval'd below
 is_macos_admin() {
   return 0
@@ -106,7 +104,6 @@ for os in Linux Darwin; do
   rm -f "$become_password_file"
 done
 
-# A non-admin macOS account must degrade with a warning, never abort.
 # shellcheck disable=SC2329  # invoked by the bootstrap functions eval'd above
 is_macos_admin() {
   return 1

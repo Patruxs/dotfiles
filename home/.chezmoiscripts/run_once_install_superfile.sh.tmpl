@@ -4,8 +4,5 @@ set -euo pipefail
 if command -v spf >/dev/null 2>&1; then
     exit 0
 fi
-# Upstream's installer, unpinned: it resolves the latest superfile release
-# from the GitHub API at run time (test/upstream_installers_latest.sh checks
-# this).
 curl -fsSL https://superfile.dev/install.sh | bash
 {{- end }}

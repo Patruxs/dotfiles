@@ -283,18 +283,11 @@ if ! search_file 'Assert-LastExitCode "winget import"' "$windows_bootstrap"; the
   exit 1
 fi
 
-# winget import installs the latest version only with --ignore-versions (the
-# upgrade-installed-packages check lives with the other winget checks above).
 if ! search_file 'winget import.*--ignore-versions' "$windows_bootstrap"; then
   echo "expected bootstrap.ps1 to pass --ignore-versions to winget import so packages install at their latest version"
   exit 1
 fi
 
-# Tool versions are resolved at install time; the repo must not hardcode a
-# release in a download URL, and upstream installer scripts are fetched from
-# their default branch rather than a tag or a checksum pin so the installer
-# itself stays current too. lazygit templates its version from the GitHub
-# API, so its URL contains a Jinja expression rather than a literal version.
 if grep -rnE 'releases/download/v?[0-9]+\.[0-9]+|raw\.githubusercontent\.com/[^/ ]+/[^/ ]+/v?[0-9]+\.[0-9]+' "$repo_root/ansible" "$repo_root/home/.chezmoiscripts" "$repo_root/home/.chezmoidata" "$repo_root/bootstrap.sh" "$repo_root/bootstrap.ps1" "$repo_root/scripts"; then
   echo "expected no hardcoded release versions in download or installer URLs; installers must resolve the latest release at run time"
   exit 1
@@ -305,17 +298,15 @@ if grep -rnE 'expected_sha256|sha256sum|shasum' "$repo_root/home/.chezmoiscripts
   exit 1
 fi
 
-# winget publishes one Python package id per minor version, so that id is the
-# only place a runtime version line is spelled out. Keep the template manifest
-# and the chezmoi package data on the same line.
-python_winget_id="$(grep -oE 'Python\.Python\.3\.[0-9]+' "$packages_data" | sort -u || true)"
-if [ -z "$python_winget_id" ] || [ "$(printf '%s\n' "$python_winget_id" | wc -l)" -ne 1 ]; then
-  echo "expected exactly one Python winget package id in home/.chezmoidata/packages.yaml, found: ${python_winget_id:-<none>}"
+if grep -nE 'Python\.Python\.3\.[0-9]+' "$packages_data" "$winget_manifest"; then
+  echo "expected no minor-versioned Python winget id; name Python.Python.3 and let bootstrap.ps1 resolve the newest minor"
   exit 1
 fi
 
-if ! search_file_literal "\"PackageIdentifier\": \"$python_winget_id\"" "$winget_manifest"; then
-  echo "expected packages/winget.json to reference the same Python winget id ($python_winget_id) as packages.yaml"
+if ! search_file '^[[:space:]]+- Python\.Python\.3$' "$packages_data" ||
+  ! search_file_literal 'function Resolve-WingetPackageIds' "$windows_bootstrap" ||
+  ! search_file_literal '$pkgs = Resolve-WingetPackageIds -PackageIds $pkgs' "$windows_bootstrap"; then
+  echo "expected packages.yaml to list Python.Python.3 and bootstrap.ps1 to resolve it to the newest minor via Resolve-WingetPackageIds"
   exit 1
 fi
 
@@ -570,8 +561,6 @@ for playbook in "$fedora_playbook" "$arch_playbook" "$macos_playbook"; do
   fi
 done
 
-# Package installs must detect package-manager no-ops, or the second bootstrap
-# run reports changes and the CI idempotency check fails.
 if ! search_file_literal '0 upgraded, 0 newly installed' "$debian_packages_task" ||
   ! search_file_literal 'Nothing to do' "$fedora_packages_task" ||
   ! search_file_literal 'there is nothing to do' "$arch_packages_task"; then
@@ -579,9 +568,6 @@ if ! search_file_literal '0 upgraded, 0 newly installed' "$debian_packages_task"
   exit 1
 fi
 
-# Docker Desktop is delivered as a direct package download with no in-app
-# updater, so each distro block must compare the installed version with the
-# vendor appcast: skip when they match, reinstall when upstream moved on.
 if ! search_file_literal 'dpkg-query -W' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml" ||
   ! search_file_literal 'rpm -q docker-desktop' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml" ||
   ! search_file_literal 'pacman -Q docker-desktop' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
@@ -600,18 +586,11 @@ if [ "$(grep -c 'dotfiles_docker_desktop_install_needed | default(false) | bool'
   exit 1
 fi
 
-# Inside a YAML folded scalar Jinja receives backslashes as written and does
-# not unescape them (ansible-core 2.19+), so a doubled backslash in a regex
-# never matches. That silently broke lazygit's installed-version check once
-# and would break the Docker Desktop comparison the same way.
 if grep -rnE "regex_(search|replace|findall)\([\"'][^\"']*\\\\\\\\" "$repo_root/ansible" --include='*.yml'; then
   echo "expected Ansible regex filters to use single backslashes; doubled backslashes never match inside folded scalars"
   exit 1
 fi
 
-# VirtualBox on Ubuntu comes from Oracle's repository so it is not stuck on
-# the archive's older line; the release line is read from LATEST.TXT at run
-# time and the archive package remains the fallback.
 if ! search_file_literal 'download.virtualbox.org/virtualbox/LATEST.TXT' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml" ||
   ! search_file_literal 'apt-get install -y "$vbox_package"' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml" ||
   ! search_file_literal 'apt-cache search --names-only' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml" ||
@@ -628,11 +607,6 @@ if search_file 'virtualbox-[0-9]+\.[0-9]+' "$repo_root/ansible/roles/linux_apps/
   exit 1
 fi
 
-# The macOS login shell must be the Homebrew bash (kept current by the brew
-# pass), not Apple's frozen /bin/bash, whenever Homebrew bash is present. The
-# role owns /etc/shells and the login shell, so the old run_once chsh script
-# (which always re-ran because it compared $SHELL) must stay gone, and the
-# become tasks must report failures instead of hiding them.
 if ! search_file_literal '/opt/homebrew/bin/bash' "$repo_root/ansible/roles/shell/tasks/macos.yml" ||
   ! search_file_literal 'shell_macos_login_shell' "$repo_root/ansible/roles/shell/tasks/macos.yml" ||
   ! search_file_literal 'path: /etc/shells' "$repo_root/ansible/roles/shell/tasks/macos.yml" ||
@@ -642,8 +616,6 @@ if ! search_file_literal '/opt/homebrew/bin/bash' "$repo_root/ansible/roles/shel
   exit 1
 fi
 
-# The macOS become tasks need a sudo password just like Linux, so bootstrap
-# collects it on both and passes the password file to Ansible on both.
 if ! search_file_literal 'ensure_sudo_access() {' "$repo_root/bootstrap.sh" ||
   search_file_literal 'ensure_linux_sudo_access' "$repo_root/bootstrap.sh" ||
   ! search_file_literal 'skip_macos_sudo "$USER is not an administrator' "$repo_root/bootstrap.sh" ||
@@ -654,17 +626,12 @@ if ! search_file_literal 'ensure_sudo_access() {' "$repo_root/bootstrap.sh" ||
   exit 1
 fi
 
-# Ansible is installed from Homebrew on macOS and must be upgraded by
-# bootstrap.sh before the playbook starts: upgrading the formula from inside
-# the running playbook lets brew cleanup delete the keg it executes from.
 if ! search_file_literal 'plan_step run "Upgrade Ansible" upgrade_ansible' "$repo_root/bootstrap.sh" ||
   search_file '^      - ansible$' "$repo_root/ansible/vars/package_sets/macos.yml"; then
   echo "expected bootstrap.sh to upgrade Ansible on macOS before the playbook, and not via the brew package set"
   exit 1
 fi
 
-# llmfit is not on winget and nothing installs scoop, so the Windows bootstrap
-# installs it from the latest GitHub release itself.
 if [ -e "$repo_root/home/.chezmoiscripts/run_once_install_llmfit.ps1.tmpl" ]; then
   echo "expected the scoop-only llmfit run_once script to be gone; bootstrap.ps1 installs llmfit from GitHub"
   exit 1
@@ -688,27 +655,18 @@ if ! search_file_literal 'Start-Progress -Total 9' "$windows_bootstrap" ||
   exit 1
 fi
 
-# Ansible Galaxy can be unreachable (outages, regional TLS resets); the distro
-# ansible package already bundles community.general, so a failed refresh must
-# fall back to installed collections instead of aborting bootstrap.
 if ! search_file_literal 'required_ansible_collections_present' "$repo_root/bootstrap.sh" ||
   ! search_file_literal 'Continuing with the already-installed versions' "$repo_root/bootstrap.sh"; then
   echo "expected bootstrap.sh to fall back to installed Ansible collections when Galaxy is unreachable"
   exit 1
 fi
 
-# A half-installed Docker Desktop (dpkg reinstreq, e.g. from an interrupted
-# install) aborts every apt transaction because the package has no repository
-# archive; bootstrap must self-heal that state before it touches apt.
 if ! search_file_literal 'force-remove-reinstreq docker-desktop' "$repo_root/bootstrap.sh" ||
   ! search_file_literal "repair_broken_docker_desktop" "$repo_root/bootstrap.sh"; then
   echo "expected bootstrap.sh to remove a half-installed Docker Desktop before running apt"
   exit 1
 fi
 
-# The Docker Desktop Ubuntu codename whitelist must be defined once in
-# common.yml and referenced everywhere else, so the preflight check and the
-# install task can never drift apart (preflight passing while install skips).
 if ! search_file_literal 'dotfiles_docker_desktop_ubuntu_codenames:' "$common_playbook" ||
   ! search_file_literal 'dotfiles_docker_desktop_ubuntu_codenames' "$profile_preflight" ||
   ! search_file_literal 'dotfiles_docker_desktop_ubuntu_codenames' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
@@ -721,9 +679,6 @@ if search_file_literal "'focal'" "$profile_preflight" ||
   exit 1
 fi
 
-# Every dotfiles_platform key referenced by roles or shared playbooks must exist
-# in each per-platform playbook's dotfiles_platform block, or templating fails at
-# runtime on that platform (e.g. ubuntu_codename missing from ubuntu.yml).
 referenced_platform_keys="$(grep -rhoE 'dotfiles_platform\.[a-z_]+' "$repo_root/ansible" --include='*.yml' | sed 's/^dotfiles_platform\.//' | sort -u)"
 for playbook in "$ubuntu_playbook" "$fedora_playbook" "$arch_playbook" "$macos_playbook"; do
   for key in $referenced_platform_keys; do
@@ -775,8 +730,6 @@ if ! search_file 'dotfiles_setup_mode' "$common_playbook" ||
   exit 1
 fi
 
-# Preflight and execution share one block: the rescue records whichever
-# failure aborted the run so it reaches the report, and the play still fails.
 if ! search_file '^  rescue:$' "$common_playbook" ||
   ! search_file_literal 'dotfiles_setup_aborted: true' "$common_playbook" ||
   ! search_file_literal "'phase': 'aborted'" "$common_playbook" ||
@@ -858,8 +811,6 @@ if ! search_file_literal '# Dotfiles setup report' "$setup_outcome_task" ||
   exit 1
 fi
 
-# bootstrap.sh records every prerequisite step and hands the outcomes to
-# Ansible, so the report covers the whole run, not only the playbook.
 if ! search_file_literal 'DOTFILES_BOOTSTRAP_OUTCOMES_FILE' "$setup_outcome_task" ||
   ! search_file_literal "map('from_json')" "$setup_outcome_task" ||
   ! search_file_literal "'phase': 'bootstrap'" "$setup_outcome_task"; then
@@ -904,9 +855,6 @@ if ! search_file '--source' "$repo_root/ansible/roles/chezmoi/tasks/main.yml"; t
   exit 1
 fi
 
-# One chezmoi apply stops at the first failing run_ script and leaves every
-# later file unapplied, so best-effort mode applies files and each script as
-# its own step; strict mode keeps the single apply.
 chezmoi_best_effort_task="$repo_root/ansible/roles/chezmoi/tasks/apply_best_effort.yml"
 if ! search_file_literal 'Run chezmoi apply (strict)' "$chezmoi_task_main" ||
   ! search_file_literal 'apply_best_effort.yml' "$chezmoi_task_main" ||
@@ -925,16 +873,12 @@ if search_file_literal 'ignore_errors' "$chezmoi_best_effort_task"; then
   exit 1
 fi
 
-# The best-effort apply never raises, so execution.yml must not claim the
-# chezmoi phase completed when the managed-files step itself failed.
 if ! search_file_literal 'dotfiles_chezmoi_files_applied' "$chezmoi_best_effort_task" ||
   ! search_file_literal 'when: dotfiles_chezmoi_files_applied | default(true) | bool' "$execution_playbook"; then
   echo "expected the best-effort chezmoi completion entry to depend on the managed-files step succeeding"
   exit 1
 fi
 
-# A failed verification must not leave a broken ~/.local/bin/chezmoi behind,
-# or every re-run skips the install step because chezmoi is "present".
 if ! awk '
   /^install_chezmoi_release_binary\(\) \{/ { in_fn = 1 }
   in_fn && /"\$tmp_binary" --version/ { verified = 1 }
@@ -946,9 +890,6 @@ if ! awk '
   exit 1
 fi
 
-# Every prerequisite step in bootstrap.sh runs through run_step so a failure is
-# recorded, skipped in best-effort mode, and written to the report even when
-# Ansible never starts (the EXIT trap writes the fallback report).
 for needle in \
   'run_step() {' \
   'plan_step critical "Install chezmoi" install_chezmoi' \
@@ -970,10 +911,6 @@ for needle in \
   fi
 done
 
-# The Snap build of curl is strictly confined (private /tmp, no hidden home
-# directories), which breaks the get.chezmoi.io installer with "real_tag error
-# retrieving GitHub release latest"; bootstrap must install native curl and
-# fall back to a direct release download if the installer still fails.
 if ! search_file_literal 'curl_is_snap' "$repo_root/bootstrap.sh" ||
   ! search_file_literal '/snap/*|/var/lib/snapd/*' "$repo_root/bootstrap.sh" ||
   ! search_file_literal 'https://github.com/twpayne/chezmoi/releases/latest/download/' "$repo_root/bootstrap.sh" ||

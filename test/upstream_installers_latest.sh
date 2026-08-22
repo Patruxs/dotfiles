@@ -1,12 +1,4 @@
 #!/usr/bin/env bash
-# The chezmoi run_once scripts hand installation to upstream installer
-# scripts. Two things must stay true for "always the latest version":
-#   1. no installer URL carries a version (a tag or a checksum pin would
-#      freeze the installer even when it resolves the tool itself);
-#   2. each installer, as served today, resolves the latest release at run
-#      time rather than embedding one.
-# The first check is static; the second needs network access and is skipped
-# with a notice when GitHub is unreachable so offline runs do not fail.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -18,7 +10,6 @@ fail() {
   failures=$((failures + 1))
 }
 
-# Static: every installer URL in the run_once scripts must be unpinned.
 if grep -nE 'raw\.githubusercontent\.com/[^/ ]+/[^/ ]+/v?[0-9]+\.[0-9]+' "$scripts_dir"/*.tmpl; then
   fail "an installer URL above pins a version; use the upstream default branch so the installer itself stays current"
 fi
@@ -26,7 +17,6 @@ if grep -nE 'expected_sha256|sha256sum|shasum' "$scripts_dir"/*.tmpl; then
   fail "an installer above is pinned by checksum; upstream changes would break the install instead of being picked up"
 fi
 
-# Live: each installer must resolve the latest release itself.
 installer_urls="$(grep -ohE 'https://[^ "'"'"')]+/install\.sh' "$scripts_dir"/*.sh.tmpl | sort -u)"
 if [ -z "$installer_urls" ]; then
   fail "no upstream installer URLs found under ${scripts_dir#"$repo_root"/}"

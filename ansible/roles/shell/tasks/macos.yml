@@ -1,9 +1,4 @@
 ---
-# Apple's /bin/bash is the 2007 bash 3.2; the Homebrew `bash` formula from the
-# core_cli package set is the current release, so that is the login shell
-# whenever it is present. Homebrew is located by its known prefixes rather
-# than PATH, because the Ansible process does not always inherit brew's PATH
-# while the homebrew module still finds it.
 - name: Check for the Homebrew bash (macOS)
   ansible.builtin.stat:
     path: "{{ item }}"

@@ -1,4 +1,3 @@
-# ~/.bash_profile
 if [ -f "$HOME/.profile" ]; then
   . "$HOME/.profile"
 fi
@@ -8,6 +7,5 @@ if [ -f "$HOME/.bashrc" ]; then
 fi
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
-# bun
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"

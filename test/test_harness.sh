@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Colors for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[0;33m'
@@ -16,7 +15,6 @@ cd "$REPO_ROOT"
 
 echo "=== Dotfiles Test Harness ==="
 
-# 1. Dependency Checks
 if ! command -v chezmoi >/dev/null 2>&1; then
     log_err "chezmoi is required but not installed."
     exit 1
@@ -26,7 +24,6 @@ if ! command -v shellcheck >/dev/null 2>&1; then
     log_warn "shellcheck is not installed. Skipping bash linting."
 else
     log_info "Running ShellCheck on shell scripts..."
-    # Find scripts but exclude templates (.tmpl)
     find . -type f -name "*.sh" -not -path "*/.git/*" -print0 | xargs -0 shellcheck || {
         log_err "ShellCheck failed."
         exit 1
@@ -75,7 +72,6 @@ log_info "Running upstream installer latest-version checks..."
 }
 log_info "Upstream installer latest-version checks passed."
 
-# 2. Chezmoi Dry Run
 log_info "Running Chezmoi Dry Run (verifies templates render without errors)..."
 tmpdir="$(mktemp -d)"
 cleanup_tmpdir() {
@@ -156,7 +152,6 @@ HOME="$tmpdir/home" DOTFILES_CI=1 chezmoi apply \
 }
 log_info "Chezmoi dry run passed."
 
-# 3. Idempotency Check (Optional)
 if [ "${1:-}" == "--idempotent" ]; then
     log_info "Running Full Idempotency Check (requires sudo)..."
     ./bootstrap.sh --profile personal > /tmp/dotfiles_run1.log 2>&1

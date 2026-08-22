@@ -1,11 +1,4 @@
 ---
-# The Ubuntu archive ships VirtualBox releases that are a minor line or more
-# behind Oracle, so on amd64 the Debian path uses Oracle's own repository and
-# picks the newest release line Oracle publishes for this Ubuntu release at
-# run time (LATEST.TXT names upstream's newest line, but older releases do not
-# always receive it). The archive package is the fallback when Oracle has no
-# build for this release and nothing from Oracle is installed yet; an existing
-# Oracle install is never replaced by the archive package.
 - name: Install or update VirtualBox on Debian-based Linux
   ansible.builtin.shell: |
     set -euo pipefail
@@ -47,9 +40,6 @@
       echo "Installing ${vbox_package} from Oracle's repository."
       apt-get install -y "$vbox_package"
     elif [ -n "$oracle_installed" ]; then
-      # Never replace an Oracle build with the older archive package: after a
-      # release upgrade Oracle may not have published this codename yet (404),
-      # and a transient outage must not downgrade anything either.
       if [ "$probe_status" = "404" ]; then
         echo "Oracle's VirtualBox repository has no build for ${codename} yet; keeping the installed ${oracle_installed}."
       else
