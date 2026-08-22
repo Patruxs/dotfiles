@@ -101,6 +101,7 @@ function Invoke-BestEffort {
     [scriptblock]$ScriptBlock
   )
 
+  Set-ProgressLabel $Name
   try {
     & $ScriptBlock
     Add-SetupSuccess -Phase $Phase -Name $Name
@@ -112,6 +113,107 @@ function Invoke-BestEffort {
     Add-SetupFailure -Phase $Phase -Name $Name -ErrorRecord $_
     Write-Warning "$Phase '$Name' failed. Continuing setup."
   }
+}
+
+# ---------------------------------------------------------------------------
+# Progress bar.
+#
+# On an interactive console that understands VT sequences, the last row is
+# reserved for a bar that tracks setup as a whole, one unit per phase; a scroll
+# region keeps normal output scrolling above it. Off when output is redirected,
+# in lightweight CI mode, or with DOTFILES_PROGRESS=0.
+# ---------------------------------------------------------------------------
+
+$progress = @{
+  Enabled = $false
+  Total = 0
+  Done = 0
+  Label = ""
+  Rows = 0
+  Cols = 0
+}
+$esc = [char]27
+
+function Test-ProgressSupported {
+  if ($env:DOTFILES_PROGRESS -match "^(0|false|no)$") { return $false }
+  if (Test-IsCi) { return $false }
+  if ([Console]::IsOutputRedirected) { return $false }
+  return [bool]$Host.UI.SupportsVirtualTerminal
+}
+
+function Measure-Progress {
+  $script:progress.Rows = [Console]::WindowHeight
+  $script:progress.Cols = [Console]::WindowWidth
+}
+
+function Set-ProgressRegion {
+  # Confine scrolling to every row above the bar.
+  [Console]::Write("$esc" + "7$esc[1;$($script:progress.Rows - 1)r$esc" + "8")
+}
+
+function Start-Progress {
+  param([int]$Total)
+
+  $script:progress.Total = $Total
+  $script:progress.Done = 0
+  if (-not (Test-ProgressSupported)) { return }
+  Measure-Progress
+  if ($script:progress.Rows -lt 4 -or $script:progress.Cols -lt 30) { return }
+  $script:progress.Enabled = $true
+  # Open a fresh line so the bar never covers output already on the last row.
+  [Console]::Write("`n$esc[A")
+  Set-ProgressRegion
+  Update-Progress
+}
+
+function Stop-Progress {
+  if (-not $script:progress.Enabled) { return }
+  $script:progress.Enabled = $false
+  # Clear the bar row and give the whole screen back to scrolling.
+  [Console]::Write("$esc" + "7$esc[$($script:progress.Rows);1H$esc[2K$esc[r$esc" + "8")
+}
+
+function Update-Progress {
+  if (-not $script:progress.Enabled) { return }
+
+  # There is no resize signal to catch, so re-measure on every draw and move
+  # the region when the window changed.
+  $rows = $script:progress.Rows
+  $cols = $script:progress.Cols
+  Measure-Progress
+  if ($rows -ne $script:progress.Rows -or $cols -ne $script:progress.Cols) {
+    [Console]::Write("$esc" + "7$esc[r$esc[$($script:progress.Rows);1H$esc[2K$esc" + "8")
+    Set-ProgressRegion
+  }
+
+  $width = [Math]::Max(10, [int][Math]::Floor($script:progress.Cols / 3))
+  $percent = 0
+  $filled = 0
+  if ($script:progress.Total -gt 0) {
+    $percent = [int][Math]::Floor($script:progress.Done * 100 / $script:progress.Total)
+    $filled = [int][Math]::Floor($width * $script:progress.Done / $script:progress.Total)
+  }
+  $bar = ("█" * $filled) + ("░" * ($width - $filled))
+  # "bar 100%  " plus one spare column so the line never wraps.
+  $maxLabel = [Math]::Max(0, $script:progress.Cols - $width - 10)
+  $label = $script:progress.Label
+  if ($label.Length -gt $maxLabel) { $label = $label.Substring(0, $maxLabel) }
+  $tail = " {0,3}%  {1}" -f $percent, $label
+  [Console]::Write("$esc" + "7$esc[$($script:progress.Rows);1H$esc[2K$esc[1m$bar$esc[0m$tail$esc" + "8")
+}
+
+function Set-ProgressLabel {
+  param([string]$Label)
+
+  $script:progress.Label = $Label
+  Update-Progress
+}
+
+function Complete-ProgressStep {
+  if ($script:progress.Done -lt $script:progress.Total) {
+    $script:progress.Done += 1
+  }
+  Update-Progress
 }
 
 function Write-SetupReport {
@@ -345,6 +447,12 @@ Write-Host "Using profile: $selectedProfile"
 # uses the same profile the bootstrap ran with.
 $env:DOTFILES_PROFILE = $selectedProfile
 
+# One unit per phase below: chezmoi init, symlink check, apply, data, winget
+# packages, npm tools, Bitwarden CLI, AI CLIs. Phases that do not apply to this
+# run still count, so the bar always reaches 100%.
+Start-Progress -Total 8
+
+Set-ProgressLabel "chezmoi init"
 if (Test-UsingCheckedOutSource) {
   Write-Host "Initializing Chezmoi from checked-out source: $chezmoiSource"
   chezmoi init --source $chezmoiSource
@@ -358,9 +466,11 @@ if (Test-UsingCheckedOutSource) {
 } else {
   Refresh-Repo
 }
+Complete-ProgressStep
 
 # chezmoi runs in symlink mode, which Windows only allows with Developer Mode
 # enabled or an elevated shell. Probe before apply so the failure is actionable.
+Set-ProgressLabel "Symlink support check"
 $symlinkProbeTarget = Join-Path ([System.IO.Path]::GetTempPath()) ("chezmoi-symlink-probe-" + [System.IO.Path]::GetRandomFileName())
 $symlinkProbeLink = "$symlinkProbeTarget-link"
 New-Item -ItemType File -Path $symlinkProbeTarget -Force | Out-Null
@@ -381,15 +491,19 @@ Remove-Item $symlinkProbeTarget -Force -ErrorAction SilentlyContinue
 if (-not $symlinkOk) {
   throw "This setup creates symlinks (chezmoi mode = ""symlink""), but this Windows session is not allowed to create them. Enable Developer Mode (Settings > System > For developers) or re-run bootstrap from an elevated PowerShell."
 }
+Complete-ProgressStep
 
 Invoke-BestEffort -Phase "chezmoi" -Name "chezmoi apply" -ScriptBlock {
   chezmoi apply --source $chezmoiSource --force -v
   Assert-LastExitCode "chezmoi apply"
 }
+Complete-ProgressStep
 
+Set-ProgressLabel "chezmoi data"
 $dataJson = chezmoi data --source $chezmoiSource
 Assert-LastExitCode "chezmoi data"
 $data = $dataJson | ConvertFrom-Json
+Complete-ProgressStep
 
 $pkgs = @()
 if ($null -ne $data.packages.common.windows.packages) {
@@ -408,6 +522,7 @@ if (Test-IsCi) {
       Install-WingetPackages -PackageIds $pkgs -TemplatePath $wingetTemplateFile
     }
 }
+Complete-ProgressStep
 
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
@@ -421,6 +536,7 @@ if ((-not (Test-IsCi)) -and $null -ne $data.devtools.npm_global_packages -and (G
         }
     }
 }
+Complete-ProgressStep
 
 if ($selectedProfile -eq "personal" -and (-not (Test-IsCi)) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
     Invoke-BestEffort -Phase "bitwarden_cli" -Name "Bitwarden CLI" -ScriptBlock {
@@ -429,6 +545,7 @@ if ($selectedProfile -eq "personal" -and (-not (Test-IsCi)) -and (Get-Command np
         Assert-LastExitCode "npm install -g @bitwarden/cli@latest"
     }
 }
+Complete-ProgressStep
 
 if ((-not (Test-IsCi)) -and $null -ne $data.ai_clis.clis) {
     Write-Host "Installing AI CLIs..."
@@ -443,11 +560,13 @@ if ((-not (Test-IsCi)) -and $null -ne $data.ai_clis.clis) {
         }
     }
 }
+Complete-ProgressStep
 
 } catch {
   $script:setupAbortReason = if ($null -ne $_.Exception) { $_.Exception.Message } else { [string]$_ }
   Add-SetupFailure -Phase "aborted" -Name "bootstrap" -ErrorRecord $_
   throw
 } finally {
+  Stop-Progress
   Write-SetupReport
 }

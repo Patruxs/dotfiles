@@ -45,7 +45,26 @@ bootstrap_outcomes_file=""
 ansible_log=""
 ansible_exit_code=""
 ansible_started=0
+progress_enabled=0
+progress_total=0
+progress_done=0
+progress_label=""
+progress_phase_index=""
+progress_ansible_phases=(
+  "profile_preflight : "
+  "low_memory : "
+  "chezmoi_setup_data : "
+  "package_installer : "
+  "features/"
+  "chezmoi : "
+  "services : "
+  "setup_outcome : "
+)
 
+eval "$(extract_function progress_draw)"
+eval "$(extract_function progress_set_label)"
+eval "$(extract_function progress_advance)"
+eval "$(extract_function progress_ansible_phase_index)"
 eval "$(extract_function strip_ansi)"
 eval "$(extract_function sanitize_captured_output)"
 eval "$(extract_function json_escape)"
@@ -55,7 +74,7 @@ eval "$(extract_function run_step)"
 eval "$(extract_function write_bootstrap_outcomes_file)"
 eval "$(extract_function write_fallback_report)"
 
-for required in strip_ansi sanitize_captured_output json_escape abort record_outcome run_step write_bootstrap_outcomes_file write_fallback_report; do
+for required in progress_draw progress_set_label progress_advance progress_ansible_phase_index strip_ansi sanitize_captured_output json_escape abort record_outcome run_step write_bootstrap_outcomes_file write_fallback_report; do
   if ! declare -F "$required" >/dev/null; then
     fail "expected bootstrap.sh to define $required"
   fi
@@ -190,6 +209,36 @@ for needle in \
 done
 if grep -q "$(printf '\033')" "$report_file"; then
   fail "expected the fallback report to strip ANSI escape sequences"
+fi
+
+# 8. The progress bar maps Ansible task names onto playbook phases in order,
+#    by role prefix, and leaves tasks outside any phase unmapped.
+progress_ansible_phase_index "Gathering Facts"
+if [ -n "$progress_phase_index" ]; then
+  fail "expected a task outside the playbook phases to map to no phase"
+fi
+progress_ansible_phase_index "chezmoi_setup_data : Write setup data"
+if [ "$progress_phase_index" != "3" ]; then
+  fail "expected chezmoi_setup_data tasks to map to phase 3, got '$progress_phase_index'"
+fi
+progress_ansible_phase_index "chezmoi : Apply managed files"
+if [ "$progress_phase_index" != "6" ]; then
+  fail "expected chezmoi tasks to map to phase 6, got '$progress_phase_index'"
+fi
+progress_ansible_phase_index "features/flatpak_apps : Install Flatpak apps"
+if [ "$progress_phase_index" != "5" ]; then
+  fail "expected feature role tasks to map to phase 5, got '$progress_phase_index'"
+fi
+
+# 9. run_step moves the bar forward by one unit whether the step passed or
+#    failed, and never past the total.
+progress_total=2
+progress_done=0
+run_step "Counted" true >/dev/null
+run_step "Counted failure" false >/dev/null
+run_step "Past the end" true >/dev/null
+if [ "$progress_done" -ne 2 ]; then
+  fail "expected run_step to advance the progress bar to 2 of 2, got $progress_done"
 fi
 
 echo "bootstrap best-effort step handling passed"

@@ -251,12 +251,14 @@ run_step() {
   name="$1"
   shift
 
+  progress_set_label "$name"
   step_log="$(mktemp)"
   set +e
   ( set -e; "$@" ) 2>&1 | tee "$step_log"
   rc="${PIPESTATUS[0]}"
   set -e
   hash -r
+  progress_advance
 
   if [ "$rc" -eq 0 ]; then
     rm -f "$step_log"
@@ -398,6 +400,195 @@ write_fallback_report() {
   } >"$report_file"
 }
 
+# ---------------------------------------------------------------------------
+# Progress bar.
+#
+# On an interactive terminal the last screen row is reserved for a bar that
+# tracks setup as a whole: every planned bootstrap step, then each phase of the
+# Ansible playbook. A scroll region keeps normal output scrolling above it, so
+# nothing that tools print is lost or reformatted. The bar is off when stdout
+# is not a terminal, in lightweight CI mode, or with DOTFILES_PROGRESS=0.
+# ---------------------------------------------------------------------------
+
+progress_enabled=0
+progress_total=0
+progress_done=0
+progress_label=""
+progress_rows=0
+progress_cols=0
+progress_bootstrap_total=0
+progress_fifo_dir=""
+progress_watcher_pid=""
+progress_phase_index=""
+# Playbook phases in the order they run, as the prefix Ansible puts in front
+# of each of their task names. Optional phases that never run are absorbed
+# when a later phase starts.
+progress_ansible_phases=(
+  "profile_preflight : "
+  "low_memory : "
+  "chezmoi_setup_data : "
+  "package_installer : "
+  "features/"
+  "chezmoi : "
+  "services : "
+  "setup_outcome : "
+)
+
+progress_supported() {
+  case "${DOTFILES_PROGRESS:-1}" in
+    0|false|FALSE|no|NO)
+      return 1
+      ;;
+  esac
+  [ -t 1 ] && ! is_ci && [ -n "${TERM:-}" ] && [ "$TERM" != "dumb" ] && have tput
+}
+
+progress_measure() {
+  progress_rows="$(tput lines 2>/dev/null || echo 0)"
+  progress_cols="$(tput cols 2>/dev/null || echo 0)"
+}
+
+progress_start() {
+  # usage: progress_start <total units>
+  progress_total="$1"
+  progress_done=0
+  if ! progress_supported; then
+    return 0
+  fi
+  progress_measure
+  if [ "$progress_rows" -lt 4 ] || [ "$progress_cols" -lt 30 ]; then
+    return 0
+  fi
+  progress_enabled=1
+  # Open a fresh line so the bar never covers output already on the last row,
+  # then confine scrolling to the rows above it.
+  printf '\n\033[A\0337\033[1;%dr\0338' "$((progress_rows - 1))"
+  trap progress_resize WINCH
+  progress_draw
+}
+
+progress_resize() {
+  if [ "$progress_enabled" -ne 1 ]; then
+    return 0
+  fi
+  printf '\0337\033[r\0338'
+  progress_measure
+  printf '\0337\033[%d;1H\033[2K\033[1;%dr\0338' "$progress_rows" "$((progress_rows - 1))"
+  progress_draw
+}
+
+progress_stop() {
+  if [ "$progress_enabled" -ne 1 ]; then
+    return 0
+  fi
+  progress_enabled=0
+  trap - WINCH
+  # Clear the bar row and give the whole screen back to scrolling.
+  printf '\0337\033[%d;1H\033[2K\033[r\0338' "$progress_rows"
+}
+
+progress_draw() {
+  if [ "$progress_enabled" -ne 1 ]; then
+    return 0
+  fi
+  local width filled percent bar label max_label i
+
+  percent=0
+  filled=0
+  width=$((progress_cols / 3))
+  if [ "$width" -lt 10 ]; then
+    width=10
+  fi
+  if [ "$progress_total" -gt 0 ]; then
+    percent=$((progress_done * 100 / progress_total))
+    filled=$((width * progress_done / progress_total))
+  fi
+  bar=""
+  i=0
+  while [ "$i" -lt "$width" ]; do
+    if [ "$i" -lt "$filled" ]; then
+      bar="${bar}█"
+    else
+      bar="${bar}░"
+    fi
+    i=$((i + 1))
+  done
+  # "[bar] 100%  " plus one spare column so the line never wraps.
+  max_label=$((progress_cols - width - 10))
+  label="${progress_label:0:$max_label}"
+  printf '\0337\033[%d;1H\033[2K\033[1m%s\033[0m %3d%%  %s\0338' "$progress_rows" "$bar" "$percent" "$label"
+}
+
+progress_set_label() {
+  progress_label="$1"
+  progress_draw
+}
+
+progress_advance() {
+  if [ "$progress_done" -lt "$progress_total" ]; then
+    progress_done=$((progress_done + 1))
+  fi
+  progress_draw
+}
+
+progress_set_done() {
+  # usage: progress_set_done <units done> <label>
+  progress_done="$1"
+  if [ "$progress_done" -gt "$progress_total" ]; then
+    progress_done="$progress_total"
+  fi
+  progress_label="$2"
+  progress_draw
+}
+
+progress_ansible_phase_index() {
+  # usage: progress_ansible_phase_index "<task name as Ansible prints it>"
+  #
+  # Sets progress_phase_index to the 1-based playbook phase the task belongs
+  # to, or to an empty string for tasks outside any phase (facts, includes).
+  local task="$1" index phase
+
+  progress_phase_index=""
+  for index in "${!progress_ansible_phases[@]}"; do
+    phase="${progress_ansible_phases[$index]}"
+    case "$task" in
+      "$phase"*)
+        progress_phase_index=$((index + 1))
+        return 0
+        ;;
+    esac
+  done
+}
+
+progress_watch_ansible() {
+  # Reads a copy of the playbook output from stdin and moves the bar through
+  # the playbook phases as their first task starts, showing the running task.
+  local line task current=0
+
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [[ $line =~ TASK\ \[([^]]*)\] ]]; then
+      task="${BASH_REMATCH[1]}"
+      progress_ansible_phase_index "$task"
+      if [ -n "$progress_phase_index" ] && [ "$progress_phase_index" -gt "$current" ]; then
+        current="$progress_phase_index"
+      fi
+      progress_set_done $((progress_bootstrap_total + current)) "$task"
+    fi
+  done
+}
+
+progress_stop_ansible_watcher() {
+  if [ -n "$progress_watcher_pid" ]; then
+    kill "$progress_watcher_pid" 2>/dev/null || true
+    wait "$progress_watcher_pid" 2>/dev/null || true
+    progress_watcher_pid=""
+  fi
+  if [ -n "$progress_fifo_dir" ]; then
+    rm -rf "$progress_fifo_dir"
+    progress_fifo_dir=""
+  fi
+}
+
 print_report_banner() {
   local result_line=""
 
@@ -421,6 +612,8 @@ on_exit() {
   local exit_status=$?
 
   set +e
+  progress_stop_ansible_watcher
+  progress_stop
   cleanup_sensitive_state
 
   # Once the trap is armed every exit leaves a report from this run behind, so
@@ -963,45 +1156,82 @@ trap on_exit EXIT
 
 ensure_linux_sudo_access
 
+# chezmoi's installer puts the binary in ~/.local/bin; make it visible before
+# deciding whether chezmoi needs installing and for every later step.
+export PATH="$HOME/.local/bin:$PATH"
+hash -r
+
+# Decide the prerequisite steps once, so the progress bar knows the whole plan
+# before the first step runs. Modes: run, critical (setup cannot continue
+# without it), skip (the action is the message to print, the detail goes in
+# the report).
+planned_step_mode=()
+planned_step_name=()
+planned_step_action=()
+planned_step_detail=()
+
+plan_step() {
+  # usage: plan_step <mode> "<step name>" <function or message> [detail]
+  planned_step_mode+=("$1")
+  planned_step_name+=("$2")
+  planned_step_action+=("$3")
+  planned_step_detail+=("${4:-}")
+}
+
 if [ "$OS" = "Linux" ]; then
   if is_ci; then
-    echo "Skipping system package refresh in lightweight CI mode."
-    record_outcome skipped "System package refresh" "Skipped in lightweight CI mode."
+    plan_step skip "System package refresh" "Skipping system package refresh in lightweight CI mode." "Skipped in lightweight CI mode."
   else
-    run_step "System package refresh" update_system
+    plan_step run "System package refresh" update_system
   fi
 fi
 
-run_step "Download tool (curl or wget)" ensure_download_tool
-run_step "Git" ensure_git
+plan_step run "Download tool (curl or wget)" ensure_download_tool
+plan_step run "Git" ensure_git
 
 if ! have chezmoi; then
-  run_step --critical "Install chezmoi" install_chezmoi
-  export PATH="$HOME/.local/bin:$PATH"
-  hash -r
+  plan_step critical "Install chezmoi" install_chezmoi
 elif is_ci; then
-  echo "Skipping chezmoi self-upgrade in lightweight CI mode."
-  record_outcome skipped "Upgrade chezmoi" "Skipped in lightweight CI mode."
+  plan_step skip "Upgrade chezmoi" "Skipping chezmoi self-upgrade in lightweight CI mode." "Skipped in lightweight CI mode."
 else
-  run_step "Upgrade chezmoi" upgrade_chezmoi
+  plan_step run "Upgrade chezmoi" upgrade_chezmoi
 fi
 
 if using_checked_out_source; then
-  run_step "Initialize chezmoi from the checked-out source" init_chezmoi_from_source
+  plan_step run "Initialize chezmoi from the checked-out source" init_chezmoi_from_source
 elif [ ! -d "$chezmoi_dir/.git" ]; then
   if [ -z "$repo" ]; then
     abort "DOTFILES_REPO is required when installing from a downloaded bootstrap script. Set it to your repository URL, for example: https://github.com/USER/dotfiles.git"
   fi
-  run_step --critical "Clone the dotfiles repository with chezmoi init" init_chezmoi_from_repo
+  plan_step critical "Clone the dotfiles repository with chezmoi init" init_chezmoi_from_repo
 else
-  run_step "Refresh the dotfiles repository" refresh_repo
+  plan_step run "Refresh the dotfiles repository" refresh_repo
 fi
 
 if ! have ansible-playbook; then
-  run_step --critical "Install Ansible" install_ansible
+  plan_step critical "Install Ansible" install_ansible
 fi
-run_step "Refresh Ansible collections from Galaxy" refresh_ansible_collections
-run_step --critical "Required Ansible collections" verify_ansible_collections
+plan_step run "Refresh Ansible collections from Galaxy" refresh_ansible_collections
+plan_step critical "Required Ansible collections" verify_ansible_collections
+
+progress_bootstrap_total="${#planned_step_name[@]}"
+progress_start "$((progress_bootstrap_total + ${#progress_ansible_phases[@]}))"
+
+for step_index in "${!planned_step_name[@]}"; do
+  case "${planned_step_mode[$step_index]}" in
+    run)
+      run_step "${planned_step_name[$step_index]}" "${planned_step_action[$step_index]}"
+      ;;
+    critical)
+      run_step --critical "${planned_step_name[$step_index]}" "${planned_step_action[$step_index]}"
+      ;;
+    skip)
+      echo "${planned_step_action[$step_index]}"
+      record_outcome skipped "${planned_step_name[$step_index]}" "${planned_step_detail[$step_index]}"
+      progress_advance
+      ;;
+  esac
+done
 
 cd "$chezmoi_dir"
 export DOTFILES_CHEZMOI_DIR="$chezmoi_dir"
@@ -1034,8 +1264,21 @@ fi
 
 ansible_started=1
 set +e
-ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook "${ansible_args[@]}" 2>&1 | tee "$ansible_log"
-ansible_exit_code="${PIPESTATUS[0]}"
+if [ "$progress_enabled" -eq 1 ]; then
+  # The watcher gets its own copy of the output through a FIFO so the terminal
+  # still receives everything straight from tee, prompts without a trailing
+  # newline included.
+  progress_fifo_dir="$(mktemp -d)"
+  mkfifo "$progress_fifo_dir/ansible"
+  progress_watch_ansible <"$progress_fifo_dir/ansible" &
+  progress_watcher_pid=$!
+  ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook "${ansible_args[@]}" 2>&1 | tee "$ansible_log" "$progress_fifo_dir/ansible"
+  ansible_exit_code="${PIPESTATUS[0]}"
+  progress_stop_ansible_watcher
+else
+  ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook "${ansible_args[@]}" 2>&1 | tee "$ansible_log"
+  ansible_exit_code="${PIPESTATUS[0]}"
+fi
 set -e
 
 if [ -f "$report_file" ] && [ "$report_file" -nt "$report_stamp_file" ]; then

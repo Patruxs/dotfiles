@@ -814,11 +814,13 @@ fi
 # Ansible never starts (the EXIT trap writes the fallback report).
 for needle in \
   'run_step() {' \
-  'run_step --critical "Install chezmoi" install_chezmoi' \
-  'run_step --critical "Install Ansible" install_ansible' \
-  'run_step "Refresh Ansible collections from Galaxy" refresh_ansible_collections' \
-  'run_step --critical "Required Ansible collections" verify_ansible_collections' \
-  'run_step "System package refresh" update_system' \
+  'plan_step critical "Install chezmoi" install_chezmoi' \
+  'plan_step critical "Install Ansible" install_ansible' \
+  'plan_step run "Refresh Ansible collections from Galaxy" refresh_ansible_collections' \
+  'plan_step critical "Required Ansible collections" verify_ansible_collections' \
+  'plan_step run "System package refresh" update_system' \
+  'run_step "${planned_step_name[$step_index]}" "${planned_step_action[$step_index]}"' \
+  'run_step --critical "${planned_step_name[$step_index]}" "${planned_step_action[$step_index]}"' \
   'trap on_exit EXIT' \
   'write_fallback_report' \
   'write_bootstrap_outcomes_file' \
