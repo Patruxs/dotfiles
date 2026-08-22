@@ -1,0 +1,159 @@
+---
+# A single `chezmoi apply` stops at the first failing run_ script and leaves
+# every later file and script unapplied. In best-effort mode the apply is split
+# into isolated steps instead: each before-script, then all managed files, then
+# each remaining script, each as its own chezmoi invocation. A failing script is
+# recorded for the report and skipped; chezmoi does not mark a failed run_once
+# script as run, so the next apply retries it.
+
+- name: List managed chezmoi scripts
+  command:
+    argv: "{{ dotfiles_chezmoi_base_argv + ['managed', '--include=scripts', '--path-style=source-absolute'] }}"
+  environment:
+    PROFILE: "{{ profile }}"
+  register: dotfiles_chezmoi_script_sources
+  changed_when: false
+  failed_when: false
+
+- name: Resolve chezmoi script target paths
+  command:
+    argv: "{{ dotfiles_chezmoi_base_argv + ['target-path'] + dotfiles_chezmoi_script_sources.stdout_lines }}"
+  environment:
+    PROFILE: "{{ profile }}"
+  register: dotfiles_chezmoi_script_targets
+  changed_when: false
+  failed_when: false
+  when:
+    - dotfiles_chezmoi_script_sources.rc == 0
+    - dotfiles_chezmoi_script_sources.stdout_lines | length > 0
+
+- name: Record chezmoi script discovery failure
+  set_fact:
+    dotfiles_setup_failures: >-
+      {{
+        (dotfiles_setup_failures | default([])) + [
+          {
+            'phase': 'chezmoi',
+            'name': 'list managed scripts',
+            'task': 'List managed chezmoi scripts',
+            'error': (dotfiles_chezmoi_script_sources.stderr | default('') | string) if (dotfiles_chezmoi_script_sources.stderr | default('') | string | length > 0) else (dotfiles_chezmoi_script_sources.msg | default(dotfiles_chezmoi_script_sources.stdout | default('')) | string)
+          }
+        ]
+      }}
+  when: dotfiles_chezmoi_script_sources.rc != 0
+
+- name: Record chezmoi script path resolution failure
+  set_fact:
+    dotfiles_setup_failures: >-
+      {{
+        (dotfiles_setup_failures | default([])) + [
+          {
+            'phase': 'chezmoi',
+            'name': 'resolve script targets',
+            'task': 'Resolve chezmoi script target paths',
+            'error': (dotfiles_chezmoi_script_targets.stderr | default('') | string) if (dotfiles_chezmoi_script_targets.stderr | default('') | string | length > 0) else (dotfiles_chezmoi_script_targets.msg | default(dotfiles_chezmoi_script_targets.stdout | default('')) | string)
+          }
+        ]
+      }}
+  when:
+    - dotfiles_chezmoi_script_targets is not skipped
+    - dotfiles_chezmoi_script_targets.rc != 0
+
+- name: Classify chezmoi scripts by run stage
+  vars:
+    dotfiles_chezmoi_script_basename: "{{ item.0 | basename }}"
+  set_fact:
+    dotfiles_chezmoi_scripts: >-
+      {{
+        (dotfiles_chezmoi_scripts | default([])) + [
+          {
+            'stage': 'before' if dotfiles_chezmoi_script_basename is match('run_(once_|onchange_)?before_')
+                     else 'after' if dotfiles_chezmoi_script_basename is match('run_(once_|onchange_)?after_')
+                     else 'script',
+            'name': item.1 | relpath(lookup('env', 'HOME')),
+            'target': item.1
+          }
+        ]
+      }}
+  loop: "{{ dotfiles_chezmoi_script_sources.stdout_lines | zip(dotfiles_chezmoi_script_targets.stdout_lines) | list }}"
+  loop_control:
+    label: "{{ item.1 | basename }}"
+  when:
+    - dotfiles_chezmoi_script_targets is not skipped
+    - dotfiles_chezmoi_script_targets.rc == 0
+
+- name: Build the ordered chezmoi apply plan
+  vars:
+    dotfiles_chezmoi_known_scripts: "{{ dotfiles_chezmoi_scripts | default([]) }}"
+  set_fact:
+    dotfiles_chezmoi_apply_plan: >-
+      {{
+        (dotfiles_chezmoi_known_scripts | selectattr('stage', 'eq', 'before') | list)
+        + [{'stage': 'files', 'name': 'managed dotfiles', 'target': ''}]
+        + (dotfiles_chezmoi_known_scripts | selectattr('stage', 'eq', 'script') | list)
+        + (dotfiles_chezmoi_known_scripts | selectattr('stage', 'eq', 'after') | list)
+      }}
+
+- name: Apply chezmoi in isolated steps (best effort)
+  command:
+    argv: >-
+      {{
+        dotfiles_chezmoi_base_argv
+        + ['apply', '--force', '-v']
+        + (['--exclude=scripts'] if item.stage == 'files' else ['--include=scripts', item.target])
+      }}
+  environment:
+    PROFILE: "{{ profile }}"
+  loop: "{{ dotfiles_chezmoi_apply_plan }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: dotfiles_chezmoi_apply_results
+  changed_when: false
+  failed_when: false
+
+- name: Record chezmoi apply step failures
+  set_fact:
+    dotfiles_setup_failures: >-
+      {{
+        (dotfiles_setup_failures | default([])) + [
+          {
+            'phase': 'chezmoi' if item.item.stage == 'files' else 'chezmoi_script',
+            'name': item.item.name,
+            'task': 'Apply chezmoi in isolated steps (best effort)',
+            'error': (item.stderr | default('') | string) if (item.stderr | default('') | string | length > 0) else (item.msg | default(item.stdout | default(item | to_json)))
+          }
+        ]
+      }}
+  loop: "{{ dotfiles_chezmoi_apply_results.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name | default('unknown step') }}"
+  when:
+    - item.rc is defined
+    - item.rc != 0
+
+- name: Summarize the chezmoi apply outcome
+  vars:
+    dotfiles_chezmoi_failed_results: >-
+      {{
+        dotfiles_chezmoi_apply_results.results | default([])
+        | selectattr('rc', 'defined')
+        | rejectattr('rc', 'eq', 0)
+        | list
+      }}
+  set_fact:
+    dotfiles_chezmoi_files_applied: >-
+      {{
+        dotfiles_chezmoi_failed_results
+        | map(attribute='item.stage')
+        | select('eq', 'files')
+        | list
+        | length == 0
+      }}
+    dotfiles_chezmoi_failed_scripts: >-
+      {{
+        dotfiles_chezmoi_failed_results
+        | map(attribute='item')
+        | rejectattr('stage', 'eq', 'files')
+        | map(attribute='name')
+        | list
+      }}

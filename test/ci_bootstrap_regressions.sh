@@ -36,6 +36,7 @@ workflow_file="$repo_root/.github/workflows/ci.yml"
 ansible_config="$repo_root/ansible.cfg"
 run_feature_task="$repo_root/ansible/playbooks/feature_best_effort.yml"
 setup_outcome_task="$repo_root/ansible/roles/setup_outcome/tasks/main.yml"
+chezmoi_task_main="$repo_root/ansible/roles/chezmoi/tasks/main.yml"
 low_memory_task="$repo_root/ansible/roles/low_memory/tasks/main.yml"
 linux_privileged_task_files=(
   "$debian_packages_task"
@@ -637,6 +638,26 @@ if ! search_file 'dotfiles_setup_mode' "$common_playbook" ||
   exit 1
 fi
 
+# Preflight and execution share one block: the rescue records whichever
+# failure aborted the run so it reaches the report, and the play still fails.
+if ! search_file '^  rescue:$' "$common_playbook" ||
+  ! search_file_literal 'dotfiles_setup_aborted: true' "$common_playbook" ||
+  ! search_file_literal "'phase': 'aborted'" "$common_playbook" ||
+  ! search_file_literal 'Stop after an aborted setup' "$common_playbook"; then
+  echo "expected common flow to record the aborting failure in the report and still fail the play"
+  exit 1
+fi
+
+if ! awk '
+  /^- name: Execute setup tasks$/ { in_block = 1; next }
+  /^- name:/ { in_block = 0 }
+  in_block && /name: profile_preflight/ { found = 1 }
+  END { exit(found ? 0 : 1) }
+' "$common_playbook"; then
+  echo "expected profile preflight to run inside the reported setup block"
+  exit 1
+fi
+
 if ! search_file '^remote_tmp = /tmp/ansible-\$\{USER\}/tmp$' "$ansible_config"; then
   echo "expected Ansible remote temp files to use /tmp so a full HOME does not block the final summary"
   exit 1
@@ -689,11 +710,28 @@ if ! search_file 'NODE_OPTIONS' "$ai_tools_unix_task" ||
   exit 1
 fi
 
-if ! search_file 'Setup Outcome Summary' "$setup_outcome_task" ||
-  ! search_file 'Installed or present after setup' "$setup_outcome_task" ||
-  ! search_file 'Not installed or not configured' "$setup_outcome_task" ||
-  ! search_file 'Errors:' "$setup_outcome_task"; then
-  echo "expected setup outcome role to print installed, configured, missing, and error sections"
+if ! search_file_literal '# Dotfiles setup report' "$setup_outcome_task" ||
+  ! search_file_literal '## Errors' "$setup_outcome_task" ||
+  ! search_file_literal '## Not detected after setup' "$setup_outcome_task" ||
+  ! search_file_literal '## Skipped intentionally' "$setup_outcome_task" ||
+  ! search_file_literal '## Installed or present after setup' "$setup_outcome_task" ||
+  ! search_file_literal '## Completed steps' "$setup_outcome_task" ||
+  ! search_file_literal '- Result:' "$setup_outcome_task"; then
+  echo "expected setup outcome role to write a Markdown report with result, error, missing, skipped, installed, and completed sections"
+  exit 1
+fi
+
+# bootstrap.sh records every prerequisite step and hands the outcomes to
+# Ansible, so the report covers the whole run, not only the playbook.
+if ! search_file_literal 'DOTFILES_BOOTSTRAP_OUTCOMES_FILE' "$setup_outcome_task" ||
+  ! search_file_literal "map('from_json')" "$setup_outcome_task" ||
+  ! search_file_literal "'phase': 'bootstrap'" "$setup_outcome_task"; then
+  echo "expected setup outcome role to merge bootstrap step outcomes into the report"
+  exit 1
+fi
+
+if search_file_literal 'json_query' "$setup_outcome_task"; then
+  echo "expected setup outcome role not to depend on the optional jmespath library"
   exit 1
 fi
 
@@ -726,6 +764,96 @@ fi
 
 if ! search_file '--source' "$repo_root/ansible/roles/chezmoi/tasks/main.yml"; then
   echo "expected chezmoi ansible role to pass the resolved source directory explicitly"
+  exit 1
+fi
+
+# One chezmoi apply stops at the first failing run_ script and leaves every
+# later file unapplied, so best-effort mode applies files and each script as
+# its own step; strict mode keeps the single apply.
+chezmoi_best_effort_task="$repo_root/ansible/roles/chezmoi/tasks/apply_best_effort.yml"
+if ! search_file_literal 'Run chezmoi apply (strict)' "$chezmoi_task_main" ||
+  ! search_file_literal 'apply_best_effort.yml' "$chezmoi_task_main" ||
+  ! search_file_literal "'--exclude=scripts'" "$chezmoi_best_effort_task" ||
+  ! search_file_literal "'--include=scripts', item.target" "$chezmoi_best_effort_task" ||
+  ! search_file_literal '--path-style=source-absolute' "$chezmoi_best_effort_task" ||
+  ! search_file_literal 'dotfiles_setup_failures' "$chezmoi_best_effort_task" ||
+  ! search_file_literal "'before'" "$chezmoi_best_effort_task" ||
+  ! search_file_literal "'after'" "$chezmoi_best_effort_task"; then
+  echo "expected best-effort chezmoi apply to isolate files and each run_ script and record per-script failures"
+  exit 1
+fi
+
+if search_file_literal 'ignore_errors' "$chezmoi_best_effort_task"; then
+  echo "expected best-effort chezmoi apply to record failures without ignore_errors"
+  exit 1
+fi
+
+# The best-effort apply never raises, so execution.yml must not claim the
+# chezmoi phase completed when the managed-files step itself failed.
+if ! search_file_literal 'dotfiles_chezmoi_files_applied' "$chezmoi_best_effort_task" ||
+  ! search_file_literal 'when: dotfiles_chezmoi_files_applied | default(true) | bool' "$execution_playbook"; then
+  echo "expected the best-effort chezmoi completion entry to depend on the managed-files step succeeding"
+  exit 1
+fi
+
+# A failed verification must not leave a broken ~/.local/bin/chezmoi behind,
+# or every re-run skips the install step because chezmoi is "present".
+if ! awk '
+  /^install_chezmoi_release_binary\(\) \{/ { in_fn = 1 }
+  in_fn && /"\$tmp_binary" --version/ { verified = 1 }
+  in_fn && /mv "\$tmp_binary" "\$HOME\/.local\/bin\/chezmoi"/ { if (!verified) bad = 1 }
+  in_fn && /^}/ { in_fn = 0 }
+  END { exit(bad ? 1 : 0) }
+' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to verify the downloaded chezmoi binary before installing it"
+  exit 1
+fi
+
+# Every prerequisite step in bootstrap.sh runs through run_step so a failure is
+# recorded, skipped in best-effort mode, and written to the report even when
+# Ansible never starts (the EXIT trap writes the fallback report).
+for needle in \
+  'run_step() {' \
+  'run_step --critical "Install chezmoi" install_chezmoi' \
+  'run_step --critical "Install Ansible" install_ansible' \
+  'run_step "Refresh Ansible collections from Galaxy" refresh_ansible_collections' \
+  'run_step --critical "Required Ansible collections" verify_ansible_collections' \
+  'run_step "System package refresh" update_system' \
+  'trap on_exit EXIT' \
+  'write_fallback_report' \
+  'write_bootstrap_outcomes_file' \
+  'export DOTFILES_BOOTSTRAP_OUTCOMES_FILE="$bootstrap_outcomes_file"' \
+  'report_written_by_ansible' \
+  '# Dotfiles setup report'; do
+  if ! search_file_literal "$needle" "$repo_root/bootstrap.sh"; then
+    echo "expected bootstrap.sh to run prerequisite steps through run_step and always write a setup report (missing: $needle)"
+    exit 1
+  fi
+done
+
+# The Snap build of curl is strictly confined (private /tmp, no hidden home
+# directories), which breaks the get.chezmoi.io installer with "real_tag error
+# retrieving GitHub release latest"; bootstrap must install native curl and
+# fall back to a direct release download if the installer still fails.
+if ! search_file_literal 'curl_is_snap' "$repo_root/bootstrap.sh" ||
+  ! search_file_literal '/snap/*|/var/lib/snapd/*' "$repo_root/bootstrap.sh" ||
+  ! search_file_literal 'https://github.com/twpayne/chezmoi/releases/latest/download/' "$repo_root/bootstrap.sh" ||
+  ! search_file_literal 'asset="chezmoi-${os}-${arch}"' "$repo_root/bootstrap.sh" ||
+  ! search_file_literal 'install_chezmoi_from_package_manager' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to replace Snap curl with the native package and to fall back when the chezmoi installer fails"
+  exit 1
+fi
+
+if ! search_file_literal 'DEBIAN_FRONTEND=noninteractive' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh apt operations to be non-interactive"
+  exit 1
+fi
+
+if ! search_file_literal '} finally {' "$windows_bootstrap" ||
+  ! search_file_literal 'Invoke-BestEffort -Phase "chezmoi" -Name "chezmoi apply"' "$windows_bootstrap" ||
+  ! search_file_literal 'Add-SetupFailure -Phase "aborted"' "$windows_bootstrap" ||
+  ! search_file_literal '# Dotfiles setup report' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to always write the setup report and to treat chezmoi apply as a best-effort step"
   exit 1
 fi
 

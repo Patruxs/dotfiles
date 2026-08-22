@@ -60,7 +60,7 @@ Review these machine-specific areas carefully:
 - `home/.chezmoidata/gnome_dconf.yaml` contains GNOME desktop preferences, including a keyboard input source with the Vietnamese ibus-bamboo IME. Replace that entry with your own layout (the IME engine itself is not installed by setup).
 - `gnome/extensions.dconf` and `gnome/extensions.yaml` are the original owner's captured GNOME Shell extension set. On Fedora desktops the Ansible `gnome` role installs and applies them automatically. Delete `gnome/extensions.dconf` or re-capture with `./scripts/gnome-extensions-sync.sh capture` before your first run.
 - `home/dot_profile` sources `~/.profile.local` at the end. Put per-machine paths and aliases there; that file is never managed or committed.
-- `home/.chezmoiscripts/` holds run-once scripts that download and run upstream installers (zoxide, superfile, llmfit) on the first `chezmoi apply`. Review them and delete any you do not want.
+- `home/.chezmoiscripts/` holds run-once scripts that download and run upstream installers (zoxide, superfile, llmfit) on the first `chezmoi apply`. Review them and delete any you do not want. In the default best-effort mode on Linux and macOS each script is applied on its own, so one failing installer is recorded in the report and retried next time without blocking the other scripts or your dotfiles; `--strict` and the Windows bootstrap run a single `chezmoi apply`, which stops at the first failing script.
 - `home/dot_config/ghostty/config` sets the `MesloLGS NF` font, which setup does not install. Install a Meslo Nerd Font manually or change the `font-family` entries.
 - `home/dot_config/opencode/opencode.jsonc.tmpl` references an optional local agent-instructions file.
 

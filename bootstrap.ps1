@@ -18,6 +18,8 @@ $setupMode = if (-not [string]::IsNullOrWhiteSpace($SetupMode)) {
 }
 $setupFailures = @()
 $setupSuccesses = @()
+$setupAbortReason = $null
+$selectedProfile = $null
 
 function Test-IsCi {
   $ciValue = $env:DOTFILES_CI
@@ -113,31 +115,67 @@ function Invoke-BestEffort {
 }
 
 function Write-SetupReport {
+  # Written from the finally block, so every run leaves a report behind: a
+  # best-effort run lists what it skipped, an aborted run says where it stopped.
   $reportPath = Join-Path $HOME ".dotfiles_setup_report.md"
-  $content = "# Setup Outcome Breakdown`n`n"
-  
-  $content += "## What was Successfully Installed/Configured`n"
-  if ($script:setupSuccesses.Count -eq 0) {
-    $content += "No setup phases completed successfully.`n"
+  $profileLabel = if ([string]::IsNullOrWhiteSpace($script:selectedProfile)) { "(not selected)" } else { $script:selectedProfile }
+  $result = if ($null -ne $script:setupAbortReason) {
+    "Aborted: $($script:setupAbortReason)"
+  } elseif ($script:setupFailures.Count -gt 0) {
+    "Completed with $($script:setupFailures.Count) skipped failure(s)."
   } else {
-    foreach ($success in $script:setupSuccesses) {
-      $content += "- [$($success.Phase)] $($success.Name)`n"
+    "Completed successfully."
+  }
+
+  $lines = @(
+    "# Dotfiles setup report",
+    "",
+    "- Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss K')",
+    "- Profile: ``$profileLabel``",
+    "- Platform: ``windows`` (winget)",
+    "- Mode: ``$($script:setupMode)``",
+    "- Result: $result",
+    "",
+    $(if ($null -ne $script:setupAbortReason) { "## Errors" } else { "## Errors (skipped, setup continued)" }),
+    ""
+  )
+
+  if ($script:setupFailures.Count -eq 0) {
+    $lines += "No errors were recorded."
+    $lines += ""
+  } else {
+    $index = 0
+    foreach ($failure in $script:setupFailures) {
+      $index += 1
+      $lines += "### $index. [$($failure.Phase)] $($failure.Name)"
+      $lines += ""
+      $lines += '````text'
+      $lines += $(if ([string]::IsNullOrWhiteSpace($failure.Error)) { "(no error output was captured)" } else { $failure.Error.Trim() })
+      $lines += '````'
+      $lines += ""
     }
   }
 
-  $content += "`n## What Failed`n"
-  if ($script:setupFailures.Count -eq 0) {
-    $content += "No errors were recorded.`n"
+  $lines += "## Completed steps"
+  $lines += ""
+  if ($script:setupSuccesses.Count -eq 0) {
+    $lines += "- No setup steps completed."
   } else {
-    foreach ($failure in $script:setupFailures) {
-      $content += "- [$($failure.Phase)] $($failure.Name): $($failure.Error)`n"
+    foreach ($success in $script:setupSuccesses) {
+      $lines += "- [$($success.Phase)] $($success.Name)"
     }
   }
-  
-  Set-Content -Path $reportPath -Value $content -Encoding utf8
-  
+  $lines += ""
+  $lines += "## Next steps"
+  $lines += ""
+  $rerunArgs = if ([string]::IsNullOrWhiteSpace($script:selectedProfile)) { "" } else { " -ProfileName $($script:selectedProfile)" }
+  $lines += "- Setup is safe to re-run. Fix the cause of any error above, then run ``.\bootstrap.ps1$rerunArgs`` (or the same ``irm ... | iex`` command) again; completed steps are skipped or no-ops."
+  $lines += "- Use ``-SetupMode strict`` to stop at the first failure while debugging."
+
+  Set-Content -Path $reportPath -Value ($lines -join "`n") -Encoding utf8
+
   Write-Host "`n==========================================================="
-  Write-Host "Setup finished (or aborted). A full report has been saved."
+  Write-Host "Setup result: $result"
   Write-Host "Read your setup outcome summary at: $reportPath"
   Write-Host "==========================================================="
 }
@@ -276,6 +314,11 @@ function Install-WingetPackages {
   }
 }
 
+# Everything below runs inside one try block so that a fatal error (a missing
+# prerequisite, a failed clone) is still recorded and reported before the
+# script exits; best-effort failures are collected by Invoke-BestEffort.
+try {
+
 if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
   throw "winget is required but was not found. Install 'App Installer' from the Microsoft Store (or update Windows), then re-run bootstrap."
 }
@@ -296,11 +339,11 @@ if (-not (Get-Command chezmoi -ErrorAction SilentlyContinue)) {
 }
 
 Show-WelcomeScreen
-$profile = Get-Profile
-Write-Host "Using profile: $profile"
+$selectedProfile = Get-Profile
+Write-Host "Using profile: $selectedProfile"
 # chezmoi init persists this into its config so a later plain `chezmoi apply`
 # uses the same profile the bootstrap ran with.
-$env:DOTFILES_PROFILE = $profile
+$env:DOTFILES_PROFILE = $selectedProfile
 
 if (Test-UsingCheckedOutSource) {
   Write-Host "Initializing Chezmoi from checked-out source: $chezmoiSource"
@@ -339,8 +382,10 @@ if (-not $symlinkOk) {
   throw "This setup creates symlinks (chezmoi mode = ""symlink""), but this Windows session is not allowed to create them. Enable Developer Mode (Settings > System > For developers) or re-run bootstrap from an elevated PowerShell."
 }
 
-chezmoi apply --source $chezmoiSource --force -v
-Assert-LastExitCode "chezmoi apply"
+Invoke-BestEffort -Phase "chezmoi" -Name "chezmoi apply" -ScriptBlock {
+  chezmoi apply --source $chezmoiSource --force -v
+  Assert-LastExitCode "chezmoi apply"
+}
 
 $dataJson = chezmoi data --source $chezmoiSource
 Assert-LastExitCode "chezmoi data"
@@ -350,15 +395,15 @@ $pkgs = @()
 if ($null -ne $data.packages.common.windows.packages) {
     $pkgs += $data.packages.common.windows.packages
 }
-if ($null -ne $data.packages.$profile.windows.packages) {
-    $pkgs += $data.packages.$profile.windows.packages
+if ($null -ne $data.packages.$selectedProfile.windows.packages) {
+    $pkgs += $data.packages.$selectedProfile.windows.packages
 }
 $pkgs = $pkgs | Select-Object -Unique
 
 if (Test-IsCi) {
     Write-Host "Skipping package installs in lightweight CI mode."
 } else {
-    Write-Host "Installing packages for $profile profile..."
+    Write-Host "Installing packages for $selectedProfile profile..."
     Invoke-BestEffort -Phase "windows_packages" -Name "winget import" -ScriptBlock {
       Install-WingetPackages -PackageIds $pkgs -TemplatePath $wingetTemplateFile
     }
@@ -377,7 +422,7 @@ if ((-not (Test-IsCi)) -and $null -ne $data.devtools.npm_global_packages -and (G
     }
 }
 
-if ($profile -eq "personal" -and (-not (Test-IsCi)) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
+if ($selectedProfile -eq "personal" -and (-not (Test-IsCi)) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
     Invoke-BestEffort -Phase "bitwarden_cli" -Name "Bitwarden CLI" -ScriptBlock {
         Write-Host "Installing Bitwarden CLI via NPM..."
         npm install -g "@bitwarden/cli@latest"
@@ -399,4 +444,10 @@ if ((-not (Test-IsCi)) -and $null -ne $data.ai_clis.clis) {
     }
 }
 
-Write-SetupReport
+} catch {
+  $script:setupAbortReason = if ($null -ne $_.Exception) { $_.Exception.Message } else { [string]$_ }
+  Add-SetupFailure -Phase "aborted" -Name "bootstrap" -ErrorRecord $_
+  throw
+} finally {
+  Write-SetupReport
+}

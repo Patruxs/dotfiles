@@ -1,16 +1,22 @@
 ---
-- name: Run chezmoi apply
-  command:
-    argv:
+- name: Build chezmoi apply arguments
+  set_fact:
+    dotfiles_chezmoi_base_argv:
       - chezmoi
-      - apply
       - --source
       - "{{ chezmoi_dir }}"
       - --override-data
       - "{{ dotfiles_chezmoi_setup_data | default({}) | to_json }}"
-      - --force
-      - -v
+
+- name: Run chezmoi apply (strict)
+  command:
+    argv: "{{ dotfiles_chezmoi_base_argv + ['apply', '--force', '-v'] }}"
   environment:
     PROFILE: "{{ profile }}"
   register: chezmoi_result
   changed_when: false
+  when: dotfiles_setup_mode | default('best_effort') == 'strict'
+
+- name: Run chezmoi apply in isolated steps (best effort)
+  include_tasks: apply_best_effort.yml
+  when: dotfiles_setup_mode | default('best_effort') == 'best_effort'

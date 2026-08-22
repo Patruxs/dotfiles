@@ -156,6 +156,9 @@
     - include_role:
         name: chezmoi
 
+    # The best-effort apply never raises; it records failed steps itself. Only
+    # claim completion when the managed files actually went on, and say so
+    # when scripts were skipped.
     - name: Record Chezmoi apply completion
       set_fact:
         dotfiles_setup_configured: >-
@@ -165,9 +168,15 @@
                 'phase': 'chezmoi',
                 'name': 'chezmoi apply',
                 'detail': 'Managed dotfiles were applied from the selected source.'
+                          ~ (
+                            ' ' ~ (dotfiles_chezmoi_failed_scripts | length) ~ ' script(s) failed and were skipped; see Errors.'
+                            if (dotfiles_chezmoi_failed_scripts | default([]) | length > 0)
+                            else ''
+                          )
               }
             ]
           }}
+      when: dotfiles_chezmoi_files_applied | default(true) | bool
   rescue:
     - name: Record Chezmoi apply failure
       set_fact:

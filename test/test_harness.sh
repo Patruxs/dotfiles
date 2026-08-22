@@ -54,6 +54,13 @@ log_info "Running bootstrap sudo detection regression test..."
 }
 log_info "Bootstrap sudo detection regression test passed."
 
+log_info "Running bootstrap best-effort step handling test..."
+./test/bootstrap_best_effort.sh || {
+    log_err "Bootstrap best-effort step handling test failed."
+    exit 1
+}
+log_info "Bootstrap best-effort step handling test passed."
+
 log_info "Running CI bootstrap regression checks..."
 ./test/ci_bootstrap_regressions.sh || {
     log_err "CI bootstrap regression checks failed."

@@ -12,10 +12,16 @@ Flags, environment variables, and file formats. See [Architecture](architecture.
 | :--- | :--- | :--- |
 | `--profile <name>` | `DOTFILES_PROFILE`, or prompt | Which profile to install. Accepted values are `personal` and `work`, validated in `bootstrap.sh`, `bootstrap.ps1`, and `home/.chezmoi.toml.tmpl` (new profiles must be added to all three). |
 | `--platform <name>` | detected from the OS | Override platform detection. **Rejected unless `DOTFILES_CI=1`** - a real machine must not be able to lie about its OS. |
-| `--best-effort` | this is the default | Continue past installer failures and collect them into the final report. |
-| `--strict` | | Stop at the first failure. Use this while developing. |
+| `--best-effort` | this is the default | Skip a failing step and keep going, recording every skipped failure in the final report. Applies to the bootstrap prerequisite steps as well as package installs, feature roles, each `chezmoi` script, and services. |
+| `--strict` | | Stop at the first failure. Use this while developing. The report still records where the run stopped. |
 
-The script detects the OS, maps it to a platform, installs chezmoi, git, Ansible, and the required collections, then runs exactly one playbook: `ansible/playbooks/<platform>.yml`. On macOS, Homebrew must already be installed - the script exits early without it.
+The script detects the OS, maps it to a platform, installs chezmoi, git, Ansible, and the required collections, then runs exactly one playbook: `ansible/playbooks/<platform>.yml`. On macOS, Homebrew must already be installed - without it the first step that needs a package (usually installing Ansible) aborts the run, and the report says so.
+
+Prerequisite steps that the rest of the run cannot work without stop the run even in best-effort mode: installing chezmoi (after the installer script, a direct GitHub release download, and the distro package manager have all been tried), cloning the repository, installing Ansible, and a required Ansible collection that is missing. Everything else (system package refresh, curl, git, chezmoi self-upgrade, `chezmoi init` from a checkout, refreshing the repository, refreshing collections from Galaxy) is skipped on failure and reported.
+
+On Ubuntu, a `curl` that resolves to the Snap build is replaced with the native package before anything is downloaded; Snap confinement breaks upstream installer scripts that write to `/tmp`.
+
+Exit status: `0` when the playbook finished, even with skipped failures (read the report); non-zero when a critical step or strict mode stopped the run.
 
 Distro mapping: `ubuntu` to `ubuntu`, `fedora` to `fedora`, `arch` and `manjaro` to `arch`, Darwin to `macos`. Anything else fails early with an explicit message.
 
@@ -38,6 +44,7 @@ Windows uses winget and PowerShell rather than Ansible. It shares the profile an
 | `DOTFILES_SETUP_MODE` | `best_effort` | `best_effort` or `strict`. |
 | `DOTFILES_CHEZMOI_DIR` | `~/.local/share/chezmoi` | Chezmoi source directory. Exported by bootstrap for the playbooks. |
 | `DOTFILES_CI` | unset | Lightweight CI mode. Enables `--platform`, skips chezmoi self-upgrade, makes `chezmoi init` non-interactive, and skips unstable upstream installers. |
+| `DOTFILES_BOOTSTRAP_OUTCOMES_FILE` | set by bootstrap | Internal. Path of the JSON-lines file in which `bootstrap.sh` records the outcome of each prerequisite step; `setup_outcome` merges it into the report. |
 
 ### Linux privileged setup
 
@@ -139,13 +146,14 @@ Prefer platform and feature checks over `dotfiles_profile`. Branching on a profi
 | `dotfiles_container_ci` | `common.yml` | Automation running inside a container, where some desktop installers cannot work. |
 | `dotfiles_low_memory_setup` | `common.yml` | Whether low-memory behavior is active. |
 | `dotfiles_feature_execution_order` | `profile_preflight` | The fixed order feature roles run in. A role missing from this list never runs. |
-| `dotfiles_setup_failures` | `execution.yml` | Best-effort failures collected for the final report. |
+| `dotfiles_setup_failures` | `execution.yml`, roles, bootstrap handoff | Failures collected for the final report, each with `phase`, `name`, `task`, and `error`. |
+| `dotfiles_setup_aborted` | `common.yml` | True when a failure stopped the run (strict mode, preflight, or an error no best-effort wrapper caught); the report names it and the play still fails. |
 
 ## Output
 
 | Path | Contents |
 | :--- | :--- |
-| `~/.dotfiles_setup_report.md` | The setup outcome summary: verified packages grouped by installer, completed phases, entries not detected afterwards, skipped entries, and collected errors. |
+| `~/.dotfiles_setup_report.md` | The setup outcome report, in Markdown: a header with date, profile, platform, mode, and result; an Errors section quoting every skipped (or aborting) failure; entries not detected afterwards; entries skipped intentionally; verified entries grouped by installer; completed bootstrap steps and playbook phases; and how to re-run. Written on every run, by `bootstrap.sh` itself when Ansible never produces one. |
 | `~/.config/chezmoi/chezmoi.toml` | Answers to the first-run prompts: Git identity, GPG recipient, SSH choices, profile. |
 | `~/.gitconfig.local` | Generated Git identity. Overwritten on every apply - put hand-maintained settings in `~/.gitconfig.machine` instead. |
 

@@ -49,7 +49,9 @@ Install packages and apps
 Apply configs with Chezmoi
 ```
 
-The bootstrap script detects your operating system and asks you to choose a `personal` or `work` profile. It then installs the selected packages and apps using Ansible on Linux and macOS, or PowerShell and Winget on Windows. Finally, Chezmoi applies your configs: shell, Git, tmux, and editors on Linux and macOS; Git, PowerShell, and Neovim on Windows. On Windows the configs are created as symlinks, which requires Developer Mode or an elevated shell (bootstrap checks this before applying). If OneDrive redirects your Documents folder, PowerShell loads its profile from `OneDrive\Documents` instead; link `Documents\PowerShell` there yourself.
+The bootstrap script detects your operating system and asks you to choose a `personal` or `work` profile. It then installs the selected packages and apps using Ansible on Linux and macOS, or PowerShell and Winget on Windows. Finally, Chezmoi applies your configs: shell, Git, tmux, and editors on Linux and macOS; Git, PowerShell, and Neovim on Windows.
+
+By default a step that fails (an upstream installer that is down, a package that does not exist on this release) is skipped and the run keeps going. Every skipped failure, with its error output, ends up in `~/.dotfiles_setup_report.md`, a Markdown report that is written on every run - even one that stops before Ansible starts - together with what was installed, what was skipped on purpose, and how to re-run. Pass `--strict` (or `-SetupMode strict` on Windows) to stop at the first failure instead. On Windows the configs are created as symlinks, which requires Developer Mode or an elevated shell (bootstrap checks this before applying). If OneDrive redirects your Documents folder, PowerShell loads its profile from `OneDrive\Documents` instead; link `Documents\PowerShell` there yourself.
 
 ## 📚 Documentation
 

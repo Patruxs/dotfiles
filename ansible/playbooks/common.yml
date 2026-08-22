@@ -148,21 +148,45 @@
       - questing
       - resolute
 
-- name: Validate selected profile, platform, and features
-  include_role:
-    name: profile_preflight
-
 - name: Initialize best-effort setup failure summary
   set_fact:
     dotfiles_setup_failures: []
     dotfiles_setup_configured: []
     dotfiles_setup_skipped: []
+    dotfiles_setup_aborted: false
 
-
+# Validation and execution run inside one block so that any failure, whether a
+# preflight rejection, a strict-mode stop, or an error no best-effort wrapper
+# caught, is still recorded and reported. The rescue only records the failure;
+# the task after the block re-raises it so the play still fails.
 - name: Execute setup tasks
   block:
+    - name: Validate selected profile, platform, and features
+      include_role:
+        name: profile_preflight
+
     - include_tasks: execution.yml
+  rescue:
+    - name: Record the failure that aborted setup
+      set_fact:
+        dotfiles_setup_aborted: true
+        dotfiles_setup_failures: >-
+          {{
+            dotfiles_setup_failures + [
+              {
+                'phase': 'aborted',
+                'name': ansible_failed_task.name | default('unknown task'),
+                'task': ansible_failed_task.name | default('unknown task'),
+                'error': (ansible_failed_result.stderr | default('') | string) if (ansible_failed_result.stderr | default('') | string | length > 0) else (ansible_failed_result.msg | default(ansible_failed_result | to_json))
+              }
+            ]
+          }}
   always:
     - name: Show setup outcome summary
       include_role:
         name: setup_outcome
+
+- name: Stop after an aborted setup
+  fail:
+    msg: "Setup aborted at '{{ (dotfiles_setup_failures | last).name }}'. See {{ lookup('env', 'HOME') }}/.dotfiles_setup_report.md for details."
+  when: dotfiles_setup_aborted | bool

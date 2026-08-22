@@ -85,6 +85,10 @@ ansible-playbook -i localhost, ansible/playbooks/ubuntu.yml -e profile=personal
 
 `--platform` can override detection, but only under `DOTFILES_CI=1`. On a real machine the detected OS wins, so setup can never be told a lie about what it is running on.
 
+Each prerequisite step (system package refresh, curl, git, chezmoi, the repository, Ansible, its collections) runs through `run_step`, which captures the step's output and records whether it succeeded, failed, or was skipped. In `best_effort` mode a failed step is skipped and the run continues; only steps the rest of the run cannot work without (chezmoi, cloning the repository, Ansible, a missing collection) stop it. The recorded outcomes are handed to Ansible through `DOTFILES_BOOTSTRAP_OUTCOMES_FILE` so they appear in the final report alongside everything the playbook did.
+
+Two upstream failure modes are handled here specifically. The Snap build of `curl` is strictly confined (private `/tmp`, no hidden home directories), which makes `get.chezmoi.io` fail with `real_tag error retrieving GitHub release latest`; bootstrap detects a Snap `curl`, installs the native package, and prefers it. If the chezmoi installer still fails, bootstrap downloads the release binary directly from GitHub, then tries the distro package manager, before giving up.
+
 ### 2. The platform playbook loads its own data
 
 Each platform playbook (`ubuntu.yml`, `fedora.yml`, `arch.yml`, `macos.yml`) is thin. It defines the `dotfiles_platform` facts - name, package family, distribution, version, architecture, Ubuntu codename - loads its package set into `platform_package_data`, and imports the shared `common.yml`.
@@ -98,8 +102,7 @@ Each platform playbook (`ubuntu.yml`, `fedora.yml`, `arch.yml`, `macos.yml`) is 
 - detect the environment: automation (CI), container CI, setup mode, low-memory mode
 - resolve the profile from `-e profile=`, then a cached fact, then an interactive prompt, and fail clearly in non-interactive mode when none is available
 - load the profile file and derive compatibility variables from its features
-- run `profile_preflight`
-- run `execution.yml` inside a block whose `always` clause prints the outcome summary, so a failed run still reports
+- run `profile_preflight` and `execution.yml` inside one block: a `rescue` clause records whichever failure aborted the run, the `always` clause writes the outcome report, and a final task re-raises the failure so the play still fails
 
 ### 4. Preflight fails before anything is installed
 
@@ -140,7 +143,19 @@ Templates should branch on platform or features rather than on the profile name.
 
 ### 7. The run reports what is actually there
 
-`ansible/roles/setup_outcome` prints a verified summary and writes `~/.dotfiles_setup_report.md`. It is an outcome report, not an attempt log: where a stable local query exists it checks afterwards whether selected entries are present, then groups results by installer, and lists completed phases, entries that were selected but not detected, intentionally skipped entries, and collected errors.
+`ansible/roles/setup_outcome` writes `~/.dotfiles_setup_report.md` as Markdown and prints a short summary (result line, one line per failure, report path) in the terminal. It is an outcome report, not an attempt log: where a stable local query exists it checks afterwards whether selected entries are present. The report has a fixed shape:
+
+| Section | Contents |
+| :--- | :--- |
+| header | date, profile, platform, mode, and a one-line result: completed, completed with N skipped failures, or aborted at a named step |
+| Errors | every failure that was skipped (or the one that aborted the run), each with the task name and the captured error output in a code block - bootstrap steps first, then playbook phases in the order they ran |
+| Not detected after setup | entries that were selected but a local check could not find afterwards |
+| Skipped intentionally | entries excluded on purpose, with the reason |
+| Installed or present after setup | verified entries grouped by installer |
+| Completed steps | bootstrap steps and playbook phases that finished |
+| Next steps | how to re-run safely |
+
+A report is written on every run, including runs that never reach Ansible: if a prerequisite step aborts bootstrap or the playbook dies before its summary, `bootstrap.sh` writes the same report itself from the outcomes it recorded, with the tail of the Ansible log quoted.
 
 ## Setup modes
 
@@ -148,10 +163,12 @@ Two modes control what happens when an installer fails.
 
 | Mode | Behavior | Use for |
 | :--- | :--- | :--- |
-| `best_effort` (default) | Package installs, feature roles, `chezmoi apply`, and services continue after a failure and are collected into the final report | Real machines, where one broken upstream installer should not abandon the run |
-| `strict` | The first failure stops the run | Debugging and CI-style verification |
+| `best_effort` (default) | Bootstrap prerequisite steps, package installs, feature roles, `chezmoi apply`, and services continue after a failure, which is skipped and collected into the final report | Real machines, where one broken upstream installer should not abandon the run |
+| `strict` | The first failure stops the run; the report still records where it stopped | Debugging and CI-style verification |
 
-Setup mode never relaxes correctness. Profile, platform, unsupported-feature, and sudo checks stay strict in both modes, because those failures mean setup does not know what machine state it is aiming for.
+In `best_effort` mode `chezmoi apply` also runs in isolated steps: each `before_` script, then all managed files, then every remaining script, each as its own `chezmoi` invocation. One `chezmoi apply` stops at the first failing `run_` script and leaves every later file unapplied; the split keeps the dotfiles applied, records the failing script, and since chezmoi only marks a `run_once_` script as run when it succeeds, the next apply retries it. Strict mode keeps the single apply.
+
+Setup mode never relaxes correctness. Profile, platform, unsupported-feature, and sudo checks stay strict in both modes, because those failures mean setup does not know what machine state it is aiming for - they are still written to the report so a failed run explains itself.
 
 ## Why it works this way
 
@@ -197,6 +214,12 @@ The `best_effort` default is not in tension with this. It applies only after the
 
 That is also why the final report verifies rather than narrates. An attempt log tells you what setup tried; this checks afterwards what is actually present, which is the only version of the question worth answering.
 
+### Every run ends with a report
+
+The first version of best-effort mode lived only inside the playbook. A run that died earlier - the chezmoi installer choking on a Snap-confined `curl`, a package manager refusing to refresh, Galaxy unreachable - printed one line and exited, and the user was left scrolling terminal output to work out what had and had not happened. Worse, a single failing `run_once` script inside `chezmoi apply` abandoned every dotfile that sorted after it, while the report said only that "chezmoi apply" had failed.
+
+So the rule is that skipping is only allowed when it is recorded. `bootstrap.sh` runs each prerequisite through `run_step`, the playbook wraps preflight and execution in one reported block, and `chezmoi apply` is split so that one script cannot take the others down. Whatever stops the run, `~/.dotfiles_setup_report.md` says where, quotes the error, and lists what did complete, and the report is Markdown because it is meant to be read, pasted into an issue, or diffed against the previous run.
+
 ### Order belongs to the playbook
 
 Profiles are declarative, so the order features appear in them means nothing. If it did, every profile author would need to know that `desktop_base` must precede the apps that assume it - a dependency graph maintained by convention in every file, forever.
@@ -235,9 +258,9 @@ ansible/roles/
   profile_preflight/                  validation before any install
   package_installer/                  direct package entries
   chezmoi_setup_data/                 data handed to templates
-  chezmoi/                            chezmoi apply
+  chezmoi/                            chezmoi apply (isolated per file set and script in best-effort mode)
   services/                           service enablement
-  setup_outcome/                      verified end-of-run report
+  setup_outcome/                      verified end-of-run Markdown report
   low_memory/                         swap and installer throttling on small machines
   features/<feature_name>/            procedural feature implementations
 
@@ -254,5 +277,7 @@ test/                                 harness and bootstrap regression checks
 - unknown features fail before installation
 - unsupported profile and platform combinations fail before installation
 - `--platform` works under CI and is rejected on real machines
+- a failed bootstrap step is recorded and skipped in best-effort mode, stops the run in strict mode or when critical, and always reaches the Markdown report (`test/bootstrap_best_effort.sh`)
+- best-effort `chezmoi apply` isolates managed files from each `run_` script and records per-script failures
 
 CI runs the full bootstrap and an idempotency check for both profiles on Ubuntu, Fedora, Arch, macOS, and Windows. It skips installer surfaces that are known to be unreliable in hosted runners - Flatpak app payloads in containers, upstream AI CLI shell installers - rather than switching on lightweight `DOTFILES_CI` mode, which would skip too much of the real path to be meaningful.

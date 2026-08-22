@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2329  # setup steps are invoked indirectly through run_step and the EXIT trap
 set -euo pipefail
 
 repo="${DOTFILES_REPO:-}"
@@ -12,6 +13,7 @@ OS="$(uname -s)"
 DISTRO=""
 platform=""
 setup_mode="${DOTFILES_SETUP_MODE:-best_effort}"
+report_file="$HOME/.dotfiles_setup_report.md"
 
 if [ "$OS" = "Linux" ] && [ -f /etc/os-release ]; then
   # shellcheck disable=SC1091  # system file, not part of this repo
@@ -107,15 +109,13 @@ prompt_sudo_password() {
   printf "\n" >"$tty_device"
 
   if [ -z "$sudo_password" ]; then
-    echo "A sudo password is required for setup."
-    exit 1
+    abort "A sudo password is required for setup."
   fi
 }
 
 validate_sudo_password() {
   if ! printf '%s\n' "$sudo_password" | sudo -S -k -p '' -v >/dev/null 2>&1; then
-    echo "The provided sudo password was not accepted."
-    exit 1
+    abort "The provided sudo password was not accepted."
   fi
 }
 
@@ -129,8 +129,7 @@ ensure_linux_sudo_access() {
   fi
 
   if ! have sudo; then
-    echo "sudo is required for Linux setup."
-    exit 1
+    abort "sudo is required for Linux setup."
   fi
 
   if have_passwordless_sudo; then
@@ -138,8 +137,7 @@ ensure_linux_sudo_access() {
   fi
 
   if is_ci; then
-    echo "CI Linux setup requires passwordless sudo."
-    exit 1
+    abort "CI Linux setup requires passwordless sudo."
   fi
 
   prompt_sudo_password
@@ -165,6 +163,285 @@ create_become_password_file() {
   become_password_file="$(mktemp)"
   chmod 600 "$become_password_file"
   printf '%s\n' "$sudo_password" >"$become_password_file"
+}
+
+# ---------------------------------------------------------------------------
+# Step outcomes and the setup report.
+#
+# Every prerequisite step runs through run_step, which records whether it
+# succeeded, failed, or was skipped. In best-effort mode a failed step is
+# skipped and setup continues; only steps that later phases cannot work
+# without (chezmoi, the repository clone, Ansible) stop the run. The collected
+# outcomes are handed to Ansible, which merges them into the final Markdown
+# report, and if Ansible never runs the EXIT trap writes that report itself so
+# a failed run always leaves ~/.dotfiles_setup_report.md behind.
+# ---------------------------------------------------------------------------
+
+bootstrap_outcome_status=()
+bootstrap_outcome_name=()
+bootstrap_outcome_detail=()
+bootstrap_failure_count=0
+bootstrap_abort_reason=""
+bootstrap_outcomes_file=""
+ansible_log=""
+ansible_exit_code=""
+ansible_started=0
+report_stamp_file=""
+report_written_by_ansible=0
+
+strip_ansi() {
+  # BSD sed has no \x1B escape, so splice the literal ESC byte into the pattern.
+  # LC_ALL=C keeps BSD sed from rejecting bytes that are not valid UTF-8.
+  LC_ALL=C sed -e "s/$(printf '\033')\\[[0-9;]*[A-Za-z]//g"
+}
+
+sanitize_captured_output() {
+  # Captured step output can carry colour codes and carriage-return progress
+  # lines; neither belongs in the report or the JSON handoff.
+  strip_ansi | LC_ALL=C tr -d '\r'
+}
+
+json_escape() {
+  local value
+
+  # Drop control characters JSON cannot carry (tab and newline are escaped
+  # below), then escape the rest.
+  value="$(printf '%s' "$1" | LC_ALL=C tr -d '\000-\010\013-\037\177')"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//$'\t'/\\t}"
+  value="${value//$'\n'/\\n}"
+  printf '%s' "$value"
+}
+
+abort() {
+  # Stop the run with a reason the EXIT trap can put into the report.
+  bootstrap_abort_reason="$1"
+  echo "$bootstrap_abort_reason"
+  exit 1
+}
+
+record_outcome() {
+  local status="$1"
+  local name="$2"
+  local detail="${3:-}"
+
+  bootstrap_outcome_status+=("$status")
+  bootstrap_outcome_name+=("$name")
+  bootstrap_outcome_detail+=("$detail")
+
+  if [ "$status" = "failed" ]; then
+    bootstrap_failure_count=$((bootstrap_failure_count + 1))
+  fi
+}
+
+run_step() {
+  # usage: run_step [--critical] "<step name>" command [args...]
+  #
+  # The command runs in a subshell with errexit enabled, so a multi-command
+  # step stops at its first failing command while this shell keeps going. Its
+  # output is shown live and captured, so the report can quote the error.
+  local critical=0
+  local name step_log rc detail headline
+
+  if [ "$1" = "--critical" ]; then
+    critical=1
+    shift
+  fi
+  name="$1"
+  shift
+
+  step_log="$(mktemp)"
+  set +e
+  ( set -e; "$@" ) 2>&1 | tee "$step_log"
+  rc="${PIPESTATUS[0]}"
+  set -e
+  hash -r
+
+  if [ "$rc" -eq 0 ]; then
+    rm -f "$step_log"
+    record_outcome ok "$name"
+    return 0
+  fi
+
+  detail="$(tail -n 25 "$step_log" | sanitize_captured_output || true)"
+  rm -f "$step_log"
+  # Lead with the last non-empty output line: for shell tools that is almost
+  # always the actual error, and the report's terminal summary shows only the
+  # first line of each failure.
+  headline="$(printf '%s\n' "$detail" | grep -v '^[[:space:]]*$' | tail -n 1 || true)"
+  record_outcome failed "$name" "Exit status ${rc}${headline:+: }${headline}${detail:+
+
+Last output lines:
+}${detail}"
+
+  if [ "$critical" -eq 1 ]; then
+    bootstrap_abort_reason="'$name' failed and setup cannot continue without it."
+    echo "ERROR: $bootstrap_abort_reason"
+    exit 1
+  fi
+
+  if [ "$setup_mode" = "strict" ]; then
+    bootstrap_abort_reason="'$name' failed and strict mode stops at the first failure."
+    echo "ERROR: $bootstrap_abort_reason"
+    exit 1
+  fi
+
+  echo "WARNING: '$name' failed (exit status $rc). Skipping it and continuing in best-effort mode; the error is recorded in the setup report."
+  return 0
+}
+
+write_bootstrap_outcomes_file() {
+  local index
+
+  bootstrap_outcomes_file="$(mktemp)"
+  : >"$bootstrap_outcomes_file"
+  for index in "${!bootstrap_outcome_status[@]}"; do
+    printf '{"status":"%s","name":"%s","detail":"%s"}\n' \
+      "$(json_escape "${bootstrap_outcome_status[$index]}")" \
+      "$(json_escape "${bootstrap_outcome_name[$index]}")" \
+      "$(json_escape "${bootstrap_outcome_detail[$index]}")" \
+      >>"$bootstrap_outcomes_file"
+  done
+}
+
+write_fallback_report() {
+  # Only used when Ansible did not write the report itself (a prerequisite
+  # step aborted the run, or the playbook failed before its summary ran).
+  local exit_status="$1"
+  local result index status name detail
+
+  if [ -n "$bootstrap_abort_reason" ]; then
+    result="Aborted: $bootstrap_abort_reason"
+  elif [ "$ansible_started" -eq 1 ] && [ -n "$ansible_exit_code" ] && [ "$ansible_exit_code" -ne 0 ]; then
+    result="Aborted: the Ansible playbook exited with status $ansible_exit_code before it could write its summary."
+  elif [ "$exit_status" -ne 0 ]; then
+    result="Aborted: bootstrap exited with status $exit_status before Ansible started; the terminal output above has the message."
+  elif [ "$bootstrap_failure_count" -gt 0 ]; then
+    result="Completed with $bootstrap_failure_count skipped failure(s)."
+  else
+    result="Completed successfully."
+  fi
+
+  {
+    echo "# Dotfiles setup report"
+    echo
+    echo "- Date: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+    echo "- Profile: \`${profile:-unknown}\`"
+    echo "- Platform: \`${platform:-unknown}\`"
+    echo "- Mode: \`$setup_mode\`"
+    echo "- Result: $result"
+    echo
+    echo "## Errors"
+    echo
+    if [ "$bootstrap_failure_count" -eq 0 ] && { [ "$ansible_started" -eq 0 ] || [ -z "$ansible_exit_code" ] || [ "$ansible_exit_code" -eq 0 ]; }; then
+      if [ -n "$bootstrap_abort_reason" ]; then
+        echo "### [bootstrap] setup stopped before any step failed"
+        echo
+        printf '%s\n' "$bootstrap_abort_reason"
+      else
+        echo "No errors were recorded before the run stopped."
+      fi
+      echo
+    fi
+    for index in "${!bootstrap_outcome_status[@]}"; do
+      status="${bootstrap_outcome_status[$index]}"
+      if [ "$status" != "failed" ]; then
+        continue
+      fi
+      name="${bootstrap_outcome_name[$index]}"
+      detail="${bootstrap_outcome_detail[$index]}"
+      echo "### [bootstrap] $name"
+      echo
+      echo '````text'
+      printf '%s\n' "$detail" | sanitize_captured_output || true
+      echo '````'
+      echo
+    done
+    if [ "$ansible_started" -eq 1 ] && [ -n "$ansible_exit_code" ] && [ "$ansible_exit_code" -ne 0 ]; then
+      echo "### [ansible] ansible/playbooks/${platform:-unknown}.yml"
+      echo
+      echo "The playbook exited with status $ansible_exit_code. Last lines of its output:"
+      echo
+      echo '````text'
+      if [ -n "$ansible_log" ] && [ -f "$ansible_log" ]; then
+        tail -n 60 "$ansible_log" | sanitize_captured_output || true
+      else
+        echo "(no output captured)"
+      fi
+      echo '````'
+      echo
+    fi
+    echo "## Completed steps"
+    echo
+    for index in "${!bootstrap_outcome_status[@]}"; do
+      status="${bootstrap_outcome_status[$index]}"
+      name="${bootstrap_outcome_name[$index]}"
+      detail="${bootstrap_outcome_detail[$index]}"
+      case "$status" in
+        ok)
+          echo "- [bootstrap] $name"
+          ;;
+        skipped)
+          echo "- [bootstrap] $name: skipped${detail:+ - }${detail}"
+          ;;
+      esac
+    done
+    if [ "${#bootstrap_outcome_status[@]}" -eq 0 ]; then
+      echo "- No steps completed."
+    fi
+    echo
+    echo "## Next steps"
+    echo
+    echo "- Setup is safe to re-run. Fix the cause above, then run \`./bootstrap.sh --profile ${profile:-personal}\` again; completed steps are skipped or no-ops."
+    echo "- Use \`--strict\` to stop at the first failure while debugging."
+  } >"$report_file"
+}
+
+print_report_banner() {
+  local result_line=""
+
+  if [ ! -f "$report_file" ]; then
+    return
+  fi
+
+  result_line="$(grep -m1 '^- Result:' "$report_file" 2>/dev/null | sed 's/^- Result: //')"
+  echo
+  echo "==========================================================="
+  if [ -n "$result_line" ]; then
+    echo "Setup result: $result_line"
+  else
+    echo "Setup finished (or aborted). A full report has been saved."
+  fi
+  echo "Read your setup outcome summary at: $report_file"
+  echo "==========================================================="
+}
+
+on_exit() {
+  local exit_status=$?
+
+  set +e
+  cleanup_sensitive_state
+
+  # Once the trap is armed every exit leaves a report from this run behind, so
+  # the banner below never points at a stale report from an earlier run.
+  if [ "$report_written_by_ansible" -ne 1 ]; then
+    write_fallback_report "$exit_status"
+  fi
+
+  print_report_banner
+
+  if [ -n "$bootstrap_outcomes_file" ]; then
+    rm -f "$bootstrap_outcomes_file"
+  fi
+  if [ -n "$ansible_log" ]; then
+    rm -f "$ansible_log"
+  fi
+  if [ -n "$report_stamp_file" ]; then
+    rm -f "$report_stamp_file"
+  fi
+
+  exit "$exit_status"
 }
 
 refresh_repo() {
@@ -201,7 +478,7 @@ install_packages() {
         run_privileged dnf install -y "$@"
         ;;
       debian|ubuntu)
-        run_privileged apt-get install -y "$@"
+        run_privileged env DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
         ;;
       arch|manjaro)
         run_privileged pacman -S --noconfirm --needed "$@"
@@ -235,15 +512,6 @@ repair_broken_docker_desktop() {
 }
 
 update_system() {
-  if [ "$OS" != "Linux" ]; then
-    return
-  fi
-
-  if is_ci; then
-    echo "Skipping system package refresh in lightweight CI mode."
-    return
-  fi
-
   echo "Updating system packages before setup..."
   case "$DISTRO" in
     fedora)
@@ -251,8 +519,9 @@ update_system() {
       ;;
     debian|ubuntu)
       repair_broken_docker_desktop
-      run_privileged apt-get update
-      run_privileged apt-get upgrade -y
+      run_privileged env DEBIAN_FRONTEND=noninteractive apt-get update
+      run_privileged env DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
+        -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold
       ;;
     arch|manjaro)
       run_privileged pacman -Syu --noconfirm
@@ -264,19 +533,79 @@ update_system() {
   esac
 }
 
+is_snap_binary() {
+  local path="$1"
+  local resolved=""
+
+  case "$path" in
+    /snap/*|/var/lib/snapd/*)
+      return 0
+      ;;
+  esac
+
+  resolved="$(readlink -f "$path" 2>/dev/null || true)"
+  case "$resolved" in
+    /snap/*|/var/lib/snapd/*)
+      return 0
+      ;;
+  esac
+
+  return 1
+}
+
+curl_is_snap() {
+  # The Snap build of curl is strictly confined: it cannot read or write the
+  # host /tmp or hidden directories under HOME, so installers that download
+  # to a temp file and read it back (chezmoi's get.chezmoi.io script fails
+  # with "real_tag error retrieving GitHub release latest") silently break.
+  [ "$OS" = "Linux" ] && have curl && is_snap_binary "$(command -v curl)"
+}
+
 fetch_to_stdout() {
-  if have curl; then
+  if have curl && ! curl_is_snap; then
     curl -fsSL "$1"
   elif have wget; then
     wget -qO- "$1"
+  elif have curl; then
+    curl -fsSL "$1"
   else
-    echo "Neither curl nor wget is available."
-    exit 1
+    echo "Neither curl nor wget is available." >&2
+    return 1
+  fi
+}
+
+fetch_to_file() {
+  if have curl && ! curl_is_snap; then
+    curl -fsSL -o "$2" "$1"
+  elif have wget; then
+    wget -qO "$2" "$1"
+  elif have curl; then
+    curl -fsSL -o "$2" "$1"
+  else
+    echo "Neither curl nor wget is available." >&2
+    return 1
   fi
 }
 
 ensure_download_tool() {
-  if have curl || have wget; then
+  if have curl && ! curl_is_snap; then
+    return
+  fi
+
+  if curl_is_snap; then
+    echo "curl resolves to the Snap build at $(command -v curl). Snap confinement hides /tmp and hidden home directories from it, which breaks upstream installers. Installing the native curl package..."
+    install_packages curl
+    hash -r
+    if curl_is_snap; then
+      echo "WARNING: curl still resolves to the Snap build. Downloads will prefer wget instead."
+      if ! have wget; then
+        install_packages wget
+      fi
+    fi
+    return
+  fi
+
+  if have wget; then
     return
   fi
 
@@ -291,6 +620,105 @@ ensure_git() {
 
   echo "Git not found. Installing..."
   install_packages git
+}
+
+install_chezmoi_release_binary() {
+  # Fallback for when the get.chezmoi.io installer cannot run: fetch the
+  # prebuilt binary straight from the latest GitHub release.
+  local os arch asset tmp_binary
+
+  case "$OS" in
+    Linux)
+      os="linux"
+      ;;
+    Darwin)
+      os="darwin"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  case "$(uname -m)" in
+    x86_64|amd64)
+      arch="amd64"
+      ;;
+    arm64|aarch64)
+      arch="arm64"
+      ;;
+    *)
+      echo "No prebuilt chezmoi binary is published for $(uname -m)."
+      return 1
+      ;;
+  esac
+
+  if [ "$os" = "linux" ] && [ "$arch" != "amd64" ]; then
+    echo "No prebuilt chezmoi binary is published for Linux $(uname -m)."
+    return 1
+  fi
+
+  asset="chezmoi-${os}-${arch}"
+  tmp_binary="$(mktemp)"
+  if ! fetch_to_file "https://github.com/twpayne/chezmoi/releases/latest/download/${asset}" "$tmp_binary"; then
+    rm -f "$tmp_binary"
+    return 1
+  fi
+  chmod 0755 "$tmp_binary"
+  # Verify before installing: a captive portal or proxy can answer with an HTML
+  # page and HTTP 200, and a broken ~/.local/bin/chezmoi would make every
+  # re-run skip the install step.
+  if ! "$tmp_binary" --version >/dev/null 2>&1; then
+    echo "The downloaded chezmoi binary does not run; discarding it."
+    rm -f "$tmp_binary"
+    return 1
+  fi
+  mv "$tmp_binary" "$HOME/.local/bin/chezmoi"
+}
+
+install_chezmoi_from_package_manager() {
+  if [ "$OS" = "Darwin" ]; then
+    install_packages chezmoi
+    return
+  fi
+
+  case "$DISTRO" in
+    fedora|arch|manjaro)
+      install_packages chezmoi
+      ;;
+    *)
+      echo "No chezmoi package is available from the $DISTRO package manager."
+      return 1
+      ;;
+  esac
+}
+
+install_chezmoi() {
+  mkdir -p "$HOME/.local/bin"
+
+  if fetch_to_stdout "https://get.chezmoi.io/lb" | sh -s -- -b "$HOME/.local/bin" && [ -x "$HOME/.local/bin/chezmoi" ]; then
+    return
+  fi
+
+  echo "The chezmoi installer script failed. Trying a direct download of the latest release binary..."
+  if install_chezmoi_release_binary; then
+    return
+  fi
+
+  echo "Trying the system package manager for chezmoi..."
+  install_chezmoi_from_package_manager
+}
+
+upgrade_chezmoi() {
+  chezmoi upgrade
+}
+
+init_chezmoi_from_source() {
+  echo "Initializing Chezmoi from checked-out source: $chezmoi_dir"
+  chezmoi init --source "$chezmoi_dir"
+}
+
+init_chezmoi_from_repo() {
+  chezmoi init "$repo"
 }
 
 install_ansible() {
@@ -366,10 +794,17 @@ required_ansible_collections_present() {
   done < <(sed -n 's/^[[:space:]]*-[[:space:]]*name:[[:space:]]*//p' "$requirements_file")
 }
 
-ensure_ansible_collections() {
+ansible_collections_requirements_file() {
+  printf '%s\n' "$chezmoi_dir/ansible/collections/requirements.yml"
+}
+
+refresh_ansible_collections() {
+  # Galaxy can be unreachable (outages, flaky networks, regional TLS resets).
+  # This step is not critical: a failed refresh is recorded in the report and
+  # verify_ansible_collections decides whether the run can continue.
   local requirements_file attempt
 
-  requirements_file="$chezmoi_dir/ansible/collections/requirements.yml"
+  requirements_file="$(ansible_collections_requirements_file)"
 
   if [ ! -f "$requirements_file" ] || ! have ansible-galaxy; then
     return
@@ -386,11 +821,22 @@ ensure_ansible_collections() {
     fi
   done
 
-  # Galaxy can be unreachable (outages, flaky networks, regional TLS resets).
-  # The distro ansible package already bundles community.general, so continue
-  # with installed collections and fail only when one is actually missing.
+  echo "WARNING: Could not refresh Ansible collections from Galaxy. Continuing with the already-installed versions."
+  return 1
+}
+
+verify_ansible_collections() {
+  # The distro ansible package already bundles community.general, so a failed
+  # Galaxy refresh is fine as long as every required collection is installed.
+  local requirements_file
+
+  requirements_file="$(ansible_collections_requirements_file)"
+
+  if [ ! -f "$requirements_file" ] || ! have ansible-galaxy; then
+    return
+  fi
+
   if required_ansible_collections_present "$requirements_file"; then
-    echo "WARNING: Could not refresh Ansible collections from Galaxy. Continuing with the already-installed versions."
     return
   fi
 
@@ -513,50 +959,55 @@ case "$setup_mode" in
     ;;
 esac
 
-trap cleanup_sensitive_state EXIT
+trap on_exit EXIT
 
 ensure_linux_sudo_access
 
-update_system
+if [ "$OS" = "Linux" ]; then
+  if is_ci; then
+    echo "Skipping system package refresh in lightweight CI mode."
+    record_outcome skipped "System package refresh" "Skipped in lightweight CI mode."
+  else
+    run_step "System package refresh" update_system
+  fi
+fi
 
-ensure_download_tool
-ensure_git
+run_step "Download tool (curl or wget)" ensure_download_tool
+run_step "Git" ensure_git
 
 if ! have chezmoi; then
-  mkdir -p "$HOME/.local/bin"
-  fetch_to_stdout "https://get.chezmoi.io/lb" | sh -s -- -b "$HOME/.local/bin"
+  run_step --critical "Install chezmoi" install_chezmoi
   export PATH="$HOME/.local/bin:$PATH"
+  hash -r
 elif is_ci; then
   echo "Skipping chezmoi self-upgrade in lightweight CI mode."
+  record_outcome skipped "Upgrade chezmoi" "Skipped in lightweight CI mode."
 else
-  chezmoi upgrade || echo "Warning: could not self-upgrade chezmoi. Continuing with the current version."
+  run_step "Upgrade chezmoi" upgrade_chezmoi
 fi
 
 if using_checked_out_source; then
-  echo "Initializing Chezmoi from checked-out source: $chezmoi_dir"
-  chezmoi init --source "$chezmoi_dir"
+  run_step "Initialize chezmoi from the checked-out source" init_chezmoi_from_source
 elif [ ! -d "$chezmoi_dir/.git" ]; then
   if [ -z "$repo" ]; then
-    echo "DOTFILES_REPO is required when installing from a downloaded bootstrap script."
-    echo "Set it to your repository URL, for example: https://github.com/USER/dotfiles.git"
-    exit 1
+    abort "DOTFILES_REPO is required when installing from a downloaded bootstrap script. Set it to your repository URL, for example: https://github.com/USER/dotfiles.git"
   fi
-  chezmoi init "$repo"
+  run_step --critical "Clone the dotfiles repository with chezmoi init" init_chezmoi_from_repo
 else
-  refresh_repo
+  run_step "Refresh the dotfiles repository" refresh_repo
 fi
 
 if ! have ansible-playbook; then
-  install_ansible
+  run_step --critical "Install Ansible" install_ansible
 fi
-ensure_ansible_collections
+run_step "Refresh Ansible collections from Galaxy" refresh_ansible_collections
+run_step --critical "Required Ansible collections" verify_ansible_collections
 
 cd "$chezmoi_dir"
 export DOTFILES_CHEZMOI_DIR="$chezmoi_dir"
 ansible_playbook="ansible/playbooks/$platform.yml"
 if [ ! -f "$ansible_playbook" ]; then
-  echo "No Ansible playbook exists for platform: $platform"
-  exit 1
+  abort "No Ansible playbook exists for platform: $platform"
 fi
 
 ansible_args=(-i "localhost," "$ansible_playbook")
@@ -570,11 +1021,25 @@ if [ "$OS" = "Linux" ] && [ -n "$become_password_file" ]; then
   ansible_args=(--become-password-file "$become_password_file" "${ansible_args[@]}")
 fi
 
-ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook "${ansible_args[@]}"
+write_bootstrap_outcomes_file
+export DOTFILES_BOOTSTRAP_OUTCOMES_FILE="$bootstrap_outcomes_file"
 
-if [ -f "$HOME/.dotfiles_setup_report.md" ]; then
-  echo -e "\n==========================================================="
-  echo -e "Setup finished (or aborted). A full report has been saved."
-  echo -e "Read your setup outcome summary at: $HOME/.dotfiles_setup_report.md"
-  echo -e "==========================================================="
+# Ansible writes the report itself; the stamp tells the EXIT trap whether the
+# report on disk is from this run or left over from an earlier one.
+report_stamp_file="$(mktemp)"
+ansible_log="$(mktemp)"
+if [ -t 1 ]; then
+  export ANSIBLE_FORCE_COLOR=1
 fi
+
+ansible_started=1
+set +e
+ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook "${ansible_args[@]}" 2>&1 | tee "$ansible_log"
+ansible_exit_code="${PIPESTATUS[0]}"
+set -e
+
+if [ -f "$report_file" ] && [ "$report_file" -nt "$report_stamp_file" ]; then
+  report_written_by_ansible=1
+fi
+
+exit "$ansible_exit_code"
