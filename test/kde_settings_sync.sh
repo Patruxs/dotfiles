@@ -17,7 +17,7 @@ trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/repo/scripts" "$work/config"
 cp "$REPO_ROOT/scripts/kde-settings-sync.sh" "$work/repo/scripts/"
 sync="$work/repo/scripts/kde-settings-sync.sh"
-stored="$work/repo/kde/settings"
+stored="$work/repo/desktop_environment/kde/settings"
 export XDG_CONFIG_HOME="$work/config"
 export HOME="$work/home"
 mkdir -p "$HOME"
@@ -108,10 +108,10 @@ EOF
 
 "$sync" capture >/dev/null
 
-[ -f "$stored/kwinrc" ] || fail "capture did not write kde/settings/kwinrc"
-[ -f "$stored/kglobalshortcutsrc" ] || fail "capture did not write kde/settings/kglobalshortcutsrc"
-[ -f "$stored/kdeglobals" ] || fail "capture did not write kde/settings/kdeglobals"
-[ -f "$stored/dolphinrc" ] || fail "capture did not write kde/settings/dolphinrc"
+[ -f "$stored/kwinrc" ] || fail "capture did not write desktop_environment/kde/settings/kwinrc"
+[ -f "$stored/kglobalshortcutsrc" ] || fail "capture did not write desktop_environment/kde/settings/kglobalshortcutsrc"
+[ -f "$stored/kdeglobals" ] || fail "capture did not write desktop_environment/kde/settings/kdeglobals"
+[ -f "$stored/dolphinrc" ] || fail "capture did not write desktop_environment/kde/settings/dolphinrc"
 [ ! -e "$stored/kxkbrc" ] || fail "capture invented a file that does not exist on the machine"
 
 stored_entries() {
@@ -158,8 +158,8 @@ after="$(cat "$stored/kwinrc" "$stored/kglobalshortcutsrc" "$stored/kdeglobals")
 # A stored file with no live counterpart is kept, not deleted.
 printf '[Layout]\nLayoutList=us\n' >"$stored/kxkbrc"
 capture_output="$("$sync" capture)"
-printf '%s\n' "$capture_output" | grep -q 'kept kde/settings/kxkbrc' || fail "capture did not keep a stored file that is absent on this machine: $capture_output"
-[ -f "$stored/kxkbrc" ] || fail "capture deleted kde/settings/kxkbrc"
+printf '%s\n' "$capture_output" | grep -q 'kept desktop_environment/kde/settings/kxkbrc' || fail "capture did not keep a stored file that is absent on this machine: $capture_output"
+[ -f "$stored/kxkbrc" ] || fail "capture deleted desktop_environment/kde/settings/kxkbrc"
 rm "$stored/kxkbrc"
 
 # --- check and diff --------------------------------------------------------

@@ -49,7 +49,7 @@ Install packages and apps
 Apply configs with Chezmoi
 ```
 
-The bootstrap script detects your operating system and, on Linux, your desktop environment, then asks you to choose a `personal` or `work` profile. It then installs the selected packages and apps using Ansible on Linux and macOS, or PowerShell and Winget on Windows. Finally, Chezmoi applies your configs: shell, Git, tmux, and editors on Linux and macOS; Git, PowerShell, and Neovim on Windows. Desktop settings follow the detected desktop: a GNOME session gets the `dconf` preferences and Shell extensions stored under `gnome/`, a KDE Plasma session gets the settings stored under `kde/`, and anything else gets neither (the report says so).
+The bootstrap script detects your operating system and, on Linux, your desktop environment, then asks you to choose a `personal` or `work` profile. It then installs the selected packages and apps using Ansible on Linux and macOS, or PowerShell and Winget on Windows. Finally, Chezmoi applies your configs: shell, Git, tmux, and editors on Linux and macOS; Git, PowerShell, and Neovim on Windows. Desktop settings follow the detected desktop: a GNOME session gets the `dconf` preferences and Shell extensions stored under `desktop_environment/gnome/`, a KDE Plasma session gets the settings stored under `desktop_environment/kde/`, and anything else gets neither (the report says so).
 
 By default a step that fails (an upstream installer that is down, a package that does not exist on this release) is skipped and the run keeps going. Every skipped failure, with its error output, ends up in `~/.dotfiles_setup_report.md`, a Markdown report that is written on every run - even one that stops before Ansible starts - together with what was installed, what was skipped on purpose, and how to re-run. Pass `--strict` (or `-SetupMode strict` on Windows) to stop at the first failure instead. On Windows the configs are created as symlinks, which requires Developer Mode or an elevated shell (bootstrap checks this before applying). If OneDrive redirects your Documents folder, PowerShell loads its profile from `OneDrive\Documents` instead; link `Documents\PowerShell` there yourself.
 
@@ -95,7 +95,7 @@ chosen and why.
 
 Preferences live in `home/.chezmoidata/gnome_dconf.yaml` and are applied with
 `dconf` inside a running GNOME session. Shell extension state is captured into
-`gnome/` and restored by the Ansible `gnome` role.
+`desktop_environment/gnome/` and restored by the Ansible `gnome` role.
 
 ```sh
 ./scripts/gnome-extensions-sync.sh capture   # machine -> repo, then commit
@@ -104,15 +104,15 @@ Preferences live in `home/.chezmoidata/gnome_dconf.yaml` and are applied with
 ./scripts/gnome-extensions-sync.sh check     # exit 0 when already in sync
 ```
 
-`capture` writes two files: `gnome/extensions.dconf`, a `dconf` dump of every
-per-extension setting, and `gnome/extensions.yaml`, the list of which extensions
+`capture` writes two files: `desktop_environment/gnome/extensions.dconf`, a `dconf` dump of every
+per-extension setting, and `desktop_environment/gnome/extensions.yaml`, the list of which extensions
 are enabled and whether they come from extensions.gnome.org or a distro package.
 `apply` downloads the missing extensions.gnome.org ones, loads the settings, then
 enables them - log out and back in afterwards for GNOME Shell to pick them up.
 
 ### KDE Plasma
 
-Settings live in `kde/settings/`, one INI fragment per KDE config file
+Settings live in `desktop_environment/kde/settings/`, one INI fragment per KDE config file
 (`kwinrc`, `kxkbrc`, `powerdevilrc`, ...), and are written key by key with
 `kwriteconfig6` by the Ansible `kde` role. KDE rewrites its config files itself,
 so they are never symlinked by chezmoi; only the stored keys are touched and

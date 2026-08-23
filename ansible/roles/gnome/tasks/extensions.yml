@@ -1,7 +1,7 @@
 ---
 - name: Check for stored GNOME extension state
   stat:
-    path: "{{ chezmoi_dir }}/gnome/extensions.dconf"
+    path: "{{ chezmoi_dir }}/desktop_environment/gnome/extensions.dconf"
   register: gnome_extensions_state
 
 - name: Check whether GNOME extensions already match the repo

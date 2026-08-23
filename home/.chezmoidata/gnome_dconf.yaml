@@ -1,7 +1,7 @@
 # GNOME preferences applied by the Ansible gnome role when a profile selects
 # desktop_base and the detected desktop is GNOME (scripts/detect-desktop.sh),
 # inside a running GNOME session. The KDE Plasma counterparts live in
-# kde/settings/. The input-sources entry below adds the Vietnamese
+# desktop_environment/kde/settings/. The input-sources entry below adds the Vietnamese
 # ibus-bamboo IME, a personal layout choice - the engine itself is not
 # installed by any package set. Forks: replace it with your own layout (or
 # install ibus-bamboo).

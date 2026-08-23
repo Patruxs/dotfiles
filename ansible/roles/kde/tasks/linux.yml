@@ -1,12 +1,12 @@
 ---
 # KDE settings are written key by key with kwriteconfig6 from the INI
-# fragments stored in kde/settings/, so they apply with or without a running
+# fragments stored in desktop_environment/kde/settings/, so they apply with or without a running
 # Plasma session (a session picks most of them up immediately, the rest at
 # the next login). scripts/kde-settings-sync.sh owns the format and the
 # runtime-state filtering; `check` keeps the run idempotent.
 - name: Find stored KDE settings
   find:
-    paths: "{{ chezmoi_dir }}/kde/settings"
+    paths: "{{ chezmoi_dir }}/desktop_environment/kde/settings"
     file_type: file
   register: kde_settings_files
 
@@ -23,7 +23,7 @@
 
 - name: Fail when KDE settings cannot be written on this machine
   fail:
-    msg: "kde/settings holds stored KDE settings but neither kwriteconfig6 nor kwriteconfig5 is installed; install the KDE configuration tools (kconfig) or remove the stored settings."
+    msg: "desktop_environment/kde/settings holds stored KDE settings but neither kwriteconfig6 nor kwriteconfig5 is installed; install the KDE configuration tools (kconfig) or remove the stored settings."
   when:
     - kde_settings_files.matched > 0
     - kde_config_writer.rc != 0

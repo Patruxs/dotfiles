@@ -42,7 +42,7 @@
 .config/org.gnome.Ptyxis/session.gvariant
 # KDE rc files are rewritten atomically by KDE, which would replace a chezmoi
 # symlink with a plain file. The ones scripts/kde-settings-sync.sh tracks are
-# managed key by key from kde/settings/ instead; the panel layout files are
+# managed key by key from desktop_environment/kde/settings/ instead; the panel layout files are
 # machine state tied to activity and screen identifiers.
 .config/kdeglobals
 .config/kwinrc

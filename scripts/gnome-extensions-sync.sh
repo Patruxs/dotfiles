@@ -2,21 +2,21 @@
 #
 # Capture and restore GNOME Shell extension configuration.
 #
-#   capture  machine -> repo   dump the live extension settings into gnome/
+#   capture  machine -> repo   dump the live extension settings into desktop_environment/gnome/
 #   apply    repo -> machine   install, configure and enable the stored extensions
 #   diff     show how the live settings differ from the stored ones
 #   check    exit 0 when the machine already matches the repo
 #
 # The stored state lives in two files:
 #
-#   gnome/extensions.dconf   a `dconf dump` of /org/gnome/shell/extensions/
-#   gnome/extensions.yaml    which extensions are enabled, and where they came from
+#   desktop_environment/gnome/extensions.dconf   a `dconf dump` of /org/gnome/shell/extensions/
+#   desktop_environment/gnome/extensions.yaml    which extensions are enabled, and where they came from
 #
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd "$script_dir/.." && pwd)"
-data_dir="$repo_dir/gnome"
+data_dir="$repo_dir/desktop_environment/gnome"
 settings_file="$data_dir/extensions.dconf"
 manifest_file="$data_dir/extensions.yaml"
 
@@ -338,7 +338,7 @@ usage() {
 Usage: gnome-extensions-sync.sh <capture|apply|diff|check>
 
   capture   Dump the live GNOME extension settings and extension list into
-            gnome/, ready to commit.
+            desktop_environment/gnome/, ready to commit.
   apply     Install the stored extensions, load their settings and enable them.
   diff      Show how the live settings differ from the stored ones.
   check     Exit 0 if the machine already matches the repo, non-zero otherwise.

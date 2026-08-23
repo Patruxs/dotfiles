@@ -2,7 +2,7 @@
 #
 # Capture and restore KDE Plasma settings.
 #
-#   capture  machine -> repo   copy the tracked settings into kde/settings/
+#   capture  machine -> repo   copy the tracked settings into desktop_environment/kde/settings/
 #   apply    repo -> machine   write every stored setting that differs
 #   diff     show which stored settings differ from the live ones
 #   check    exit 0 when the machine already matches the repo
@@ -12,7 +12,7 @@
 # which replaces a symlink with a plain file, and they mix preferences with
 # runtime state such as window geometry, update stamps and per-screen tiling
 # layouts. So this script stores a filtered copy of each tracked file in
-# kde/settings/<file> and writes the entries back one key at a time with
+# desktop_environment/kde/settings/<file> and writes the entries back one key at a time with
 # kwriteconfig6, leaving everything else in the live file alone.
 #
 # The stored files use KConfig's own INI syntax, including its escaping (a
@@ -22,10 +22,10 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd "$script_dir/.." && pwd)"
-data_dir="$repo_dir/kde/settings"
+data_dir="$repo_dir/desktop_environment/kde/settings"
 config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
 
-# The files `capture` reads. Any other file already present in kde/settings/
+# The files `capture` reads. Any other file already present in the data dir
 # is kept and re-captured too, so a hand-added file stays tracked.
 tracked_files=(
   kdeglobals              # look and feel: colours, fonts, icons, single-click, ...
@@ -490,7 +490,8 @@ usage() {
   cat <<'USAGE'
 Usage: kde-settings-sync.sh <capture|apply|diff|check>
 
-  capture   Copy the tracked KDE settings from ~/.config into kde/settings/,
+  capture   Copy the tracked KDE settings from ~/.config into
+            desktop_environment/kde/settings/,
             without their runtime state, ready to commit.
   apply     Write every stored setting that differs to ~/.config with
             kwriteconfig6, leaving other settings alone.

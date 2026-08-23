@@ -134,7 +134,7 @@ The order features appear in a profile file means nothing. `ansible/playbooks/ex
 
 Feature roles run in the fixed sequence declared as `dotfiles_feature_execution_order` in `profile_preflight`, filtered to the features the profile selected. That list is what makes dependencies safe - `desktop_base` before the desktop apps that assume it.
 
-`desktop_base` is also where desktop settings branch: it includes the `gnome` role when `dotfiles_desktop` is `gnome` (dconf preferences from `home/.chezmoidata/gnome_dconf.yaml` and the extension state under `gnome/`, inside a running session) and the `kde` role when it is `kde` (the INI fragments under `kde/settings/`, written with `kwriteconfig6`), and records a skipped entry for the report otherwise.
+`desktop_base` is also where desktop settings branch: it includes the `gnome` role when `dotfiles_desktop` is `gnome` (dconf preferences from `home/.chezmoidata/gnome_dconf.yaml` and the extension state under `desktop_environment/gnome/`, inside a running session) and the `kde` role when it is `kde` (the INI fragments under `desktop_environment/kde/settings/`, written with `kwriteconfig6`), and records a skipped entry for the report otherwise.
 
 ### 6. Chezmoi gets the setup data
 
@@ -280,11 +280,12 @@ ansible/roles/
 
 scripts/
   detect-desktop.sh                   the one desktop detector bootstrap and Ansible share
-  gnome-extensions-sync.sh            capture/apply GNOME Shell extension state in gnome/
-  kde-settings-sync.sh                capture/apply KDE Plasma settings in kde/settings/
+  gnome-extensions-sync.sh            capture/apply GNOME Shell extension state
+  kde-settings-sync.sh                capture/apply KDE Plasma settings
 
-gnome/                                captured GNOME Shell extension state
-kde/settings/                         captured KDE Plasma settings, one INI fragment per config file
+desktop_environment/
+  gnome/                              captured GNOME Shell extension state
+  kde/settings/                       captured KDE Plasma settings, one INI fragment per config file
 home/                                 the Chezmoi source directory
 test/                                 harness and bootstrap regression checks
 ```
