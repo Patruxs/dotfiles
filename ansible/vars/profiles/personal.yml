@@ -18,6 +18,7 @@ features:
   - flatpak_apps
   - warp_terminal
   - ghostty_terminal
+  - zed_editor
   - jetbrains_toolbox
   - virtualbox
   - kiro_ide

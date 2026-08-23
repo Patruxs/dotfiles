@@ -16,6 +16,7 @@ features:
   - flatpak_apps
   - warp_terminal
   - ghostty_terminal
+  - zed_editor
 gnome_settings_enabled: true
 install_ai_clis: true
 install_docker: true

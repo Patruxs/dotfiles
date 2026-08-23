@@ -62,3 +62,6 @@ package_sets:
   warp_terminal:
     cask:
       - warp
+  zed_editor:
+    cask:
+      - zed

@@ -62,8 +62,8 @@ classify_desktop_name() {
 
 # Classify a colon-separated list such as "ubuntu:GNOME", "Budgie:GNOME" or
 # "KDE". The first entry that says anything wins, so Budgie stays "other"
-# even though it lists GNOME after itself; a list with no telling entry is
-# "other" too (something is running, and it is not GNOME or KDE Plasma).
+# even though it lists GNOME after itself. Prints nothing when no entry is
+# telling ("ubuntu" on its own).
 classify_desktop_list() {
   local list="$1" entry result
   local -a entries=()
@@ -78,7 +78,7 @@ classify_desktop_list() {
     fi
   done
 
-  printf '%s\n' "other"
+  printf '%s\n' ""
 }
 
 # Classify an installed session file. Distros name these after themselves
@@ -91,7 +91,7 @@ classify_session_file() {
   names="$(sed -n 's/^DesktopNames=//p' "$file" 2>/dev/null | head -n 1 | tr -d ';')"
   if [ -n "$names" ]; then
     result="$(classify_desktop_list "$names")"
-    if [ "$result" != "other" ]; then
+    if [ -n "$result" ]; then
       printf '%s\n' "$result"
       return 0
     fi
@@ -137,6 +137,9 @@ detect_from_override() {
   esac
 }
 
+# The variables are read strongest first. The first one that names a desktop
+# decides, including a desktop known not to be GNOME or KDE; a variable that
+# says nothing either way ("ubuntu") defers to the next.
 detect_from_session_env() {
   local var value result
 
@@ -144,10 +147,16 @@ detect_from_session_env() {
     value="${!var:-}"
     [ -n "$value" ] || continue
     result="$(classify_desktop_list "$value")"
-    if [ "$result" != "other" ]; then
-      printf '%s\t%s\n' "$result" "$var=$value"
-      return 0
-    fi
+    case "$result" in
+      gnome|kde)
+        printf '%s\t%s\n' "$result" "$var=$value"
+        return 0
+        ;;
+      other)
+        printf '%s\t%s\n' "other" "$var=$value is not a GNOME or KDE Plasma session"
+        return 0
+        ;;
+    esac
   done
 
   if [ "${KDE_FULL_SESSION:-}" = "true" ]; then

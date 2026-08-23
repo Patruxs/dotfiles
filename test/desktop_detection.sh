@@ -115,6 +115,8 @@ reset_case; export XDG_CURRENT_DESKTOP=Budgie:GNOME;              expect "Budgie
 reset_case; export XDG_CURRENT_DESKTOP=Pop:GNOME;                 expect "Pop!_OS's GNOME session" gnome
 reset_case; export XDG_CURRENT_DESKTOP=COSMIC;                    expect "COSMIC is another desktop" other
 reset_case; export DESKTOP_SESSION=ubuntu;                        expect "an unknown session name alone is other" other
+reset_case; export XDG_CURRENT_DESKTOP=X-Cinnamon XDG_SESSION_DESKTOP=KDE; expect "a known other desktop in the strongest variable settles it" other
+reset_case; export XDG_CURRENT_DESKTOP=ubuntu XDG_SESSION_DESKTOP=gnome;   expect "an uninformative name defers to the next variable" gnome
 reset_case; export XDG_SESSION_DESKTOP=plasma;                    expect "XDG_SESSION_DESKTOP=plasma" kde
 reset_case; export DESKTOP_SESSION=/usr/share/wayland-sessions/plasma.desktop; expect "DESKTOP_SESSION as a path" kde
 reset_case; export DESKTOP_SESSION=gnome-xorg;                    expect "DESKTOP_SESSION=gnome-xorg" gnome

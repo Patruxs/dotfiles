@@ -22,6 +22,7 @@ brew "gcc"
 
 cask "warp"
 cask "visual-studio-code"
+cask "zed"
 cask "gitbutler"
 cask "ghostty"
 cask "docker-desktop"

@@ -26,6 +26,7 @@
         { "PackageIdentifier": "GitHub.cli" },
         { "PackageIdentifier": "Warp.Warp" },
         { "PackageIdentifier": "Microsoft.VisualStudioCode" },
+        { "PackageIdentifier": "ZedIndustries.Zed" },
         { "PackageIdentifier": "GitButler.GitButler" },
         { "PackageIdentifier": "Docker.DockerDesktop" },
         { "PackageIdentifier": "Obsidian.Obsidian" },

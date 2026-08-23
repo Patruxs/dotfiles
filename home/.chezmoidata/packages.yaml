@@ -100,6 +100,7 @@ packages:
       casks:
         - warp
         - visual-studio-code
+        - zed
         - gitbutler
         - ghostty
         - docker-desktop
@@ -126,6 +127,7 @@ packages:
         - ajeetdsouza.zoxide
         - Warp.Warp
         - Microsoft.VisualStudioCode
+        - ZedIndustries.Zed
         - GitButler.GitButler
         - Docker.DockerDesktop
         - Obsidian.Obsidian
