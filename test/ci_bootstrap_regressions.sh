@@ -1093,8 +1093,13 @@ if ! search_file_literal "scripts/detect-desktop.sh" "$bootstrap_script"; then
   exit 1
 fi
 
-if ! search_file_literal 'export DOTFILES_DESKTOP="$desktop"' "$bootstrap_script"; then
-  echo "expected bootstrap.sh to hand the detected desktop to the playbook through DOTFILES_DESKTOP"
+if search_file_literal 'export DOTFILES_DESKTOP="$desktop"' "$bootstrap_script"; then
+  echo "expected bootstrap.sh not to export its detected desktop: the playbook runs the same detector, and an exported value would replace the report's evidence with DOTFILES_DESKTOP=..."
+  exit 1
+fi
+
+if ! search_file "gnome\|kde\|none\|other\)" "$repo_root/scripts/detect-desktop.sh"; then
+  echo "expected detect-desktop.sh to accept every value it can print back through DOTFILES_DESKTOP"
   exit 1
 fi
 

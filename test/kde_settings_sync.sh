@@ -59,6 +59,14 @@ Window Close=Meta+Q,Alt+F4,Close Window
 _launch=Ctrl+Alt+T
 EOF
 cat >"$XDG_CONFIG_HOME/kdeglobals" <<'EOF'
+rootkey=rootvalue
+
+[Colors:Window]
+BackgroundNormal=18,18,18
+
+[ColorEffects:Inactive]
+Enable=false
+
 [General]
 ColorSchemeHash=7715fd9c409e8efa0516fd38da43c1c19bb12d96
 fixed=Hack,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
@@ -67,10 +75,14 @@ fixed=Hack,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
 SingleClick=false
 
 [KFileDialog Settings]
+Show hidden files=true
 Speedbar Width=157
 
 [DirSelect Dialog]
 DirSelectDialog Size=800,600
+
+[WM]
+activeBackground=18,18,18
 EOF
 cat >"$XDG_CONFIG_HOME/dolphinrc" <<'EOF'
 [General]
@@ -78,7 +90,18 @@ Version=202
 ViewPropsTimestamp=2026,8,23,7,54,35.933
 
 [MainWindow]
+1920x1080 screen: Window-Maximized=true
+Height 1080=700
 MenuBar=Disabled
+State=AAAA/wAAAAD9AAAAAQAAAAAAAAAAAAAAAPwCAAAAAfsAAAAWAEYAbwBsAGQAZQByAHMAUABhAG4AZQBsAAAAAAD/////AAAAAAAAAAAAAAOTAAAB6QAAAAQAAAAEAAAACAAAAAj8AAAAAA==
+Width 1920=1200
+EOF
+cat >"$XDG_CONFIG_HOME/konsolerc" <<'EOF'
+[General]
+ConfigVersion=1
+
+[UiSettings]
+ColorScheme=
 EOF
 
 # --- capture ---------------------------------------------------------------
@@ -88,7 +111,7 @@ EOF
 [ -f "$stored/kwinrc" ] || fail "capture did not write kde/settings/kwinrc"
 [ -f "$stored/kglobalshortcutsrc" ] || fail "capture did not write kde/settings/kglobalshortcutsrc"
 [ -f "$stored/kdeglobals" ] || fail "capture did not write kde/settings/kdeglobals"
-[ ! -e "$stored/dolphinrc" ] || fail "capture stored dolphinrc although it held only runtime state"
+[ -f "$stored/dolphinrc" ] || fail "capture did not write kde/settings/dolphinrc"
 [ ! -e "$stored/kxkbrc" ] || fail "capture invented a file that does not exist on the machine"
 
 stored_entries() {
@@ -107,9 +130,22 @@ if [ "$(stored_entries kglobalshortcutsrc | tr '\n' ' ')" != "Window Close=Meta+
 fi
 grep -q '^\[services\]\[org.kde.konsole.desktop\]$' "$stored/kglobalshortcutsrc" || fail "nested group header was not preserved"
 
-if [ "$(stored_entries kdeglobals | tr '\n' ' ')" != "SingleClick=false fixed=Hack,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1 " ]; then
-  fail "kdeglobals capture kept a hash or dialog state: $(stored_entries kdeglobals | tr '\n' ' ')"
+if [ "$(stored_entries kdeglobals | tr '\n' ' ')" != "Show hidden files=true SingleClick=false fixed=Hack,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1 rootkey=rootvalue " ]; then
+  fail "kdeglobals capture kept a hash, dialog geometry or an unchosen colour scheme, or lost a preference: $(stored_entries kdeglobals | tr '\n' ' ')"
 fi
+grep -q '^\[\]$' "$stored/kdeglobals" || fail "a root-group entry was not stored under the [] header"
+
+if [ "$(stored_entries dolphinrc | tr '\n' ' ')" != "MenuBar=Disabled " ]; then
+  fail "dolphinrc capture should keep MenuBar and drop the window geometry and version stamps: $(stored_entries dolphinrc | tr '\n' ' ')"
+fi
+
+# Colours travel once the user has chosen a scheme by name.
+printf '[General]\nColorScheme=BreezeDark\n' >>"$XDG_CONFIG_HOME/kdeglobals"
+"$sync" capture >/dev/null
+grep -q '^BackgroundNormal=18,18,18$' "$stored/kdeglobals" || fail "a chosen colour scheme's colours were not captured"
+grep -q '^activeBackground=18,18,18$' "$stored/kdeglobals" || fail "a chosen colour scheme's WM colours were not captured"
+sed -i '/^ColorScheme=BreezeDark$/d' "$XDG_CONFIG_HOME/kdeglobals"
+"$sync" capture >/dev/null
 
 head -1 "$stored/kwinrc" | grep -q '^# KDE Plasma settings for ~/.config/kwinrc' || fail "stored file lacks its header comment"
 
@@ -133,7 +169,10 @@ rm "$stored/kxkbrc"
 grep -q 'match the repo' "$work/diff.out" || fail "diff should report a match right after capture"
 
 sed -i 's/^Number=2$/Number=3/' "$stored/kwinrc"
-printf '\n[Extra]\nvalue=a\\\\b\\ttab\n' >>"$stored/kwinrc"
+printf '\n[Extra]\nvalue=a\\\\b\\ttab\nhex=a\\x41b\nempty=\n' >>"$stored/kwinrc"
+# An empty stored value against a different live value must be reported as
+# such, and not with the two sides swapped.
+printf '[UiSettings]\nColorScheme=Breeze\n' >"$XDG_CONFIG_HOME/konsolerc"
 
 if "$sync" check; then
   fail "check should fail when a stored value differs"
@@ -142,6 +181,8 @@ diff_output="$("$sync" diff || true)"
 printf '%s\n' "$diff_output" | grep -q 'kwinrc \[Desktops\] Number' || fail "diff did not list the changed entry: $diff_output"
 printf '%s\n' "$diff_output" | grep -q 'kwinrc \[Extra\] value' || fail "diff did not list the missing entry: $diff_output"
 printf '%s\n' "$diff_output" | grep -q 'NightColor' && fail "diff listed an entry that matches"
+printf '%s\n' "$diff_output" | grep -A2 'konsolerc \[UiSettings\] ColorScheme' | grep -q 'stored: $' || fail "diff did not show the empty stored value: $diff_output"
+printf '%s\n' "$diff_output" | grep -A2 'konsolerc \[UiSettings\] ColorScheme' | grep -q 'live:   Breeze' || fail "diff did not show the live value for an empty stored value: $diff_output"
 
 # An empty repo is not a match.
 mv "$stored" "$stored.bak"
@@ -162,6 +203,9 @@ fi
 "$sync" check || fail "check should pass right after apply"
 grep -q '^Number=3$' "$XDG_CONFIG_HOME/kwinrc" || fail "apply did not write the changed value"
 grep -q '^value=a\\\\b\\ttab$' "$XDG_CONFIG_HOME/kwinrc" || fail "apply did not round-trip KConfig escaping: $(grep '^value=' "$XDG_CONFIG_HOME/kwinrc")"
+grep -q '^hex=aAb$' "$XDG_CONFIG_HOME/kwinrc" || fail "apply did not decode a \\xHH escape: $(grep '^hex=' "$XDG_CONFIG_HOME/kwinrc")"
+grep -q '^empty=$' "$XDG_CONFIG_HOME/kwinrc" || fail "apply did not write an explicitly empty value"
+grep -q '^ColorScheme=$' "$XDG_CONFIG_HOME/konsolerc" || fail "apply did not reset a value to the stored empty string: $(cat "$XDG_CONFIG_HOME/konsolerc")"
 grep -q '^Id_1=771c4a49' "$XDG_CONFIG_HOME/kwinrc" || fail "apply removed an untracked live entry"
 grep -q '^\[Tiling\]' "$XDG_CONFIG_HOME/kwinrc" || fail "apply removed an untracked live group"
 grep -q '^update_info=' "$XDG_CONFIG_HOME/kwinrc" || fail "apply removed the \$Version stamp"

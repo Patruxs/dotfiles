@@ -40,12 +40,28 @@
 .config/kscreen/**
 .config/dconf/user
 .config/org.gnome.Ptyxis/session.gvariant
-# KDE rc files (kdeglobals, kwinrc, ...) are rewritten atomically by KDE,
-# which would replace a chezmoi symlink with a plain file. They are managed
-# key by key from kde/settings/ by scripts/kde-settings-sync.sh instead.
+# KDE rc files are rewritten atomically by KDE, which would replace a chezmoi
+# symlink with a plain file. The ones scripts/kde-settings-sync.sh tracks are
+# managed key by key from kde/settings/ instead; the panel layout files are
+# machine state tied to activity and screen identifiers.
 .config/kdeglobals
 .config/kwinrc
+.config/kwinrulesrc
 .config/kglobalshortcutsrc
+.config/kxkbrc
+.config/kcminputrc
+.config/powerdevilrc
+.config/knighttimerc
+.config/kscreenlockerrc
+.config/ksmserverrc
+.config/plasma-localerc
+.config/plasmarc
+.config/plasmanotifyrc
+.config/krunnerrc
+.config/klipperrc
+.config/dolphinrc
+.config/konsolerc
+.config/baloofilerc
 .config/plasma-org.kde.plasma.desktop-appletsrc
 .config/plasmashellrc
 

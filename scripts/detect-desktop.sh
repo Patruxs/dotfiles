@@ -24,9 +24,9 @@
 #   4. the installed session files when nothing is running:
 #      /usr/share/wayland-sessions and /usr/share/xsessions
 #
-# Both bootstrap.sh and the Ansible playbooks call this script, so the two
-# always agree. The functions below are sourced by test/desktop_detection.sh,
-# which overrides the process and filesystem probes.
+# Both bootstrap.sh and the Ansible playbooks call this script, in the same
+# environment, so the two always agree. The functions below are sourced by
+# test/desktop_detection.sh, which overrides the process and filesystem probes.
 set -euo pipefail
 
 detect_desktop_os="$(uname -s)"
@@ -34,6 +34,9 @@ desktop_session_dirs=(/usr/share/wayland-sessions /usr/share/xsessions)
 
 # Classify one session name: an XDG_CURRENT_DESKTOP entry, a DESKTOP_SESSION
 # value (possibly a full path to a .desktop file), or a session file name.
+# Prints gnome, kde, other (a desktop known not to be GNOME or KDE Plasma,
+# even when it lists GNOME for compatibility, as Budgie does), or nothing
+# when the name says nothing either way (Ubuntu's "ubuntu", Pop!_OS's "pop").
 classify_desktop_name() {
   local name="$1"
 
@@ -42,43 +45,72 @@ classify_desktop_name() {
   name="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')"
 
   case "$name" in
-    "")
-      printf '%s\n' ""
-      ;;
     gnome|gnome-*)
       printf '%s\n' "gnome"
       ;;
     kde|kde-*|plasma|plasma-*|plasmawayland|plasmax11)
       printf '%s\n' "kde"
       ;;
-    *)
+    budgie|budgie-*|cinnamon|x-cinnamon|cosmic|cosmic-*|deepin|enlightenment|hyprland|i3|lxde|lxqt|mate|niri|pantheon|sway|ukui|unity|unity-*|wayfire|xfce|xfce-*)
       printf '%s\n' "other"
+      ;;
+    *)
+      printf '%s\n' ""
       ;;
   esac
 }
 
-# Classify a colon-separated list such as "ubuntu:GNOME" or "KDE". The first
-# recognised entry wins; a list with no recognised entry is "other".
+# Classify a colon-separated list such as "ubuntu:GNOME", "Budgie:GNOME" or
+# "KDE". The first entry that says anything wins, so Budgie stays "other"
+# even though it lists GNOME after itself; a list with no telling entry is
+# "other" too (something is running, and it is not GNOME or KDE Plasma).
 classify_desktop_list() {
-  local list="$1" entry result saw_entry=0
+  local list="$1" entry result
   local -a entries=()
 
   IFS=':' read -r -a entries <<<"$list"
   for entry in "${entries[@]}"; do
+    [ -n "$entry" ] || continue
     result="$(classify_desktop_name "$entry")"
-    [ -n "$result" ] || continue
-    saw_entry=1
-    if [ "$result" != "other" ]; then
+    if [ -n "$result" ]; then
       printf '%s\n' "$result"
       return 0
     fi
   done
 
-  if [ "$saw_entry" -eq 1 ]; then
-    printf '%s\n' "other"
-  else
-    printf '%s\n' ""
+  printf '%s\n' "other"
+}
+
+# Classify an installed session file. Distros name these after themselves
+# (Ubuntu's ubuntu.desktop and Pop!_OS's pop.desktop are GNOME sessions), so
+# the DesktopNames entry inside the file is read first, then the command it
+# starts, and only then the file name.
+classify_session_file() {
+  local file="$1" names exec_line result
+
+  names="$(sed -n 's/^DesktopNames=//p' "$file" 2>/dev/null | head -n 1 | tr -d ';')"
+  if [ -n "$names" ]; then
+    result="$(classify_desktop_list "$names")"
+    if [ "$result" != "other" ]; then
+      printf '%s\n' "$result"
+      return 0
+    fi
   fi
+
+  exec_line="$(sed -n 's/^Exec=//p' "$file" 2>/dev/null | head -n 1)"
+  case "${exec_line##*/}" in
+    gnome-session*)
+      printf '%s\n' "gnome"
+      return 0
+      ;;
+    startplasma*|startkde*|plasma-dbus-run-session-if-needed*)
+      printf '%s\n' "kde"
+      return 0
+      ;;
+  esac
+
+  result="$(classify_desktop_name "$file")"
+  printf '%s\n' "${result:-other}"
 }
 
 # Whether a process with this exact name runs under the current user. Scoped
@@ -87,13 +119,15 @@ session_process_running() {
   pgrep -u "$(id -u)" -x "$1" >/dev/null 2>&1
 }
 
+# "other" is accepted as well as the documented gnome|kde|none, so that a
+# value this script printed can always be fed back in.
 detect_from_override() {
   local override="${DOTFILES_DESKTOP:-}"
 
   [ -n "$override" ] || return 1
 
   case "$override" in
-    gnome|kde|none)
+    gnome|kde|none|other)
       printf '%s\t%s\n' "$override" "DOTFILES_DESKTOP=$override"
       ;;
     *)
@@ -110,7 +144,6 @@ detect_from_session_env() {
     value="${!var:-}"
     [ -n "$value" ] || continue
     result="$(classify_desktop_list "$value")"
-    [ -n "$result" ] || continue
     if [ "$result" != "other" ]; then
       printf '%s\t%s\n' "$result" "$var=$value"
       return 0
@@ -168,7 +201,7 @@ detect_from_session_files() {
     [ -d "$dir" ] || continue
     for file in "$dir"/*.desktop; do
       [ -e "$file" ] || continue
-      result="$(classify_desktop_name "$file")"
+      result="$(classify_session_file "$file")"
       case "$result" in
         gnome) gnome=1 ;;
         kde) kde=1 ;;

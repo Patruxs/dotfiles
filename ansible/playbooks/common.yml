@@ -51,8 +51,9 @@
         )
       }}
 
-# Desktop settings follow the session, not the distro. The same script is
-# what bootstrap.sh ran (and exported as DOTFILES_DESKTOP), so both agree.
+# Desktop settings follow the session, not the distro. bootstrap.sh ran the
+# same script in the same environment, so both agree; a DOTFILES_DESKTOP the
+# user set (--desktop) reaches it through the environment.
 - name: Detect the desktop environment
   command:
     argv:

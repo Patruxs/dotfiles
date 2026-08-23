@@ -37,8 +37,14 @@ reset_case() {
   detect_desktop_os="Linux"
 }
 
+# install_session <dir> <name> [DesktopNames value] [Exec value]
 install_session() {
-  touch "$sessions_dir/$1/$2.desktop"
+  {
+    echo "[Desktop Entry]"
+    echo "Name=$2"
+    if [ -n "${3:-}" ]; then echo "DesktopNames=$3"; fi
+    if [ -n "${4:-}" ]; then echo "Exec=$4"; fi
+  } >"$sessions_dir/$1/$2.desktop"
 }
 
 expect() {
@@ -88,6 +94,13 @@ if detect_desktop >/dev/null 2>&1; then
   echo "an unsupported DOTFILES_DESKTOP value must be rejected"
   exit 1
 fi
+# Every value the detector prints must be accepted back, since bootstrap.sh
+# and the playbook may hand it over through DOTFILES_DESKTOP.
+for value in gnome kde other none; do
+  reset_case
+  export DOTFILES_DESKTOP="$value"
+  expect "round-trip of '$value' through DOTFILES_DESKTOP" "$value"
+done
 
 # The running session, from its environment.
 reset_case; export XDG_CURRENT_DESKTOP=KDE;                       expect "XDG_CURRENT_DESKTOP=KDE" kde
@@ -98,6 +111,10 @@ reset_case; export XDG_CURRENT_DESKTOP=GNOME-Flashback:GNOME;     expect "GNOME 
 reset_case; export XDG_CURRENT_DESKTOP=X-Cinnamon;                expect "Cinnamon is another desktop" other
 reset_case; export XDG_CURRENT_DESKTOP=Hyprland;                  expect "Hyprland is another desktop" other
 reset_case; export XDG_CURRENT_DESKTOP=Unity:Unity7:ubuntu;       expect "Unity is another desktop" other
+reset_case; export XDG_CURRENT_DESKTOP=Budgie:GNOME;              expect "Budgie lists GNOME for compatibility but is not GNOME" other
+reset_case; export XDG_CURRENT_DESKTOP=Pop:GNOME;                 expect "Pop!_OS's GNOME session" gnome
+reset_case; export XDG_CURRENT_DESKTOP=COSMIC;                    expect "COSMIC is another desktop" other
+reset_case; export DESKTOP_SESSION=ubuntu;                        expect "an unknown session name alone is other" other
 reset_case; export XDG_SESSION_DESKTOP=plasma;                    expect "XDG_SESSION_DESKTOP=plasma" kde
 reset_case; export DESKTOP_SESSION=/usr/share/wayland-sessions/plasma.desktop; expect "DESKTOP_SESSION as a path" kde
 reset_case; export DESKTOP_SESSION=gnome-xorg;                    expect "DESKTOP_SESSION=gnome-xorg" gnome
@@ -125,6 +142,11 @@ reset_case; install_session xsessions plasmax11;                expect "only Pla
 reset_case; install_session wayland-sessions gnome;             expect "only GNOME installed" gnome
 reset_case; install_session xsessions gnome-classic;            expect "only GNOME Classic installed" gnome
 reset_case; install_session xsessions xfce;                     expect "only another desktop installed" other
+reset_case; install_session xsessions ubuntu "ubuntu:GNOME" "env GNOME_SHELL_SESSION_MODE=ubuntu /usr/bin/gnome-session --session=ubuntu"; expect "Ubuntu's ubuntu.desktop is a GNOME session" gnome
+reset_case; install_session wayland-sessions pop "pop:GNOME" "/usr/bin/gnome-session --session=pop"; expect "Pop!_OS's pop.desktop is a GNOME session" gnome
+reset_case; install_session wayland-sessions plasma "KDE" "/usr/libexec/plasma-dbus-run-session-if-needed /usr/bin/startplasma-wayland"; expect "Plasma's session file by its DesktopNames" kde
+reset_case; install_session xsessions custom "" "/usr/bin/startplasma-x11"; expect "a renamed Plasma session by its Exec" kde
+reset_case; install_session xsessions budgie-desktop "Budgie:GNOME" "/usr/bin/budgie-desktop"; expect "Budgie's session file is another desktop" other
 reset_case
 install_session wayland-sessions plasma
 install_session wayland-sessions gnome

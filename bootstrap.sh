@@ -1037,8 +1037,10 @@ resolve_platform() {
 
 # Desktop settings (GNOME dconf, KDE Plasma rc files) follow the detected
 # desktop environment, not the distro. The detector lives in the repository,
-# so it runs once the checkout exists; the playbook calls the same script and
-# reads the exported DOTFILES_DESKTOP, so bootstrap and Ansible always agree.
+# so it runs once the checkout exists. The playbook runs the same script in
+# the same environment (and honours a DOTFILES_DESKTOP the user set), so the
+# two agree without bootstrap having to pass its own answer along - which
+# would also hide the real evidence from the setup report.
 resolve_desktop() {
   local detector probe
 
@@ -1060,7 +1062,6 @@ resolve_desktop() {
   if [ "$desktop_detail" = "$probe" ]; then
     desktop_detail=""
   fi
-  export DOTFILES_DESKTOP="$desktop"
 
   case "$desktop" in
     gnome)
@@ -1235,6 +1236,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+validate_desktop_override
 show_welcome_screen
 resolve_chezmoi_dir
 resolve_platform
@@ -1264,8 +1266,6 @@ case "$setup_mode" in
     exit 1
     ;;
 esac
-
-validate_desktop_override
 
 trap on_exit EXIT
 

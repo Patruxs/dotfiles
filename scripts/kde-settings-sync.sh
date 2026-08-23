@@ -57,8 +57,6 @@ tracked_files=(
 # shellcheck disable=SC2016  # $Version is KConfig's literal group name
 runtime_groups=(
   '*:$Version'                      # kconf_update stamps
-  '*:MainWindow'                    # window geometry and toolbar state
-  '*:*Dialog*'                      # dialog sizes
   '*:LegacySession*'                # saved sessions
   '*:Session*'
   'kwinrc:Tiling*'                  # custom tiling layouts, keyed by desktop and screen UUID
@@ -67,17 +65,35 @@ runtime_groups=(
   'plasmanotifyrc:DoNotDisturb'     # the "until" timestamp of the current do-not-disturb
 )
 runtime_keys=(
+  '*:MainWindow/State'              # window geometry and toolbar state; MenuBar and
+  '*:MainWindow/Height*'            # StatusBar in the same group are preferences
+  '*:MainWindow/Width*'
+  '*:MainWindow/*Position*'
+  '*:MainWindow/* screen: *'
+  '*:*Dialog*/*Size*'               # dialog geometry; the rest of a dialog group
+  '*:*Dialog*/*Width*'              # (Show hidden files, View Style, ...) is preferences
+  '*:*Dialog*/*Height*'
+  '*:*Dialog*/*Position*'
+  '*:*Dialog*/* screen: *'
   'kdeglobals:General/ColorSchemeHash'
   'kwinrc:Desktops/Id_*'            # virtual desktop UUIDs
+  'kwinrc:Xwayland/Scale'           # derived from the display configuration
   'kglobalshortcutsrc:ActivityManager/switch-to-activity-*'
   'kglobalshortcutsrc:*/_k_friendly_name'   # component labels kglobalaccel registers itself
   'plasmarc:Wallpapers/usersWallpapers'
+  'plasmanotifyrc:Applications][*/Seen'   # "this app has sent a notification" flags
   'dolphinrc:General/Version'
   'dolphinrc:General/ViewPropsTimestamp'
   'konsolerc:General/ConfigVersion'
   'klipperrc:General/Version'
   'krunnerrc:General/migrated'
 )
+
+# Internal records are separated by the ASCII unit separator rather than a
+# tab: bash's `read` treats a tab as whitespace and collapses an empty field
+# away, and no KConfig file contains a raw control character (they are
+# escaped on disk).
+rs=$'\x1f'
 
 log()  { printf '%s\n' "$*"; }
 warn() { printf 'warning: %s\n' "$*" >&2; }
@@ -100,12 +116,12 @@ kreadconfig_bin() {
   fi
 }
 
-# Turn a KConfig INI file into one "group<TAB>key<TAB>value" record per entry.
-# Values keep their on-disk escaping, so they never contain a real tab.
-# Nested groups are flattened to "Outer][Inner"; entries before any group
-# header get an empty group.
+# Turn a KConfig INI file into one "group<RS>key<RS>value" record per entry.
+# Values keep their on-disk escaping. Nested groups are flattened to
+# "Outer][Inner"; entries before any group header get an empty group, which
+# is written back as "[]" and means KConfig's root group.
 parse_ini() {
-  awk '
+  awk -v rs="$rs" '
     /^[[:space:]]*$/ { next }
     /^#/ { next }
     /^\[/ {
@@ -116,7 +132,7 @@ parse_ini() {
     }
     index($0, "=") > 0 {
       position = index($0, "=")
-      print group "\t" substr($0, 1, position - 1) "\t" substr($0, position + 1)
+      print group rs substr($0, 1, position - 1) rs substr($0, position + 1)
     }
   ' "$1"
 }
@@ -135,7 +151,7 @@ matches_any() {
 filter_runtime_records() {
   local file="$1" group key value
 
-  while IFS=$'\t' read -r group key value; do
+  while IFS="$rs" read -r group key value; do
     if matches_any "$file:$group" "${runtime_groups[@]}"; then
       continue
     fi
@@ -151,7 +167,7 @@ filter_runtime_records() {
         continue
         ;;
     esac
-    printf '%s\t%s\t%s\n' "$group" "$key" "$value"
+    printf '%s%s%s%s%s\n' "$group" "$rs" "$key" "$rs" "$value"
   done
 }
 
@@ -159,7 +175,7 @@ filter_runtime_records() {
 # lists every shortcut KDE knows about. Keep only the ones that differ from
 # their default, so the repo records intent rather than the whole registry.
 filter_default_shortcuts() {
-  awk -F '\t' '
+  awk -F "$rs" '
     {
       value = $3
       gsub(/\\,/, "\001", value)
@@ -170,17 +186,42 @@ filter_default_shortcuts() {
   '
 }
 
+# Applying a colour scheme copies its colours into kdeglobals and names it in
+# [General] ColorScheme. A distro that sets its look through the config
+# cascade (Nobara, for one) leaves the colours there without the name, so
+# colours with no scheme name are the distro's choice, not the user's, and
+# are left out. Once the user picks a scheme, the name appears and its
+# colours travel with it.
+filter_unchosen_colour_scheme() {
+  awk -F "$rs" '
+    { lines[NR] = $0; group[NR] = $1; key[NR] = $2 }
+    $1 == "General" && $2 == "ColorScheme" { chosen = 1 }
+    END {
+      for (i = 1; i <= NR; i++) {
+        if (!chosen && (group[i] ~ /^Colors:/ || group[i] ~ /^ColorEffects:/ || group[i] == "WM")) continue
+        print lines[i]
+      }
+    }
+  '
+}
+
 # Read a tracked file and print its records, already filtered.
 live_records() {
   local file="$1"
   local path="$config_home/$file"
 
   [ -f "$path" ] || return 0
-  if [ "$file" = "kglobalshortcutsrc" ]; then
-    parse_ini "$path" | filter_runtime_records "$file" | filter_default_shortcuts
-  else
-    parse_ini "$path" | filter_runtime_records "$file"
-  fi
+  case "$file" in
+    kglobalshortcutsrc)
+      parse_ini "$path" | filter_runtime_records "$file" | filter_default_shortcuts
+      ;;
+    kdeglobals)
+      parse_ini "$path" | filter_runtime_records "$file" | filter_unchosen_colour_scheme
+      ;;
+    *)
+      parse_ini "$path" | filter_runtime_records "$file"
+      ;;
+  esac
 }
 
 # Print records back as an INI file, with one header comment.
@@ -197,7 +238,7 @@ write_settings_file() {
 #
 # Values use KConfig's own escaping (a tab is \\t, a backslash is \\\\).
 HEADER
-    while IFS=$'\t' read -r group key value; do
+    while IFS="$rs" read -r group key value; do
       if [ "$group" != "$current" ]; then
         printf '\n[%s]\n' "$group"
         current="$group"
@@ -259,11 +300,21 @@ cmd_capture() {
   log "captured $written file(s), kept $kept"
 }
 
-# Undo KConfig's INI escaping so a value can be handed to kwriteconfig, which
-# escapes it again on the way back. Unknown escapes are kept as they are:
-# "\," is list-element quoting that KConfig resolves at a higher layer.
+# Undo KConfig's INI escaping (\s \t \n \r \\ and \xHH) so a value can be
+# handed to kwriteconfig, which escapes it again on the way back. Unknown
+# escapes are kept as they are: "\," is list-element quoting that KConfig
+# resolves at a higher layer.
 kconfig_unescape() {
   awk '
+    function hex_value(text,    i, c, v) {
+      v = 0
+      for (i = 1; i <= length(text); i++) {
+        c = index("0123456789abcdef", tolower(substr(text, i, 1)))
+        if (c == 0) return -1
+        v = v * 16 + c - 1
+      }
+      return v
+    }
     {
       out = ""
       n = length($0)
@@ -276,6 +327,10 @@ kconfig_unescape() {
         else if (next_char == "n") { out = out "\n"; i++ }
         else if (next_char == "r") { out = out "\r"; i++ }
         else if (next_char == "\\") { out = out "\\"; i++ }
+        else if (next_char == "x" && i + 3 <= n && hex_value(substr($0, i + 2, 2)) >= 0) {
+          out = out sprintf("%c", hex_value(substr($0, i + 2, 2)))
+          i += 3
+        }
         else { out = out c }
       }
       printf "%s", out
@@ -330,21 +385,25 @@ mismatched_entries() {
   while IFS= read -r file; do
     live=()
     if [ -f "$config_home/$file" ]; then
-      while IFS=$'\t' read -r group key value; do
-        live["$group"$'\t'"$key"]="$value"
+      while IFS="$rs" read -r group key value; do
+        live["$group$rs$key"]="$value"
       done < <(parse_ini "$config_home/$file")
     fi
 
-    while IFS=$'\t' read -r group key value; do
-      live_value="${live["$group"$'\t'"$key"]-}"
-      if [ -n "${live["$group"$'\t'"$key"]+set}" ] && [ "$live_value" = "$value" ]; then
+    while IFS="$rs" read -r group key value; do
+      live_value="${live["$group$rs$key"]-}"
+      if [ -n "${live["$group$rs$key"]+set}" ] && [ "$live_value" = "$value" ]; then
         continue
       fi
-      if effective="$(effective_value "$file" "$group" "$key")" &&
+      # An explicitly empty stored value must be written when the key is
+      # absent: kreadconfig prints nothing for both, but KConfig treats an
+      # empty entry and a missing one differently.
+      if [ -n "$value" ] &&
+        effective="$(effective_value "$file" "$group" "$key")" &&
         [ "$effective" = "$(kconfig_unescape "$value")" ]; then
         continue
       fi
-      printf '%s\t%s\t%s\t%s\t%s\n' "$file" "$group" "$key" "$value" "$live_value"
+      printf '%s%s%s%s%s%s%s%s%s\n' "$file" "$rs" "$group" "$rs" "$key" "$rs" "$value" "$rs" "$live_value"
     done < <(parse_ini "$data_dir/$file")
   done < <(stored_files)
 }
@@ -369,7 +428,7 @@ cmd_apply() {
 
   local file group key value live_value count=0 kwin_changed=0
   local -a args=()
-  while IFS=$'\t' read -r file group key value live_value; do
+  while IFS="$rs" read -r file group key value live_value; do
     mapfile -t args < <(group_args "$group")
     "$writer" --file "$file" "${args[@]}" --key "$key" "${notify[@]}" -- "$(kconfig_unescape "$value")"
     log "  $file [$group] $key=$value"
@@ -403,7 +462,7 @@ cmd_diff() {
   require_stored_settings
   local file group key value live_value found=0
 
-  while IFS=$'\t' read -r file group key value live_value; do
+  while IFS="$rs" read -r file group key value live_value; do
     if [ "$found" -eq 0 ]; then
       log "stored (${data_dir#"$repo_dir"/}) differs from live (~/.config):"
       found=1
