@@ -112,11 +112,15 @@
   failed_when: false
   when: dotfiles_platform.package_family == 'apt'
 
+# dnf resolves install names through RPM provides (wget -> wget2-wget,
+# npm -> nodejs-npm, go -> golang on Fedora), so verify the same way rather
+# than requiring a package with the literal name.
 - name: Verify selected dnf package entries are present
   command:
     argv:
       - rpm
       - -q
+      - --whatprovides
       - "{{ item }}"
   loop: "{{ dotfiles_package_plan.system_packages | default([]) }}"
   register: dotfiles_verified_dnf_packages
