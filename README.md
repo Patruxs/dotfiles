@@ -14,7 +14,7 @@ An opinionated, cross-platform machine bootstrap system and dotfiles manager for
 
 ## 🚀 Quick start
 
-Prerequisites: macOS needs [Homebrew](https://brew.sh) installed first; Windows needs `winget` (ships with App Installer on Windows 10/11). Linux needs only `curl` and `sudo`.
+Prerequisites: macOS needs [Homebrew](https://brew.sh) installed first; Windows needs `winget` (ships with App Installer on Windows 10/11). Linux needs only `curl` and `sudo`. Supported Linux platforms are Ubuntu, Fedora (including Fedora rebuilds such as Nobara), and Arch (including Manjaro and other `ID_LIKE=arch` derivatives).
 
 **Linux**:
 

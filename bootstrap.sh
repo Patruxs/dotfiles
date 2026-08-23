@@ -11,6 +11,10 @@ fi
 chezmoi_dir="$HOME/.local/share/chezmoi"
 OS="$(uname -s)"
 DISTRO=""
+DISTRO_LIKE=""
+DISTRO_PLATFORM_ID=""
+DISTRO_IMAGE_BASED=""
+DISTRO_FAMILY=""
 platform=""
 setup_mode="${DOTFILES_SETUP_MODE:-best_effort}"
 report_file="$HOME/.dotfiles_setup_report.md"
@@ -18,11 +22,70 @@ report_file="$HOME/.dotfiles_setup_report.md"
 if [ "$OS" = "Linux" ] && [ -f /etc/os-release ]; then
   # shellcheck disable=SC1091  # system file, not part of this repo
   . /etc/os-release
-  DISTRO="$ID"
+  DISTRO="${ID:-}"
+  DISTRO_LIKE="${ID_LIKE:-}"
+  DISTRO_PLATFORM_ID="${PLATFORM_ID:-}"
+fi
+
+# Image-based systems (Fedora Silverblue/Kinoite, Bazzite, Bluefin, other
+# ostree/bootc images) carry Fedora's os-release identity but have a read-only
+# /usr where dnf cannot install packages, so they are rejected up front.
+if [ "$OS" = "Linux" ] && [ -e /run/ostree-booted ]; then
+  DISTRO_IMAGE_BASED=1
 fi
 
 have() {
   command -v "$1" >/dev/null 2>&1
+}
+
+# Map the os-release ID onto the distro family whose setup path this script
+# drives. Derivatives declare their parent in ID_LIKE (Nobara: ID=nobara,
+# ID_LIKE="rhel centos fedora"), so they reuse the parent's package manager and
+# playbook. Only the Fedora and Arch families are followed through ID_LIKE; the
+# Ubuntu path depends on Ubuntu release codenames that derivatives do not share.
+resolve_distro_family() {
+  local like
+
+  case "$DISTRO" in
+    ubuntu|debian|fedora|arch)
+      printf '%s\n' "$DISTRO"
+      return
+      ;;
+    manjaro)
+      printf '%s\n' "arch"
+      return
+      ;;
+  esac
+
+  for like in $DISTRO_LIKE; do
+    case "$like" in
+      fedora)
+        # Enterprise Linux (RHEL, AlmaLinux, Rocky, CentOS) lists fedora in
+        # ID_LIKE too, but builds on platform:elN. Only platform:fNN rebuilds
+        # share Fedora's repos, Copr chroots, and package names.
+        case "$DISTRO_PLATFORM_ID" in
+          platform:f[0-9]*)
+            printf '%s\n' "fedora"
+            return
+            ;;
+        esac
+        ;;
+      arch)
+        printf '%s\n' "arch"
+        return
+        ;;
+    esac
+  done
+
+  printf '%s\n' "$DISTRO"
+}
+
+if [ "$OS" = "Linux" ]; then
+  DISTRO_FAMILY="$(resolve_distro_family)"
+fi
+
+is_nobara() {
+  [ "$DISTRO" = "nobara" ]
 }
 
 is_ci() {
@@ -337,6 +400,9 @@ write_fallback_report() {
     echo "- Date: $(date '+%Y-%m-%d %H:%M:%S %Z')"
     echo "- Profile: \`${profile:-unknown}\`"
     echo "- Platform: \`${platform:-unknown}\`"
+    if [ -n "${DISTRO:-}" ] && [ "$DISTRO" != "${platform:-}" ]; then
+      echo "- Distro: \`$DISTRO\` (uses the \`${platform:-unknown}\` setup path)"
+    fi
     echo "- Mode: \`$setup_mode\`"
     echo "- Result: $result"
     echo
@@ -645,7 +711,7 @@ install_packages() {
     fi
     brew install "$@"
   elif [ "$OS" = "Linux" ]; then
-    case "$DISTRO" in
+    case "$DISTRO_FAMILY" in
       fedora)
         run_privileged dnf install -y "$@"
         ;;
@@ -679,11 +745,28 @@ repair_broken_docker_desktop() {
   run_privileged dpkg --remove --force-remove-reinstreq docker-desktop
 }
 
+# Nobara asks users not to run `dnf upgrade` directly: its updater wraps the
+# same dnf transaction with distro-specific fixups (repo quirks, kernel and
+# dracut handling). `nobara-sync cli` is the non-interactive form. It normally
+# re-executes itself through sudo, so run it through run_privileged with the
+# identity variables it would otherwise set for itself.
+update_system_nobara() {
+  run_privileged env \
+    ORIGINAL_USER_HOME="$HOME" \
+    ORIG_USER="$(id -u)" \
+    SUDO_USER="$(id -u)" \
+    nobara-sync cli
+}
+
 update_system() {
   echo "Updating system packages before setup..."
-  case "$DISTRO" in
+  case "$DISTRO_FAMILY" in
     fedora)
-      run_privileged dnf upgrade --refresh -y
+      if is_nobara && have nobara-sync; then
+        update_system_nobara
+      else
+        run_privileged dnf upgrade --refresh -y
+      fi
       ;;
     debian|ubuntu)
       repair_broken_docker_desktop
@@ -840,7 +923,7 @@ install_chezmoi_from_package_manager() {
     return
   fi
 
-  case "$DISTRO" in
+  case "$DISTRO_FAMILY" in
     fedora|arch|manjaro)
       install_packages chezmoi
       ;;
@@ -895,7 +978,11 @@ detect_platform() {
       printf '%s\n' "macos"
       ;;
     Linux)
-      case "$DISTRO" in
+      if [ -n "$DISTRO_IMAGE_BASED" ]; then
+        echo "Unsupported image-based Linux (ostree/bootc): $DISTRO. This setup needs a package-based system." >&2
+        return 1
+      fi
+      case "$DISTRO_FAMILY" in
         ubuntu)
           printf '%s\n' "ubuntu"
           ;;

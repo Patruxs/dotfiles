@@ -14,16 +14,26 @@
   when:
     - dotfiles_platform.distro_key == 'debian'
 
+# Fedora itself does not package Ghostty, so the scottames/ghostty Copr is
+# added. Fedora derivatives such as Nobara already carry it in their own repos
+# (Terra), so the Copr is only enabled when no enabled repo can provide it.
 - name: Install or update Ghostty on Fedora
   ansible.builtin.shell: |
     set -euo pipefail
+    root_script="$(mktemp)"
+    trap 'rm -f "$root_script"' EXIT
+    cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
+    set -euo pipefail
+    if ! rpm -q ghostty >/dev/null 2>&1 && ! dnf -q list --available ghostty >/dev/null 2>&1; then
+      dnf -y copr enable scottames/ghostty
+    fi
+    dnf install -y ghostty
+    DOTFILES_ROOT_SCRIPT
 
     if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
-      sudo -S -p '' dnf -y copr enable scottames/ghostty < {{ dotfiles_sudo_password_file | quote }}
-      sudo -S -p '' dnf install -y ghostty < {{ dotfiles_sudo_password_file | quote }}
+      sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
     else
-      sudo -n dnf -y copr enable scottames/ghostty
-      sudo -n dnf install -y ghostty
+      sudo -n /bin/bash "$root_script"
     fi
   args:
     executable: /bin/bash

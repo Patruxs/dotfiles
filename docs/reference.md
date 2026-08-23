@@ -23,7 +23,9 @@ On Ubuntu, a `curl` that resolves to the Snap build is replaced with the native 
 
 Exit status: `0` when the playbook finished, even with skipped failures (read the report); non-zero when a critical step or strict mode stopped the run.
 
-Distro mapping: `ubuntu` to `ubuntu`, `fedora` to `fedora`, `arch` and `manjaro` to `arch`, Darwin to `macos`. Anything else fails early with an explicit message.
+Distro mapping (from `/etc/os-release`): `ubuntu` to `ubuntu`, `fedora` to `fedora`, `arch` and `manjaro` to `arch`, Darwin to `macos`. Rebuilds of a supported distro are followed through `ID_LIKE`: a Fedora rebuild (Nobara, Ultramarine - `ID_LIKE` contains `fedora` and `PLATFORM_ID` is `platform:fNN`) takes the `fedora` path, and an Arch derivative (`ID_LIKE` contains `arch`) takes the `arch` path. Enterprise Linux (RHEL, AlmaLinux, Rocky, CentOS) also lists `fedora` in `ID_LIKE` but builds on `platform:elN`, so it is rejected rather than sent down a path whose repos and package names it does not share. Ubuntu derivatives are not followed because the Ubuntu path depends on Ubuntu release codenames. Image-based systems (`/run/ostree-booted` exists: Fedora Silverblue/Kinoite, Bazzite, Bluefin, other ostree/bootc images) are rejected even when their os-release identity would map onto the Fedora path, because their read-only `/usr` cannot take dnf installs. Anything else fails early with an explicit message naming the real `ID`. The setup report records the real distro next to the platform when they differ.
+
+On Nobara, the system package refresh runs `nobara-sync cli` (Nobara's own updater, which wraps the dnf transaction with its fixups) instead of a raw `dnf upgrade`; everything after that is the plain Fedora path. Fedora-only third-party repos are added only when needed: the Ghostty Copr and RPM Fusion (VirtualBox) are skipped when an enabled repo already provides the package, which is the case for Ghostty on Nobara (Terra). The `virtualbox` feature is recorded as skipped on Nobara rather than installed: Nobara ships neither VirtualBox nor RPM Fusion, and `nobara-sync` removes RPM Fusion release packages as conflicting with Terra, so an RPM Fusion install would lose its repository on the next update.
 
 ## bootstrap.ps1 (Windows)
 
@@ -114,7 +116,7 @@ Installer types by platform:
 | Platform | Package family | Installer keys |
 | :--- | :--- | :--- |
 | `ubuntu` | `apt` | `apt`, `flatpak` |
-| `fedora` | `dnf` | `dnf`, `flatpak` |
+| `fedora` (also Fedora rebuilds such as Nobara) | `dnf` | `dnf`, `flatpak` |
 | `arch` | `pacman` | `pacman`, `flatpak` |
 | `macos` | `brew` | `brew`, `cask` |
 

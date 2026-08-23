@@ -229,6 +229,10 @@
       - Date: {{ dotfiles_setup_report_time }}
       - Profile: `{{ profile }}`
       - Platform: `{{ dotfiles_platform.name }}` ({{ dotfiles_platform.package_family }})
+      {% set canonical_distribution = {'ubuntu': 'ubuntu', 'fedora': 'fedora', 'arch': 'archlinux', 'macos': 'macosx'} %}
+      {% if (dotfiles_platform.distribution | default('') | lower) not in ['', canonical_distribution[dotfiles_platform.name] | default(dotfiles_platform.name)] %}
+      - Distro: `{{ dotfiles_platform.distribution }}` (uses the `{{ dotfiles_platform.name }}` setup path)
+      {% endif %}
       - Mode: `{{ dotfiles_setup_mode }}`
       - Result: {{ dotfiles_setup_result }}
 

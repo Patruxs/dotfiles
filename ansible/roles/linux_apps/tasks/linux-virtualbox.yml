@@ -65,16 +65,27 @@
     - dotfiles_platform.distro_key == 'debian'
     - dotfiles_platform.architecture in ['x86_64', 'amd64']
 
+# VirtualBox comes from RPM Fusion Free. The release package is only added when
+# no enabled repo can already provide VirtualBox (re-runs, or derivatives that
+# ship it themselves). `rpm -E %fedora` resolves on derivatives too, so the
+# matching Fedora release package is picked.
 - name: Install or update VirtualBox on Fedora
   ansible.builtin.shell: |
     set -euo pipefail
+    root_script="$(mktemp)"
+    trap 'rm -f "$root_script"' EXIT
+    cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
+    set -euo pipefail
+    if ! rpm -q VirtualBox >/dev/null 2>&1 && ! dnf -q list --available VirtualBox >/dev/null 2>&1; then
+      dnf install -y "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
+    fi
+    dnf install -y VirtualBox akmod-VirtualBox
+    DOTFILES_ROOT_SCRIPT
 
     if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
-      sudo -S -p '' dnf install -y "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm" < {{ dotfiles_sudo_password_file | quote }}
-      sudo -S -p '' dnf install -y VirtualBox akmod-VirtualBox < {{ dotfiles_sudo_password_file | quote }}
+      sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
     else
-      sudo -n dnf install -y "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
-      sudo -n dnf install -y VirtualBox akmod-VirtualBox
+      sudo -n /bin/bash "$root_script"
     fi
   args:
     executable: /bin/bash

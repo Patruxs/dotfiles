@@ -32,7 +32,7 @@ Nothing is implicit. A profile gets exactly the features it lists, with no share
 
 ### Platform - one operating system's setup path
 
-A platform is `ubuntu`, `fedora`, `arch`, or `macos`. Each has a standalone playbook in `ansible/playbooks/` and exactly one package set in `ansible/vars/package_sets/`. A run loads only its own platform's data, so an Ubuntu setup can never read Fedora package names.
+A platform is `ubuntu`, `fedora`, `arch`, or `macos`. Each has a standalone playbook in `ansible/playbooks/` and exactly one package set in `ansible/vars/package_sets/`. A run loads only its own platform's data, so an Ubuntu setup can never read Fedora package names. A rebuild of a supported distro is not a new platform: Nobara resolves to `fedora` through os-release `ID_LIKE` (see [Reference](reference.md#bootstrapsh-linux-and-macos) for the exact rule) and runs the Fedora playbook unchanged.
 
 Windows is deliberately outside this structure. It runs `bootstrap.ps1` with winget and does not use Ansible.
 

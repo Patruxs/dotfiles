@@ -372,6 +372,12 @@ if ! search_file 'download\.docker\.com/linux/ubuntu' "$repo_root/ansible/roles/
   exit 1
 fi
 
+if ! search_file_literal 'dnf -q list --available ghostty' "$repo_root/ansible/roles/linux_apps/tasks/linux-ghostty.yml" ||
+  ! search_file_literal 'dnf -q list --available VirtualBox' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml"; then
+  echo "expected Fedora Ghostty and VirtualBox installers to prefer packages already provided by enabled repos before adding Copr or RPM Fusion"
+  exit 1
+fi
+
 if ! search_file 'download\.docker\.com/linux/fedora/docker-ce\.repo' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
   echo "expected Fedora Docker Desktop installer to add the official Docker dnf repository"
   exit 1
@@ -529,6 +535,33 @@ fi
 
 if ! search_file '--platform is only supported when DOTFILES_CI=1\.' "$repo_root/bootstrap.sh"; then
   echo "expected bootstrap.sh to reject platform overrides outside DOTFILES_CI"
+  exit 1
+fi
+
+if ! search_file_literal 'DISTRO_FAMILY="$(resolve_distro_family)"' "$repo_root/bootstrap.sh" ||
+  ! search_file_literal 'platform:f[0-9]*)' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to map Fedora rebuilds such as Nobara through os-release ID_LIKE and PLATFORM_ID"
+  exit 1
+fi
+
+if [ "$(grep -c 'case "\$DISTRO" in' "$repo_root/bootstrap.sh")" -ne 1 ]; then
+  echo "expected bootstrap.sh to branch on DISTRO_FAMILY everywhere except resolve_distro_family"
+  exit 1
+fi
+
+if ! search_file_literal 'nobara-sync cli' "$repo_root/bootstrap.sh"; then
+  echo "expected bootstrap.sh to refresh Nobara through its own updater instead of raw dnf upgrade"
+  exit 1
+fi
+
+if ! search_file_literal 'dotfiles_os_release_id_like' "$repo_root/ansible/roles/platform/tasks/main.yml" ||
+  ! search_file_literal "'fedora' in dotfiles_os_release_id_like" "$repo_root/ansible/roles/platform/tasks/main.yml"; then
+  echo "expected the platform role to resolve Fedora rebuilds through os-release ID_LIKE"
+  exit 1
+fi
+
+if search_file_literal "ansible_facts['os_family'] == 'RedHat'" "$setup_playbook"; then
+  echo "expected setup.yml to take the platform family from the platform role instead of raw os_family"
   exit 1
 fi
 

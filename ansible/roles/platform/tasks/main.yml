@@ -1,14 +1,35 @@
 ---
+# Derivative distros (Nobara, EndeavourOS, ...) report their own name as
+# os_family, so the family is resolved through os-release ID_LIKE as well.
+- name: Read os-release ID_LIKE
+  set_fact:
+    dotfiles_os_release_id_like: >-
+      {{
+        lookup('pipe', '[ -r /etc/os-release ] && . /etc/os-release; echo "${ID_LIKE:-}"').split()
+        if ansible_facts['system'] == 'Linux' else []
+      }}
+
 - name: Derive platform facts
   set_fact:
     dotfiles_platform:
       system: "{{ ansible_facts['system'] }}"
-      os_family: "{{ ansible_facts['os_family'] }}"
+      os_family: >-
+        {{
+          'RedHat' if 'fedora' in dotfiles_os_release_id_like
+          else 'Archlinux' if 'arch' in dotfiles_os_release_id_like
+          else ansible_facts['os_family']
+        }}
       distribution: "{{ ansible_facts['distribution'] | default('') }}"
       distribution_version: "{{ ansible_facts['distribution_version'] | default('') }}"
       distribution_major_version: "{{ ansible_facts['distribution_major_version'] | default('') }}"
       architecture: "{{ ansible_facts['architecture'] | default('') }}"
-      distro_key: "{{ 'fedora' if ansible_facts['os_family'] == 'RedHat' else 'debian' if ansible_facts['os_family'] == 'Debian' else 'arch' if ansible_facts['os_family'] == 'Archlinux' else '' }}"
+      distro_key: >-
+        {{
+          'fedora' if (ansible_facts['os_family'] == 'RedHat' or 'fedora' in dotfiles_os_release_id_like)
+          else 'debian' if ansible_facts['os_family'] == 'Debian'
+          else 'arch' if (ansible_facts['os_family'] == 'Archlinux' or 'arch' in dotfiles_os_release_id_like)
+          else ''
+        }}
       ubuntu_codename: >-
         {{
           lookup('pipe', '. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}"')

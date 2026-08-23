@@ -1,6 +1,28 @@
 ---
+# Nobara ships neither VirtualBox nor RPM Fusion, and its updater
+# (nobara-sync, which bootstrap runs first) removes RPM Fusion release
+# packages as conflicting with Terra. Installing VirtualBox from RPM Fusion
+# would therefore lose its repo on the next update, so the feature is skipped
+# and recorded instead of going behind the updater's back.
+- name: Record skipped VirtualBox on Nobara
+  set_fact:
+    dotfiles_setup_skipped: >-
+      {{
+        (dotfiles_setup_skipped | default([])) + [
+          {
+            'phase': 'feature',
+            'name': 'virtualbox',
+            'detail': 'Nobara does not ship VirtualBox and its updater removes the RPM Fusion repositories the Fedora installer relies on. Install VirtualBox manually (for example from Oracle''s Fedora repository) if you need it.'
+          }
+        ]
+      }}
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - dotfiles_platform.distribution == 'Nobara'
+
 - name: Install VirtualBox feature on Linux
   include_tasks: "{{ chezmoi_dir }}/ansible/roles/linux_apps/tasks/linux-virtualbox.yml"
   when:
     - dotfiles_platform.system == 'Linux'
+    - dotfiles_platform.distribution != 'Nobara'
     - not (dotfiles_ci | default(false))
