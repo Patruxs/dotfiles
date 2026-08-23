@@ -4,11 +4,14 @@
     file: "{{ chezmoi_dir }}/home/.chezmoidata/gnome_dconf.yaml"
     name: gnome_dconf_data
 
-# Match on the process name only. A full-command-line match picks up
-# unrelated daemons such as `at-spi2-registryd --use-gnome-session`, which KDE
-# Plasma also runs, and would apply GNOME settings to a non-GNOME desktop.
-# Process names are truncated to 15 characters, so gnome-session-binary
-# appears as gnome-session-b.
+# The role only runs when detect-desktop.sh chose GNOME, but that can also
+# mean "GNOME is the installed desktop and nothing is running" (setup over
+# SSH). dconf needs the session bus, so the settings are applied only inside
+# a running GNOME session. Match on the process name only: a full-command-line
+# match picks up unrelated daemons such as `at-spi2-registryd
+# --use-gnome-session`, which KDE Plasma also runs. Process names are
+# truncated to 15 characters, so gnome-session-binary appears as
+# gnome-session-b.
 - name: Check if a GNOME session is running
   command:
     argv:

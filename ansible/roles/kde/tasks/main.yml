@@ -1,0 +1,7 @@
+---
+- name: Configure KDE Plasma settings
+  include_tasks: linux.yml
+  when:
+    - kde_settings_enabled | default(false)
+    - dotfiles_platform.system == 'Linux'
+    - dotfiles_desktop | default('none') == 'kde'

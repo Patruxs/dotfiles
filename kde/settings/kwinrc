@@ -1,0 +1,17 @@
+# KDE Plasma settings for ~/.config/kwinrc, captured by scripts/kde-settings-sync.sh.
+#
+# Regenerate with:   ./scripts/kde-settings-sync.sh capture
+# Restore with:      ./scripts/kde-settings-sync.sh apply
+#
+# Values use KConfig's own escaping (a tab is \t, a backslash is \\).
+
+[Desktops]
+Number=1
+Rows=1
+
+[NightColor]
+Active=true
+NightTemperature=4700
+
+[Xwayland]
+Scale=1

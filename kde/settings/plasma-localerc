@@ -1,0 +1,9 @@
+# KDE Plasma settings for ~/.config/plasma-localerc, captured by scripts/kde-settings-sync.sh.
+#
+# Regenerate with:   ./scripts/kde-settings-sync.sh capture
+# Restore with:      ./scripts/kde-settings-sync.sh apply
+#
+# Values use KConfig's own escaping (a tab is \t, a backslash is \\).
+
+[Formats]
+LANG=en_US.utf8

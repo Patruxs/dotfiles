@@ -4,4 +4,5 @@
     dotfiles_chezmoi_setup_data:
       dotfiles_profile: "{{ profile }}"
       dotfiles_platform: "{{ dotfiles_platform.name }}"
+      dotfiles_desktop: "{{ dotfiles_desktop | default('none') }}"
       dotfiles_features: "{{ features }}"

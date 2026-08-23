@@ -1,6 +1,36 @@
 ---
-- name: Configure desktop base feature
+# Desktop settings follow the detected desktop environment (dotfiles_desktop,
+# from scripts/detect-desktop.sh), not the distro: a KDE session gets the
+# KDE settings, a GNOME session the GNOME ones, anything else is recorded as
+# skipped so the report says why no desktop settings were applied.
+- name: Apply GNOME settings
   include_role:
     name: gnome
   when:
     - dotfiles_platform.system == 'Linux'
+    - dotfiles_desktop | default('none') == 'gnome'
+
+- name: Apply KDE Plasma settings
+  include_role:
+    name: kde
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - dotfiles_desktop | default('none') == 'kde'
+
+- name: Record skipped desktop settings
+  set_fact:
+    dotfiles_setup_skipped: >-
+      {{
+        (dotfiles_setup_skipped | default([])) + [
+          {
+            'phase': 'feature',
+            'name': 'desktop_base settings',
+            'detail': 'No GNOME or KDE Plasma desktop was detected ('
+                      ~ (dotfiles_desktop_detail | default('no desktop session')) ~ '), so no desktop settings were applied.'
+                      ~ ' Set DOTFILES_DESKTOP=gnome or DOTFILES_DESKTOP=kde to choose one explicitly.'
+          }
+        ]
+      }}
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - dotfiles_desktop | default('none') not in ['gnome', 'kde']

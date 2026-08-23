@@ -125,13 +125,18 @@ chezmoi add ~/.config/yourtool/config
 chezmoi diff
 ```
 
-If the file should only exist on some machines, guard it with the setup data the run generates - `dotfiles_platform` and `dotfiles_features` - rather than `dotfiles_profile`:
+If the file should only exist on some machines, guard it with the setup data the run generates - `dotfiles_platform`, `dotfiles_desktop`, and `dotfiles_features` - rather than `dotfiles_profile`:
 
 ```text
 {{- if not (has "desktop_base" (default (list) (get . "dotfiles_features"))) }}
 .config/yourtool/config
 {{- end }}
+{{- if ne (default "none" (get . "dotfiles_desktop")) "kde" }}
+.config/yourkdetool/config
+{{- end }}
 ```
+
+KDE's own rc files (`kdeglobals`, `kwinrc`, `kglobalshortcutsrc`, ...) are the exception: KDE rewrites them atomically, which replaces a chezmoi symlink with a plain file, so they are not managed by chezmoi. Add the keys you care about to `kde/settings/<file>` (or run `./scripts/kde-settings-sync.sh capture`) and the `kde` role writes them with `kwriteconfig6`. GNOME preferences go in `home/.chezmoidata/gnome_dconf.yaml`.
 
 ## Before you open the pull request
 

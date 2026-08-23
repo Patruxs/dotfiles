@@ -24,6 +24,7 @@ package_sets:
     pacman:
       - flatpak
       - gparted
+      - python-psutil
     flatpak:
       - com.gitbutler.gitbutler
       - com.visualstudio.code

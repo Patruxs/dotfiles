@@ -16,6 +16,8 @@ DISTRO_PLATFORM_ID=""
 DISTRO_IMAGE_BASED=""
 DISTRO_FAMILY=""
 platform=""
+desktop=""
+desktop_detail=""
 setup_mode="${DOTFILES_SETUP_MODE:-best_effort}"
 report_file="$HOME/.dotfiles_setup_report.md"
 
@@ -402,6 +404,9 @@ write_fallback_report() {
     echo "- Platform: \`${platform:-unknown}\`"
     if [ -n "${DISTRO:-}" ] && [ "$DISTRO" != "${platform:-}" ]; then
       echo "- Distro: \`$DISTRO\` (uses the \`${platform:-unknown}\` setup path)"
+    fi
+    if [ "$OS" = "Linux" ] && [ -n "$desktop" ]; then
+      echo "- Desktop: \`$desktop\`${desktop_detail:+ ($desktop_detail)}"
     fi
     echo "- Mode: \`$setup_mode\`"
     echo "- Result: $result"
@@ -1030,6 +1035,58 @@ resolve_platform() {
   esac
 }
 
+# Desktop settings (GNOME dconf, KDE Plasma rc files) follow the detected
+# desktop environment, not the distro. The detector lives in the repository,
+# so it runs once the checkout exists; the playbook calls the same script and
+# reads the exported DOTFILES_DESKTOP, so bootstrap and Ansible always agree.
+resolve_desktop() {
+  local detector probe
+
+  if [ "$OS" != "Linux" ]; then
+    return
+  fi
+
+  detector="$chezmoi_dir/scripts/detect-desktop.sh"
+  if [ ! -f "$detector" ]; then
+    echo "WARNING: $detector is missing; desktop settings will be skipped."
+    return
+  fi
+
+  if ! probe="$(bash "$detector" --explain)"; then
+    abort "Desktop detection failed."
+  fi
+  desktop="${probe%%$'\n'*}"
+  desktop_detail="${probe#*$'\n'}"
+  if [ "$desktop_detail" = "$probe" ]; then
+    desktop_detail=""
+  fi
+  export DOTFILES_DESKTOP="$desktop"
+
+  case "$desktop" in
+    gnome)
+      echo "Desktop environment: GNOME${desktop_detail:+ ($desktop_detail)}"
+      ;;
+    kde)
+      echo "Desktop environment: KDE Plasma${desktop_detail:+ ($desktop_detail)}"
+      ;;
+    *)
+      echo "Desktop environment: none detected${desktop_detail:+ ($desktop_detail)}; desktop settings will be skipped."
+      ;;
+  esac
+}
+
+validate_desktop_override() {
+  case "${DOTFILES_DESKTOP:-}" in
+    ""|gnome|kde|none)
+      ;;
+    *)
+      echo "Invalid desktop: ${DOTFILES_DESKTOP}"
+      echo "Use --desktop gnome, --desktop kde, --desktop none, or leave it unset to detect the running desktop."
+      exit 1
+      ;;
+  esac
+}
+
 required_ansible_collections_present() {
   local requirements_file collection_name
 
@@ -1150,6 +1207,14 @@ while [[ $# -gt 0 ]]; do
       platform="$2"
       shift 2
       ;;
+    --desktop)
+      if [[ $# -lt 2 ]]; then
+        echo "--desktop requires a value."
+        exit 1
+      fi
+      export DOTFILES_DESKTOP="$2"
+      shift 2
+      ;;
     --strict)
       setup_mode="strict"
       shift
@@ -1159,12 +1224,12 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --help|-h)
-      echo "Usage: $0 [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--best-effort|--strict]"
+      echo "Usage: $0 [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--desktop gnome|kde|none] [--best-effort|--strict]"
       exit 0
       ;;
     *)
       echo "Unknown argument: $1"
-      echo "Usage: $0 [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--best-effort|--strict]"
+      echo "Usage: $0 [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--desktop gnome|kde|none] [--best-effort|--strict]"
       exit 1
       ;;
   esac
@@ -1199,6 +1264,8 @@ case "$setup_mode" in
     exit 1
     ;;
 esac
+
+validate_desktop_override
 
 trap on_exit EXIT
 
@@ -1278,6 +1345,7 @@ done
 
 cd "$chezmoi_dir"
 export DOTFILES_CHEZMOI_DIR="$chezmoi_dir"
+resolve_desktop
 ansible_playbook="ansible/playbooks/$platform.yml"
 if [ ! -f "$ansible_playbook" ]; then
   abort "No Ansible playbook exists for platform: $platform"

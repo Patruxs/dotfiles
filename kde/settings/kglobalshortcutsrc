@@ -1,0 +1,10 @@
+# KDE Plasma settings for ~/.config/kglobalshortcutsrc, captured by scripts/kde-settings-sync.sh.
+#
+# Regenerate with:   ./scripts/kde-settings-sync.sh capture
+# Restore with:      ./scripts/kde-settings-sync.sh apply
+#
+# Values use KConfig's own escaping (a tab is \t, a backslash is \\).
+
+[plasmashell]
+next activity=Meta+A,none,Walk through activities
+previous activity=Meta+Shift+A,none,Walk through activities (Reverse)

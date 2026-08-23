@@ -67,7 +67,8 @@ Installer types are `apt`, `dnf`, `pacman`, `brew`, `cask`, and `flatpak`, depen
 flowchart TD
     A["bootstrap.sh --profile personal"] --> B["Detect OS -> platform"]
     B --> C["Install chezmoi, git, ansible"]
-    C --> D["ansible/playbooks/&lt;platform&gt;.yml"]
+    C --> C2["Detect desktop -> gnome / kde / none"]
+    C2 --> D["ansible/playbooks/&lt;platform&gt;.yml"]
     D --> E["Load ansible/vars/package_sets/&lt;platform&gt;.yml"]
     E --> F["common.yml: resolve profile, load features"]
     F --> G["profile_preflight: validate before installing"]
@@ -85,6 +86,8 @@ ansible-playbook -i localhost, ansible/playbooks/ubuntu.yml -e profile=personal
 
 `--platform` can override detection, but only under `DOTFILES_CI=1`. On a real machine the detected OS wins, so setup can never be told a lie about what it is running on.
 
+Once the repository is in place, bootstrap also runs `scripts/detect-desktop.sh` to decide which desktop's settings apply: `gnome`, `kde`, `other` (a desktop this repository has nothing for), or `none` (no session and nothing installed - servers, containers, CI). The detector reads the running session (`XDG_CURRENT_DESKTOP` and friends), then this user's session processes, then the installed session files when nothing is running; when both GNOME and Plasma are installed and neither is running it refuses to guess and reports `none`. The result is exported as `DOTFILES_DESKTOP`, which the playbook's own call to the same script honours, so bootstrap and Ansible always agree. `--desktop gnome|kde|none` sets it by hand; unlike `--platform` this is allowed on real machines, because choosing between two installed desktops is a legitimate thing to do.
+
 Each prerequisite step (system package refresh, curl, git, chezmoi, the repository, Ansible, its collections) runs through `run_step`, which captures the step's output and records whether it succeeded, failed, or was skipped. In `best_effort` mode a failed step is skipped and the run continues; only steps the rest of the run cannot work without (chezmoi, cloning the repository, Ansible, a missing collection) stop it. The recorded outcomes are handed to Ansible through `DOTFILES_BOOTSTRAP_OUTCOMES_FILE` so they appear in the final report alongside everything the playbook did.
 
 Two upstream failure modes are handled here specifically. The Snap build of `curl` is strictly confined (private `/tmp`, no hidden home directories), which makes `get.chezmoi.io` fail with `real_tag error retrieving GitHub release latest`; bootstrap detects a Snap `curl`, installs the native package, and prefers it. If the chezmoi installer still fails, bootstrap downloads the release binary directly from GitHub, then tries the distro package manager, before giving up.
@@ -99,7 +102,7 @@ Each platform playbook (`ubuntu.yml`, `fedora.yml`, `arch.yml`, `macos.yml`) is 
 
 `ansible/playbooks/common.yml` owns everything that is identical across platforms:
 
-- detect the environment: automation (CI), container CI, setup mode, low-memory mode
+- detect the environment: automation (CI), container CI, setup mode, low-memory mode, and the desktop environment (`dotfiles_desktop`, through `scripts/detect-desktop.sh`)
 - resolve the profile from `-e profile=`, then a cached fact, then an interactive prompt, and fail clearly in non-interactive mode when none is available
 - load the profile file and derive compatibility variables from its features
 - run `profile_preflight` and `execution.yml` inside one block: a `rescue` clause records whichever failure aborted the run, the `always` clause writes the outcome report, and a final task re-raises the failure so the play still fails
@@ -131,15 +134,17 @@ The order features appear in a profile file means nothing. `ansible/playbooks/ex
 
 Feature roles run in the fixed sequence declared as `dotfiles_feature_execution_order` in `profile_preflight`, filtered to the features the profile selected. That list is what makes dependencies safe - `desktop_base` before the desktop apps that assume it.
 
+`desktop_base` is also where desktop settings branch: it includes the `gnome` role when `dotfiles_desktop` is `gnome` (dconf preferences from `home/.chezmoidata/gnome_dconf.yaml` and the extension state under `gnome/`, inside a running session) and the `kde` role when it is `kde` (the INI fragments under `kde/settings/`, written with `kwriteconfig6`), and records a skipped entry for the report otherwise.
+
 ### 6. Chezmoi gets the setup data
 
 Before applying, the run builds a small data object and passes it to Chezmoi with `--override-data`:
 
 ```json
-{"dotfiles_profile": "personal", "dotfiles_platform": "ubuntu", "dotfiles_features": ["core_cli", "..."]}
+{"dotfiles_profile": "personal", "dotfiles_platform": "ubuntu", "dotfiles_desktop": "kde", "dotfiles_features": ["core_cli", "..."]}
 ```
 
-Templates should branch on platform or features rather than on the profile name. A desktop-only config should ask whether `desktop_base` was selected, not whether the profile is called `personal` - that way a future profile gets the right files without anyone editing the template.
+Templates should branch on platform, desktop, or features rather than on the profile name. A desktop-only config should ask whether `desktop_base` was selected, not whether the profile is called `personal` - that way a future profile gets the right files without anyone editing the template.
 
 ### 7. The run reports what is actually there
 
@@ -147,7 +152,7 @@ Templates should branch on platform or features rather than on the profile name.
 
 | Section | Contents |
 | :--- | :--- |
-| header | date, profile, platform, mode, and a one-line result: completed, completed with N skipped failures, or aborted at a named step |
+| header | date, profile, platform, desktop (with the evidence it was detected from), mode, and a one-line result: completed, completed with N skipped failures, or aborted at a named step |
 | Errors | every failure that was skipped (or the one that aborted the run), each with the task name and the captured error output in a code block - bootstrap steps first, then playbook phases in the order they ran |
 | Not detected after setup | entries that were selected but a local check could not find afterwards |
 | Skipped intentionally | entries excluded on purpose, with the reason |
@@ -203,6 +208,14 @@ A feature can be data, a role, or both, which avoids the alternative of creating
 `docker` sounds like one feature until you try to install it. Docker Engine and Docker Desktop install different things and conflict on Linux, so a profile has to say which one it means. The same logic gives `webserver_nginx` rather than `webserver` with an option, and separates `devtools`, `npm_global_tools`, and `ai_clis` so that a server does not quietly acquire a set of AI CLIs because they happened to be bundled with a compiler.
 
 The general rule: when a feature would need an option, make it two features. Names are cheap, and a name that appears in a profile is visible in a way a nested config value is not.
+
+### Desktop settings follow the session, not the distro
+
+The GNOME role used to run on Fedora only, because that is where it had been written and tried. That rule stopped describing anything real the day the same Fedora machine was reinstalled with KDE Plasma: the distro was unchanged, the GNOME settings no longer had a session to land in, and the KDE ones had nowhere to live.
+
+So desktop settings are keyed on what is actually running. One detector (`scripts/detect-desktop.sh`) answers the question for bootstrap, the playbooks, and the chezmoi setup data alike, and it prefers evidence of a running session over evidence of an installed one, and refuses to guess when two desktops are installed and neither is running. A desktop the repository has no settings for is not an error - a profile asks for `desktop_base`, not for GNOME - but it is recorded as skipped so the report explains the absence.
+
+KDE settings are stored as INI fragments rather than managed files because KDE rewrites its config files atomically, which would replace a chezmoi symlink with a plain file on the first save, and because those files mix preferences with runtime state (update stamps, window geometry, per-screen tiling layouts, UUIDs). Writing the stored keys back one at a time with `kwriteconfig6` keeps the rest of the live file, and the parts that are machine state, alone.
 
 ### Failing early, and never silently
 
@@ -262,8 +275,16 @@ ansible/roles/
   services/                           service enablement
   setup_outcome/                      verified end-of-run Markdown report
   low_memory/                         swap and installer throttling on small machines
+  gnome/ kde/                         desktop settings, selected by the detected desktop
   features/<feature_name>/            procedural feature implementations
 
+scripts/
+  detect-desktop.sh                   the one desktop detector bootstrap and Ansible share
+  gnome-extensions-sync.sh            capture/apply GNOME Shell extension state in gnome/
+  kde-settings-sync.sh                capture/apply KDE Plasma settings in kde/settings/
+
+gnome/                                captured GNOME Shell extension state
+kde/settings/                         captured KDE Plasma settings, one INI fragment per config file
 home/                                 the Chezmoi source directory
 test/                                 harness and bootstrap regression checks
 ```
@@ -277,6 +298,8 @@ test/                                 harness and bootstrap regression checks
 - unknown features fail before installation
 - unsupported profile and platform combinations fail before installation
 - `--platform` works under CI and is rejected on real machines
+- the desktop detector follows the running session, then this user's processes, then the installed session files, reports `none` rather than guessing between two installed desktops, and honours `DOTFILES_DESKTOP` (`test/desktop_detection.sh`)
+- KDE settings capture drops runtime state and default shortcuts, `check` and `diff` see exactly the stored entries, and `apply` writes only what differs and leaves the rest of the live file alone (`test/kde_settings_sync.sh`)
 - a failed bootstrap step is recorded and skipped in best-effort mode, stops the run in strict mode or when critical, and always reaches the Markdown report (`test/bootstrap_best_effort.sh`)
 - best-effort `chezmoi apply` isolates managed files from each `run_` script and records per-script failures
 - no install path hardcodes a tool version: download URLs must resolve the release at run time, `winget import` runs without `--no-upgrade` so installed packages are upgraded, Docker Desktop and VirtualBox resolve their current release from the vendor feed, and the upstream installers (zoxide, llmfit, superfile) are fetched unpinned and still resolve the latest release themselves (`test/upstream_installers_latest.sh`)

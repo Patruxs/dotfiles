@@ -1,0 +1,55 @@
+---
+# KDE settings are written key by key with kwriteconfig6 from the INI
+# fragments stored in kde/settings/, so they apply with or without a running
+# Plasma session (a session picks most of them up immediately, the rest at
+# the next login). scripts/kde-settings-sync.sh owns the format and the
+# runtime-state filtering; `check` keeps the run idempotent.
+- name: Find stored KDE settings
+  find:
+    paths: "{{ chezmoi_dir }}/kde/settings"
+    file_type: file
+  register: kde_settings_files
+
+- name: Check for the KDE configuration writer
+  command:
+    argv:
+      - sh
+      - -c
+      - command -v kwriteconfig6 || command -v kwriteconfig5
+  register: kde_config_writer
+  failed_when: false
+  changed_when: false
+  when: kde_settings_files.matched > 0
+
+- name: Fail when KDE settings cannot be written on this machine
+  fail:
+    msg: "kde/settings holds stored KDE settings but neither kwriteconfig6 nor kwriteconfig5 is installed; install the KDE configuration tools (kconfig) or remove the stored settings."
+  when:
+    - kde_settings_files.matched > 0
+    - kde_config_writer.rc != 0
+
+- name: Check whether KDE settings already match the repo
+  command:
+    argv:
+      - "{{ chezmoi_dir }}/scripts/kde-settings-sync.sh"
+      - check
+  register: kde_settings_check
+  failed_when: false
+  changed_when: false
+  when: kde_settings_files.matched > 0
+
+- name: Apply stored KDE settings
+  command:
+    argv:
+      - "{{ chezmoi_dir }}/scripts/kde-settings-sync.sh"
+      - apply
+  register: kde_settings_apply
+  changed_when: true
+  when:
+    - kde_settings_files.matched > 0
+    - kde_settings_check.rc | default(1) != 0
+
+- name: Report the KDE settings restore
+  debug:
+    var: kde_settings_apply.stdout_lines
+  when: kde_settings_apply is not skipped

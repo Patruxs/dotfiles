@@ -58,6 +58,20 @@ log_info "Running bootstrap platform detection regression test..."
 }
 log_info "Bootstrap platform detection regression test passed."
 
+log_info "Running desktop detection regression test..."
+./test/desktop_detection.sh || {
+    log_err "Desktop detection regression test failed."
+    exit 1
+}
+log_info "Desktop detection regression test passed."
+
+log_info "Running KDE settings sync regression test..."
+./test/kde_settings_sync.sh || {
+    log_err "KDE settings sync regression test failed."
+    exit 1
+}
+log_info "KDE settings sync regression test passed."
+
 log_info "Running bootstrap best-effort step handling test..."
 ./test/bootstrap_best_effort.sh || {
     log_err "Bootstrap best-effort step handling test failed."

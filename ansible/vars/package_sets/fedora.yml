@@ -20,6 +20,7 @@ package_sets:
     dnf:
       - flatpak
       - gparted
+      - python3-psutil
     flatpak:
       - com.gitbutler.gitbutler
       - com.visualstudio.code

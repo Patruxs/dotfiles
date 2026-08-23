@@ -1076,4 +1076,63 @@ if ! search_file 'chezmoi_diff="\$\(mktemp\)"' "$workflow_file"; then
   exit 1
 fi
 
+# Desktop settings follow the detected desktop environment, never the distro.
+gnome_role_main="$repo_root/ansible/roles/gnome/tasks/main.yml"
+kde_role_main="$repo_root/ansible/roles/kde/tasks/main.yml"
+desktop_base_feature="$repo_root/ansible/roles/features/desktop_base/tasks/main.yml"
+chezmoi_setup_data_task="$repo_root/ansible/roles/chezmoi_setup_data/tasks/main.yml"
+bootstrap_script="$repo_root/bootstrap.sh"
+
+if ! search_file_literal "scripts/detect-desktop.sh" "$common_playbook"; then
+  echo "expected common.yml to detect the desktop environment with scripts/detect-desktop.sh"
+  exit 1
+fi
+
+if ! search_file_literal "scripts/detect-desktop.sh" "$bootstrap_script"; then
+  echo "expected bootstrap.sh to run the same desktop detector as the playbooks"
+  exit 1
+fi
+
+if ! search_file_literal 'export DOTFILES_DESKTOP="$desktop"' "$bootstrap_script"; then
+  echo "expected bootstrap.sh to hand the detected desktop to the playbook through DOTFILES_DESKTOP"
+  exit 1
+fi
+
+if ! search_file "dotfiles_desktop \| default\('none'\) == 'gnome'" "$gnome_role_main"; then
+  echo "expected the gnome role to run only when the detected desktop is GNOME"
+  exit 1
+fi
+
+if search_file "distro_key == 'fedora'" "$gnome_role_main"; then
+  echo "expected the gnome role to stop gating on the distro"
+  exit 1
+fi
+
+if ! search_file "dotfiles_desktop \| default\('none'\) == 'kde'" "$kde_role_main"; then
+  echo "expected the kde role to run only when the detected desktop is KDE Plasma"
+  exit 1
+fi
+
+for role in gnome kde; do
+  if ! search_file "name: $role$" "$desktop_base_feature"; then
+    echo "expected desktop_base to dispatch to the $role role"
+    exit 1
+  fi
+done
+
+if ! search_file_literal "dotfiles_desktop | default('none') not in ['gnome', 'kde']" "$desktop_base_feature"; then
+  echo "expected desktop_base to record skipped desktop settings when no supported desktop is detected"
+  exit 1
+fi
+
+if ! search_file_literal "dotfiles_desktop:" "$chezmoi_setup_data_task"; then
+  echo "expected chezmoi setup data to expose dotfiles_desktop to templates"
+  exit 1
+fi
+
+if ! search_file_literal "kde-settings-sync.sh" "$repo_root/ansible/roles/kde/tasks/linux.yml"; then
+  echo "expected the kde role to restore settings through scripts/kde-settings-sync.sh"
+  exit 1
+fi
+
 echo "CI bootstrap regressions passed"

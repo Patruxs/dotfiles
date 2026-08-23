@@ -5,17 +5,18 @@ Flags, environment variables, and file formats. See [Architecture](architecture.
 ## bootstrap.sh (Linux and macOS)
 
 ```sh
-./bootstrap.sh [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--best-effort|--strict]
+./bootstrap.sh [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--desktop gnome|kde|none] [--best-effort|--strict]
 ```
 
 | Flag | Default | Description |
 | :--- | :--- | :--- |
 | `--profile <name>` | `DOTFILES_PROFILE`, or prompt | Which profile to install. Accepted values are `personal` and `work`, validated in `bootstrap.sh`, `bootstrap.ps1`, and `home/.chezmoi.toml.tmpl` (new profiles must be added to all three). |
 | `--platform <name>` | detected from the OS | Override platform detection. **Rejected unless `DOTFILES_CI=1`** - a real machine must not be able to lie about its OS. |
+| `--desktop <name>` | `DOTFILES_DESKTOP`, or detected | Which desktop's settings to apply on Linux: `gnome`, `kde`, or `none` (apply neither). Without it `scripts/detect-desktop.sh` decides from the running session, this user's session processes, or the installed session files. Allowed on real machines, unlike `--platform`, because a machine with two desktops installed and no session running (setup over SSH) genuinely needs to be told. |
 | `--best-effort` | this is the default | Skip a failing step and keep going, recording every skipped failure in the final report. Applies to the bootstrap prerequisite steps as well as package installs, feature roles, each `chezmoi` script, and services. |
 | `--strict` | | Stop at the first failure. Use this while developing. The report still records where the run stopped. |
 
-The script detects the OS, maps it to a platform, installs chezmoi, git, Ansible, and the required collections, then runs exactly one playbook: `ansible/playbooks/<platform>.yml`. On macOS, Homebrew must already be installed - without it the first step that needs a package (usually installing Ansible) aborts the run, and the report says so.
+The script detects the OS, maps it to a platform, installs chezmoi, git, Ansible, and the required collections, detects the desktop environment (see [Desktop settings](#desktop-settings)), then runs exactly one playbook: `ansible/playbooks/<platform>.yml`. On macOS, Homebrew must already be installed - without it the first step that needs a package (usually installing Ansible) aborts the run, and the report says so.
 
 Prerequisite steps that the rest of the run cannot work without stop the run even in best-effort mode: installing chezmoi (after the installer script, a direct GitHub release download, and the distro package manager have all been tried), cloning the repository, installing Ansible, and a required Ansible collection that is missing. Everything else (system package refresh, curl, git, chezmoi self-upgrade, `chezmoi init` from a checkout, refreshing the repository, refreshing collections from Galaxy) is skipped on failure and reported.
 
@@ -46,6 +47,7 @@ Packages are installed with one `winget import --ignore-versions`, which install
 | `DOTFILES_REPO` | none | Repository to clone. Required when running a downloaded bootstrap script; ignored when running from a checkout. |
 | `DOTFILES_PROFILE` | none | Profile to use, equivalent to `--profile`. |
 | `DOTFILES_SETUP_MODE` | `best_effort` | `best_effort` or `strict`. |
+| `DOTFILES_DESKTOP` | detected | `gnome`, `kde`, or `none`; equivalent to `--desktop`. `bootstrap.sh` exports the detected value under this name so the playbook's own detection agrees with it. |
 | `DOTFILES_CHEZMOI_DIR` | `~/.local/share/chezmoi` | Chezmoi source directory. Exported by bootstrap for the playbooks. |
 | `DOTFILES_PROGRESS` | `1` | Set to `0` to turn off the progress bar that `bootstrap.sh` and `bootstrap.ps1` keep on the last terminal row. It is already off when output is not a terminal (or, on Windows, the host has no VT support) or in lightweight CI mode. |
 | `DOTFILES_CI` | unset | Lightweight CI mode. Enables `--platform`, skips chezmoi self-upgrade, makes `chezmoi init` non-interactive, and skips unstable upstream installers. |
@@ -88,7 +90,7 @@ features:                              # explicit: there are no hidden defaults
   - docker_desktop
 ```
 
-Profiles may also set compatibility variables consumed by older roles, but the `features` list is the source of truth - `common.yml` derives `gnome_settings_enabled`, `install_ai_clis`, `install_docker`, `install_jetbrains_toolbox`, and `linux_native_apps` from it.
+Profiles may also set compatibility variables consumed by older roles, but the `features` list is the source of truth - `common.yml` derives `gnome_settings_enabled`, `kde_settings_enabled`, `install_ai_clis`, `install_docker`, `install_jetbrains_toolbox`, and `linux_native_apps` from it.
 
 ## Package set file format
 
@@ -128,6 +130,7 @@ Generated before `chezmoi apply` and passed with `--override-data`:
 | :--- | :--- |
 | `dotfiles_profile` | `personal` |
 | `dotfiles_platform` | `ubuntu` |
+| `dotfiles_desktop` | `kde` (`gnome`, `kde`, `other`, or `none`; always `none` on macOS) |
 | `dotfiles_features` | `["core_cli", "desktop_base", ...]` |
 
 Read them defensively in templates, since `chezmoi` commands run outside a setup run will not have them:
@@ -137,7 +140,7 @@ Read them defensively in templates, since `chezmoi` commands run outside a setup
 {{ if has "desktop_base" $features }}...{{ end }}
 ```
 
-Prefer platform and feature checks over `dotfiles_profile`. Branching on a profile name means every new profile requires editing the template.
+Prefer platform, desktop, and feature checks over `dotfiles_profile`. Branching on a profile name means every new profile requires editing the template. Outside a setup run `dotfiles_desktop` is absent; a template that needs it can fall back to the session, for example `default (env "XDG_CURRENT_DESKTOP") (get . "dotfiles_desktop")`.
 
 ## Playbook variables
 
@@ -150,9 +153,36 @@ Prefer platform and feature checks over `dotfiles_profile`. Branching on a profi
 | `dotfiles_automation` | `common.yml` | True in CI or when `GITHUB_ACTIONS`/`CI` is set. |
 | `dotfiles_container_ci` | `common.yml` | Automation running inside a container, where some desktop installers cannot work. |
 | `dotfiles_low_memory_setup` | `common.yml` | Whether low-memory behavior is active. |
+| `dotfiles_desktop` | `common.yml` | `gnome`, `kde`, `other`, or `none`, from `scripts/detect-desktop.sh` (or `DOTFILES_DESKTOP`). `none` on macOS. Selects which desktop settings role `desktop_base` runs. |
+| `dotfiles_desktop_detail` | `common.yml` | The evidence the desktop was detected from, for the report (`XDG_CURRENT_DESKTOP=KDE`, `gnome-shell is running`, ...). |
 | `dotfiles_feature_execution_order` | `profile_preflight` | The fixed order feature roles run in. A role missing from this list never runs. |
 | `dotfiles_setup_failures` | `execution.yml`, roles, bootstrap handoff | Failures collected for the final report, each with `phase`, `name`, `task`, and `error`. |
 | `dotfiles_setup_aborted` | `common.yml` | True when a failure stopped the run (strict mode, preflight, or an error no best-effort wrapper caught); the report names it and the play still fails. |
+
+## Desktop settings
+
+Desktop settings apply on Linux when a profile selects `desktop_base`, for the desktop that `scripts/detect-desktop.sh` detects:
+
+| Result | Meaning | What `desktop_base` does |
+| :--- | :--- | :--- |
+| `gnome` | a GNOME session (Shell, Classic, Flashback) is running, or is the only installed desktop | `gnome` role: dconf entries from `home/.chezmoidata/gnome_dconf.yaml`, then `scripts/gnome-extensions-sync.sh apply` for `gnome/` - both only inside a running GNOME session, since dconf needs the session bus |
+| `kde` | a KDE Plasma session is running, or is the only installed desktop | `kde` role: `scripts/kde-settings-sync.sh apply` for `kde/settings/`, with or without a running session |
+| `other` | some other desktop is running or installed | nothing; recorded as skipped in the report |
+| `none` | no session and no GNOME or Plasma session installed, or both installed and neither running, or `DOTFILES_DESKTOP=none` | nothing; recorded as skipped in the report |
+
+Detection order: `DOTFILES_DESKTOP`; the session environment (`XDG_CURRENT_DESKTOP`, `XDG_SESSION_DESKTOP`, `DESKTOP_SESSION`, `KDE_FULL_SESSION`); session processes owned by the current user (`gnome-shell`, `plasmashell`, `kwin_wayland`, `kwin_x11`); the session files in `/usr/share/wayland-sessions` and `/usr/share/xsessions`. A running session always beats an installed one, and two running or two installed desktops are never resolved by guessing. `./scripts/detect-desktop.sh --explain` prints the result and the evidence on two lines.
+
+### `scripts/gnome-extensions-sync.sh`
+
+`capture`, `apply`, `diff`, `check`. Stores `gnome/extensions.dconf` (a `dconf dump` of `/org/gnome/shell/extensions/`, minus the keys extensions rewrite on their own) and `gnome/extensions.yaml` (enabled, disabled, user-installed and distro-installed extension UUIDs). `apply` downloads missing extensions.gnome.org extensions for the running Shell version, loads the settings, then enables the ones that are present.
+
+### `scripts/kde-settings-sync.sh`
+
+`capture`, `apply`, `diff`, `check`. Stores one file per tracked KDE config file in `kde/settings/` - `kdeglobals`, `kwinrc`, `kwinrulesrc`, `kglobalshortcutsrc`, `kxkbrc`, `kcminputrc`, `powerdevilrc`, `knighttimerc`, `kscreenlockerrc`, `ksmserverrc`, `plasma-localerc`, `plasmarc`, `plasmanotifyrc`, `krunnerrc`, `klipperrc`, `dolphinrc`, `konsolerc`, `baloofilerc`, plus any file already present in the directory. The format is KConfig's own INI, including its escaping (`\t` for a tab, `\\` for a backslash) and nested group headers (`[Containments][2][Applets][23]`); `#` lines are comments.
+
+`capture` drops the runtime state KDE keeps in those files - `[$Version]` update stamps, window and dialog geometry, saved sessions, virtual desktop and tiling UUIDs, colour scheme hashes, activity shortcuts - and keeps only the global shortcuts whose active binding differs from the default. A stored file with no counterpart on the machine is kept. `apply` writes every stored entry that differs, one `kwriteconfig6 --notify` call each (Plasma 5 machines use `kwriteconfig5`), leaves every other key in the live file alone, and asks KWin to reload when `kwinrc` changed; global shortcuts, power management, and the session itself pick the change up at the next login. `check` exits 0 when every stored entry matches the live file, or failing that the value `kreadconfig6` resolves through KDE's config cascade, which is what keeps the Ansible run idempotent.
+
+Not captured on purpose: the panel layout (`plasma-org.kde.plasma.desktop-appletsrc`, `plasmashellrc` - tied to activity and screen identifiers) and the display layout (`kwinoutputconfig.json`, `kscreen/` - hardware serials). `home/.chezmoiignore` guards those, and the KDE rc files themselves, against an accidental `chezmoi add`, because KDE replaces a symlinked rc file with a plain file on its first save.
 
 ## Tool versions
 
@@ -177,14 +207,14 @@ Every install path resolves the latest release at run time; no installer pins a 
 
 | Path | Contents |
 | :--- | :--- |
-| `~/.dotfiles_setup_report.md` | The setup outcome report, in Markdown: a header with date, profile, platform, mode, and result; an Errors section quoting every skipped (or aborting) failure; entries not detected afterwards; entries skipped intentionally; verified entries grouped by installer; completed bootstrap steps and playbook phases; and how to re-run. Written on every run, by `bootstrap.sh` itself when Ansible never produces one. |
+| `~/.dotfiles_setup_report.md` | The setup outcome report, in Markdown: a header with date, profile, platform, desktop (Linux), mode, and result; an Errors section quoting every skipped (or aborting) failure; entries not detected afterwards; entries skipped intentionally; verified entries grouped by installer; completed bootstrap steps and playbook phases; and how to re-run. Written on every run, by `bootstrap.sh` itself when Ansible never produces one. |
 | `~/.config/chezmoi/chezmoi.toml` | Answers to the first-run prompts: Git identity, GPG recipient, SSH choices, profile. |
 | `~/.gitconfig.local` | Generated Git identity. Overwritten on every apply - put hand-maintained settings in `~/.gitconfig.machine` instead. |
 
 ## Testing
 
 ```sh
-./test/test_harness.sh          # shellcheck, Ansible checks, bootstrap regressions, upstream installer checks, chezmoi dry run
+./test/test_harness.sh          # shellcheck, Ansible checks, bootstrap, desktop detection, KDE settings and upstream installer checks, chezmoi dry run
 ./bootstrap.sh --profile personal --strict
 ```
 

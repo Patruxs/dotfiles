@@ -51,6 +51,30 @@
         )
       }}
 
+# Desktop settings follow the session, not the distro. The same script is
+# what bootstrap.sh ran (and exported as DOTFILES_DESKTOP), so both agree.
+- name: Detect the desktop environment
+  command:
+    argv:
+      - "{{ chezmoi_dir }}/scripts/detect-desktop.sh"
+      - --explain
+  register: dotfiles_desktop_probe
+  changed_when: false
+  when: dotfiles_platform.system == 'Linux'
+
+- name: Record the desktop environment
+  set_fact:
+    dotfiles_desktop: >-
+      {{
+        (dotfiles_desktop_probe.stdout_lines | default(['none']) | first)
+        if dotfiles_platform.system == 'Linux' else 'none'
+      }}
+    dotfiles_desktop_detail: >-
+      {{
+        (dotfiles_desktop_probe.stdout_lines | default([]))[1:] | join(' ')
+        if dotfiles_platform.system == 'Linux' else 'no desktop settings on ' ~ dotfiles_platform.system
+      }}
+
 - name: Check saved profile and ask for confirmation
   pause:
     prompt: "Current profile is {{ ansible_facts['dotfiles_profile'] }}. Continue? [Y/n]"
@@ -124,6 +148,7 @@
 - name: Derive feature compatibility vars
   set_fact:
     gnome_settings_enabled: "{{ 'desktop_base' in (features | default([])) }}"
+    kde_settings_enabled: "{{ 'desktop_base' in (features | default([])) }}"
     install_ai_clis: "{{ 'ai_clis' in (features | default([])) }}"
     install_docker: "{{ ('docker_engine' in (features | default([]))) or ('docker_desktop' in (features | default([]))) }}"
     install_jetbrains_toolbox: "{{ 'jetbrains_toolbox' in (features | default([])) }}"

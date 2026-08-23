@@ -233,6 +233,9 @@
       {% if (dotfiles_platform.distribution | default('') | lower) not in ['', canonical_distribution[dotfiles_platform.name] | default(dotfiles_platform.name)] %}
       - Distro: `{{ dotfiles_platform.distribution }}` (uses the `{{ dotfiles_platform.name }}` setup path)
       {% endif %}
+      {% if dotfiles_platform.system == 'Linux' %}
+      - Desktop: `{{ dotfiles_desktop | default('none') }}`{{ (' (' ~ dotfiles_desktop_detail ~ ')') if dotfiles_desktop_detail | default('') else '' }}
+      {% endif %}
       - Mode: `{{ dotfiles_setup_mode }}`
       - Result: {{ dotfiles_setup_result }}
 

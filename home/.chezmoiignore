@@ -31,12 +31,23 @@
 .config/opencode/**/auth*
 .config/opencode/**/session*
 # Guardrail: display layout is machine state (and leaks hardware serials);
-# never manage (or accidentally `chezmoi add`) it.
+# never manage (or accidentally `chezmoi add`) it. GNOME keeps it in
+# monitors.xml, KDE Plasma in kwinoutputconfig.json and kscreen/.
 .config/monitors.xml
 .config/monitors.xml~
 .config/monitors.xml.bak-*
+.config/kwinoutputconfig.json
+.config/kscreen/**
 .config/dconf/user
 .config/org.gnome.Ptyxis/session.gvariant
+# KDE rc files (kdeglobals, kwinrc, ...) are rewritten atomically by KDE,
+# which would replace a chezmoi symlink with a plain file. They are managed
+# key by key from kde/settings/ by scripts/kde-settings-sync.sh instead.
+.config/kdeglobals
+.config/kwinrc
+.config/kglobalshortcutsrc
+.config/plasma-org.kde.plasma.desktop-appletsrc
+.config/plasmashellrc
 
 {{- if or (ne .chezmoi.os "linux") (ne (default "personal" (get . "dotfiles_profile")) "personal") }}
 .local/bin/auto-headphone-switch

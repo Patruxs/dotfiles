@@ -21,6 +21,7 @@ package_sets:
     apt:
       - flatpak
       - gparted
+      - python3-psutil
     flatpak:
       - com.gitbutler.gitbutler
       - com.visualstudio.code

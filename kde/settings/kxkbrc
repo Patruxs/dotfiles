@@ -1,0 +1,13 @@
+# KDE Plasma settings for ~/.config/kxkbrc, captured by scripts/kde-settings-sync.sh.
+#
+# Regenerate with:   ./scripts/kde-settings-sync.sh capture
+# Restore with:      ./scripts/kde-settings-sync.sh apply
+#
+# Values use KConfig's own escaping (a tab is \t, a backslash is \\).
+
+[Layout]
+LayoutList=us
+Options=lv3:ralt_switch
+ResetOldOptions=true
+SwitchMode=Global
+Use=true

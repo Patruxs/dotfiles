@@ -28,9 +28,12 @@ fail() {
   exit 1
 }
 
+OS="Linux"
 setup_mode="best_effort"
 profile="personal"
 platform="ubuntu"
+desktop="kde"
+desktop_detail="XDG_CURRENT_DESKTOP=KDE"
 report_file="$tmpdir/report.md"
 bootstrap_outcome_status=()
 bootstrap_outcome_name=()
@@ -178,6 +181,7 @@ if [ ! -s "$report_file" ]; then
 fi
 for needle in \
   '# Dotfiles setup report' \
+  "- Desktop: \`kde\` (XDG_CURRENT_DESKTOP=KDE)" \
   '- Result: Aborted: the Ansible playbook exited with status 2' \
   '## Errors' \
   '### [bootstrap] Breaks' \
