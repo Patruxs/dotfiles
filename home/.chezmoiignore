@@ -106,6 +106,8 @@ Documents/**
 .config/herdr/**
 .config/nvim
 .config/nvim/**
+.config/zed
+.config/zed/**
 .config/powershell
 .config/powershell/**
 {{- end }}
