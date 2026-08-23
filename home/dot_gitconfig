@@ -9,3 +9,6 @@
 [credential "https://gist.github.com"]
 	helper =
 	helper = !gh auth git-credential
+[user]
+	email = laithuanphat@mail.com
+	name = pat
