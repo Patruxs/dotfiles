@@ -53,6 +53,9 @@ package_sets:
   docker_engine:
     dnf:
       - moby-engine
+  terminal_toys:
+    dnf:
+      - cmatrix
   webserver_nginx:
     dnf:
       - nginx

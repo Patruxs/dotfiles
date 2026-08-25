@@ -54,6 +54,9 @@ package_sets:
   docker_engine:
     apt:
       - docker.io
+  terminal_toys:
+    apt:
+      - cmatrix
   webserver_nginx:
     apt:
       - nginx

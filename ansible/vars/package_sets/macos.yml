@@ -56,6 +56,9 @@ package_sets:
   kiro_ide:
     cask:
       - kiro
+  terminal_toys:
+    brew:
+      - cmatrix
   virtualbox:
     cask:
       - virtualbox

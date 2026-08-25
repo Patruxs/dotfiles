@@ -56,6 +56,9 @@ package_sets:
   docker_engine:
     pacman:
       - docker
+  terminal_toys:
+    pacman:
+      - cmatrix
   webserver_nginx:
     pacman:
       - nginx

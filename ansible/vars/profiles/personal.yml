@@ -11,6 +11,7 @@ features:
   - desktop_apps
   - shell
   - devtools
+  - terminal_toys
   - npm_global_tools
   - bitwarden_cli
   - ai_clis
