@@ -1,0 +1,36 @@
+{{- if eq .chezmoi.os "linux" -}}
+#!/bin/bash
+set -euo pipefail
+
+if ! command -v ghostty >/dev/null 2>&1; then
+    exit 0
+fi
+
+for resources_dir in "${GHOSTTY_RESOURCES_DIR:-}" /usr/share/ghostty /usr/local/share/ghostty /opt/ghostty/share/ghostty; do
+    if [ -n "$resources_dir" ] && [ -d "$resources_dir/themes" ]; then
+        exit 0
+    fi
+done
+
+themes_dir="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/themes"
+schemes_url="https://codeload.github.com/mbadolato/iTerm2-Color-Schemes/tar.gz/refs/heads/master"
+
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
+
+curl -fsSL --max-time 300 "$schemes_url" -o "$tmpdir/schemes.tar.gz"
+tar xzf "$tmpdir/schemes.tar.gz" -C "$tmpdir" --strip-components=2 --wildcards '*/ghostty/*'
+rm -f "$tmpdir/schemes.tar.gz"
+
+mkdir -p "$themes_dir"
+installed=0
+for theme in "$tmpdir"/*; do
+    [ -f "$theme" ] || continue
+    name="${theme##*/}"
+    [ -e "$themes_dir/$name" ] && continue
+    cp -- "$theme" "$themes_dir/$name"
+    installed=$((installed + 1))
+done
+
+echo "Installed $installed Ghostty themes into $themes_dir"
+{{- end }}
