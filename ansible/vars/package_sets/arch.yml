@@ -56,6 +56,9 @@ package_sets:
   docker_engine:
     pacman:
       - docker
+  starship_prompt:
+    pacman:
+      - starship
   terminal_toys:
     pacman:
       - cmatrix

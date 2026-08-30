@@ -24,6 +24,7 @@
         { "PackageIdentifier": "eza-community.eza" },
         { "PackageIdentifier": "JesseDuffield.lazygit" },
         { "PackageIdentifier": "GitHub.cli" },
+        { "PackageIdentifier": "Starship.Starship" },
         { "PackageIdentifier": "Warp.Warp" },
         { "PackageIdentifier": "Microsoft.VisualStudioCode" },
         { "PackageIdentifier": "ZedIndustries.Zed" },

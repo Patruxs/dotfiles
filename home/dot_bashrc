@@ -72,3 +72,10 @@ fi
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
 export PATH="$HOME/.druk/bin:$PATH"
+
+if command -v starship >/dev/null 2>&1; then
+  case "${PROMPT_COMMAND:-}" in
+    *starship_precmd*) ;;
+    *) eval "$(starship init bash)" ;;
+  esac
+fi

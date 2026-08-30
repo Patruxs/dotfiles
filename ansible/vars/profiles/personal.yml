@@ -10,6 +10,7 @@ features:
   - desktop_base
   - desktop_apps
   - shell
+  - starship_prompt
   - devtools
   - terminal_toys
   - npm_global_tools

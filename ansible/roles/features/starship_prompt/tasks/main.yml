@@ -1,0 +1,12 @@
+---
+- name: Install or update Starship on Ubuntu from the upstream installer
+  ansible.builtin.shell: |
+    set -euo pipefail
+    mkdir -p "$HOME/.local/bin"
+    curl -fsSL https://starship.rs/install.sh | sh -s -- --yes --bin-dir "$HOME/.local/bin"
+  args:
+    executable: /bin/bash
+  changed_when: false
+  when:
+    - dotfiles_platform.name == 'ubuntu'
+    - not (dotfiles_ci | default(false))

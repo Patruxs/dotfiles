@@ -56,6 +56,9 @@ package_sets:
   kiro_ide:
     cask:
       - kiro
+  starship_prompt:
+    brew:
+      - starship
   terminal_toys:
     brew:
       - cmatrix

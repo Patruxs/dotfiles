@@ -9,6 +9,7 @@ features:
   - core_cli
   - desktop_base
   - shell
+  - starship_prompt
   - devtools
   - npm_global_tools
   - ai_clis

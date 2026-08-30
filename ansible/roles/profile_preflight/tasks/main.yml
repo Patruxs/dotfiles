@@ -19,6 +19,7 @@
     dotfiles_feature_execution_order:
       - desktop_base
       - shell
+      - starship_prompt
       - npm_global_tools
       - bitwarden_cli
       - ai_clis

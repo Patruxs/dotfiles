@@ -125,6 +125,7 @@ packages:
         - JesseDuffield.lazygit
         - GitHub.cli
         - ajeetdsouza.zoxide
+        - Starship.Starship
         - Warp.Warp
         - Microsoft.VisualStudioCode
         - ZedIndustries.Zed
