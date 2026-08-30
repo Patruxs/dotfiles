@@ -6,9 +6,31 @@
 # Values use KConfig's own escaping (a tab is \t, a backslash is \\).
 
 [Desktops]
-Number=1
+Number=6
 Rows=1
+
+[Effect-blur]
+NoiseStrength=6
+
+[ModifierOnlyShortcuts]
+Meta=org.kde.plasmashell,/PlasmaShell,org.kde.PlasmaShell,activateLauncherMenu
 
 [NightColor]
 Active=true
 NightTemperature=4700
+
+[Plugins]
+tileseditorEnabled=false
+
+[Wayland]
+VirtualKeyboardMode=0
+
+[Windows]
+BorderSnapZone=0
+CenterSnapZone=0
+ElectricBorderMaximize=false
+ElectricBorderTiling=false
+WindowSnapZone=0
+
+[org.kde.kdecoration2]
+library=org.kde.kwin.aurorae.v2

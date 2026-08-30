@@ -5,7 +5,17 @@
 #
 # Values use KConfig's own escaping (a tab is \t, a backslash is \\).
 
+[General]
+fixed=JetBrainsMono Nerd Font,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,,0,0
+font=JetBrainsMono Nerd Font,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,,0,0
+menuFont=JetBrainsMono Nerd Font,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,,0,0
+smallestReadableFont=JetBrainsMono Nerd Font,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,,0,0
+toolBarFont=JetBrainsMono Nerd Font,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,,0,0
+
 [KDE]
+AnimationDurationFactor=0
+DefaultDarkLookAndFeel=Ant-Dark
+LookAndFeelPackage=Ant-Dark
 contrast=4
 frameContrast=0.2
 
@@ -18,7 +28,7 @@ Show Full Path=false
 Show Inline Previews=true
 Show Preview=false
 Show Speedbar=true
-Show hidden files=false
+Show hidden files=true
 Sort by=Name
 Sort directories first=true
 Sort hidden files last=false

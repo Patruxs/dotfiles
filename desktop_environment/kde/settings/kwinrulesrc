@@ -5,5 +5,13 @@
 #
 # Values use KConfig's own escaping (a tab is \t, a backslash is \\).
 
+[6765abcf-b4a2-40bc-b975-8c66ea36e311]
+Description=Application settings for com.mitchellh.ghostty
+types=66494
+wmclass=ghostty com.mitchellh.ghostty
+wmclasscomplete=true
+wmclassmatch=1
+
 [General]
-rules=
+count=1
+rules=6765abcf-b4a2-40bc-b975-8c66ea36e311

@@ -11,3 +11,5 @@ Options=lv3:ralt_switch
 ResetOldOptions=true
 SwitchMode=Global
 Use=true
+VariantList=
+DisplayNames=
