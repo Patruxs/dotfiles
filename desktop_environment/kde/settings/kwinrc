@@ -20,7 +20,16 @@ Active=true
 NightTemperature=4700
 
 [Plugins]
+krohnkiteEnabled=true
+slideEnabled=false
 tileseditorEnabled=false
+
+[Script-krohnkite]
+screenGapBetween=10
+screenGapBottom=10
+screenGapLeft=10
+screenGapRight=10
+screenGapTop=10
 
 [Wayland]
 VirtualKeyboardMode=0
@@ -33,4 +42,7 @@ ElectricBorderTiling=false
 WindowSnapZone=0
 
 [org.kde.kdecoration2]
+BorderSize=Tiny
+BorderSizeAuto=false
 library=org.kde.kwin.aurorae.v2
+theme=__aurorae__svg__ActiveAccentFrame

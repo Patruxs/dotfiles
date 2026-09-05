@@ -9,6 +9,10 @@
 Switch to Next Keyboard Layout=Alt+Z,Meta+Alt+K,Switch to Next Keyboard Layout
 
 [kwin]
+Expose=Ctrl+F9,Ctrl+F9\tMeta+F9,Toggle Present Windows (Current desktop)
+ExposeAll=Launch (C)\tCtrl+F10,Launch (C)\tCtrl+F10\tMeta+F10,Toggle Present Windows (All desktops)
+ExposeClass=Ctrl+F7,Ctrl+F7\tMeta+F7,Toggle Present Windows (Window class)
+Kill Window=none,Meta+Ctrl+Esc,Kill Window
 KrohnkiteDecrease=Meta+D,none,Krohnkite: Decrease
 KrohnkiteFloatAll=Meta+Shift+F,none,Krohnkite: Toggle Float All
 KrohnkiteFocusDown=Meta+J,none,Krohnkite: Focus Down
@@ -40,6 +44,7 @@ Switch to Desktop 3=Meta+3,Ctrl+F3\tMeta+F3,Switch to Desktop 3
 Switch to Desktop 4=Meta+4,Ctrl+F4\tMeta+F4,Switch to Desktop 4
 Switch to Desktop 5=Meta+5,none,Switch to Desktop 5
 Switch to Desktop 6=Meta+6,none,Switch to Desktop 6
+Window Close=Alt+F4\tMeta+Q,Alt+F4,Close Window
 
 [plasmashell]
 activate application launcher=Meta,Meta\tAlt+F1,Activate Application Launcher
@@ -52,8 +57,16 @@ activate task manager entry 6=none,Meta+6,Activate Task Manager Entry 6
 activate task manager entry 7=none,Meta+7,Activate Task Manager Entry 7
 activate task manager entry 8=none,Meta+8,Activate Task Manager Entry 8
 activate task manager entry 9=none,Meta+9,Activate Task Manager Entry 9
+manage activities=none,Meta+Q,Show Activity Switcher
 next activity=Meta+A,none,Walk through activities
 previous activity=Meta+Shift+A,none,Walk through activities (Reverse)
 
 [services][org.kde.konsole.desktop]
 _launch=none
+
+[services][org.kde.krunner.desktop]
+_launch=Search\tAlt+F2\tMeta+Space
+
+[services][org.kde.spectacle.desktop]
+RectangularRegionScreenShot=Meta+Shift+S\tMeta+Shift+Print
+_launch=Print
