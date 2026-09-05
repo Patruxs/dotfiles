@@ -29,3 +29,15 @@ ai_clis:
       install:
         unix: curl -fsSL https://herdr.dev/install.sh | sh
       login: Run `herdr` to get started.
+    paseo:
+      command: paseo
+      install:
+        unix: npm install -g @getpaseo/cli
+        windows: npm install -g @getpaseo/cli
+      login: Run `paseo` and follow the setup prompts.
+    pi:
+      command: pi
+      install:
+        unix: curl -fsSL https://pi.dev/install.sh | sh
+        windows: irm https://pi.dev/install.ps1 | iex
+      login: Run `pi` and follow the login flow for your provider.
