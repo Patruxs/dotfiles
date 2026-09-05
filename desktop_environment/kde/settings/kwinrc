@@ -20,16 +20,29 @@ Active=true
 NightTemperature=4700
 
 [Plugins]
+diminactiveEnabled=true
 krohnkiteEnabled=true
 slideEnabled=false
 tileseditorEnabled=false
 
 [Script-krohnkite]
+binaryTreeLayoutOrder=1
+columnsLayoutOrder=8
+floatingLayoutOrder=10
+monocleLayoutOrder=4
+newWindowPosition=2
+quarterLayoutOrder=6
 screenGapBetween=10
 screenGapBottom=10
 screenGapLeft=10
 screenGapRight=10
 screenGapTop=10
+spiralLayoutOrder=2
+spreadLayoutOrder=9
+stackedLayoutOrder=7
+stairLayoutOrder=11
+threeColumnLayoutOrder=5
+tileLayoutOrder=3
 
 [Wayland]
 VirtualKeyboardMode=0

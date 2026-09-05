@@ -8,46 +8,86 @@
 [KDE Keyboard Layout Switcher]
 Switch to Next Keyboard Layout=Alt+Z,Meta+Alt+K,Switch to Next Keyboard Layout
 
+[kmix]
+decrease_volume_small=Shift+Volume Down\tAlt+Volume Down,Shift+Volume Down,Decrease Volume by 1%
+increase_volume_small=Shift+Volume Up\tAlt+Volume Up,Shift+Volume Up,Increase Volume by 1%
+
+[ksmserver]
+Lock Session=Screensaver\tMeta+Ctrl+L,Screensaver\tMeta+L,Lock Session
+Log Out=Ctrl+Alt+Del\tMeta+Esc,Ctrl+Alt+Del,Show Logout Screen
+
 [kwin]
+Activate Window Demanding Attention=none,Meta+Ctrl+A,Activate Window Demanding Attention
+Decrease Opacity=Meta+Backspace,none,Decrease Opacity of Active Window by 5%
 Expose=Ctrl+F9,Ctrl+F9\tMeta+F9,Toggle Present Windows (Current desktop)
 ExposeAll=Launch (C)\tCtrl+F10,Launch (C)\tCtrl+F10\tMeta+F10,Toggle Present Windows (All desktops)
 ExposeClass=Ctrl+F7,Ctrl+F7\tMeta+F7,Toggle Present Windows (Window class)
+Grid View=none,Meta+G,Toggle Grid View
+Increase Opacity=Meta+Ctrl+Backspace,none,Increase Opacity of Active Window by 5%
 Kill Window=none,Meta+Ctrl+Esc,Kill Window
-KrohnkiteDecrease=Meta+D,none,Krohnkite: Decrease
-KrohnkiteFloatAll=Meta+Shift+F,none,Krohnkite: Toggle Float All
-KrohnkiteFocusDown=Meta+J,none,Krohnkite: Focus Down
-KrohnkiteFocusLeft=Meta+H,none,Krohnkite: Focus Left
-KrohnkiteFocusNext=Meta+.,none,Krohnkite: Focus Next
-KrohnkiteFocusPrev=Meta+\\,,none,Krohnkite: Focus Previous
-KrohnkiteFocusRight=Meta+L,none,Krohnkite: Focus Right
-KrohnkiteFocusUp=Meta+K,none,Krohnkite: Focus Up
-KrohnkiteGrowHeight=Meta+Ctrl+J,none,Krohnkite: Grow Height
-KrohnkiteIncrease=Meta+I,none,Krohnkite: Increase
-KrohnkiteMonocleLayout=Meta+M,none,Krohnkite: Monocle Layout
-KrohnkiteNextLayout=Meta+\\\\,none,Krohnkite: Next Layout
-KrohnkitePreviousLayout=Meta+|,none,Krohnkite: Previous Layout
-KrohnkiteRotate=Meta+R,none,Krohnkite: Rotate
-KrohnkiteRotatePart=Meta+Shift+R,none,Krohnkite: Rotate Part
-KrohnkiteSetMaster=Meta+Return,none,Krohnkite: Set master
-KrohnkiteShiftDown=Meta+Shift+J,none,Krohnkite: Move Down/Next
-KrohnkiteShiftLeft=Meta+Shift+H,none,Krohnkite: Move Left
-KrohnkiteShiftRight=Meta+Shift+L,none,Krohnkite: Move Right
-KrohnkiteShiftUp=Meta+Shift+K,none,Krohnkite: Move Up/Prev
-KrohnkiteShrinkHeight=Meta+Ctrl+K,none,Krohnkite: Shrink Height
-KrohnkiteShrinkWidth=Meta+Ctrl+H,none,Krohnkite: Shrink Width
-KrohnkiteTileLayout=Meta+T,none,Krohnkite: Tile Layout
-KrohnkiteToggleFloat=Meta+F,none,Krohnkite: Toggle Float
-KrohnkitegrowWidth=Meta+Ctrl+L,none,Krohnkite: Grow Width
+KrohnkiteFocusDown=Meta+Down,none,Krohnkite: Focus Down
+KrohnkiteFocusLeft=Meta+Left,none,Krohnkite: Focus Left
+KrohnkiteFocusRight=Meta+Right,none,Krohnkite: Focus Right
+KrohnkiteFocusUp=Meta+Up,none,Krohnkite: Focus Up
+KrohnkiteGrowHeight=Meta++\tMeta+Shift+=,none,Krohnkite: Grow Height
+KrohnkiteMonocleLayout=Meta+P,none,Krohnkite: Monocle Layout
+KrohnkiteNextLayout=Meta+L,none,Krohnkite: Next Layout
+KrohnkiteRotate=Meta+J,none,Krohnkite: Rotate
+KrohnkiteShiftDown=Meta+Shift+Down,none,Krohnkite: Move Down/Next
+KrohnkiteShiftLeft=Meta+Shift+Left,none,Krohnkite: Move Left
+KrohnkiteShiftRight=Meta+Shift+Right,none,Krohnkite: Move Right
+KrohnkiteShiftUp=Meta+Shift+Up,none,Krohnkite: Move Up/Prev
+KrohnkiteShrinkHeight=Meta+_\tMeta+Shift+-,none,Krohnkite: Shrink Height
+KrohnkiteShrinkWidth=Meta+-,none,Krohnkite: Shrink Width
+KrohnkiteToggleFloat=Meta+T,none,Krohnkite: Toggle Float
+KrohnkitegrowWidth=Meta+=,none,Krohnkite: Grow Width
+Overview=Meta+Ctrl+O,Meta+W,Toggle Overview
 Switch to Desktop 1=Meta+1,Ctrl+F1\tMeta+F1,Switch to Desktop 1
 Switch to Desktop 2=Meta+2,Ctrl+F2\tMeta+F2,Switch to Desktop 2
 Switch to Desktop 3=Meta+3,Ctrl+F3\tMeta+F3,Switch to Desktop 3
 Switch to Desktop 4=Meta+4,Ctrl+F4\tMeta+F4,Switch to Desktop 4
 Switch to Desktop 5=Meta+5,none,Switch to Desktop 5
 Switch to Desktop 6=Meta+6,none,Switch to Desktop 6
-Window Close=Alt+F4\tMeta+Q,Alt+F4,Close Window
+Switch to Next Desktop=Meta+Tab,none,Switch to Next Desktop
+Switch to Next Screen=Ctrl+Alt+Tab,none,Switch to Next Screen
+Switch to Previous Desktop=Meta+Shift+Tab,none,Switch to Previous Desktop
+Switch to Previous Screen=Ctrl+Alt+Shift+Tab,none,Switch to Previous Screen
+Toggle Night Color=Meta+Ctrl+N,none,Suspend/Resume Night Light
+Walk Through Windows=Alt+Tab,Alt+Tab\tMeta+Tab,Walk Through Windows
+Walk Through Windows (Reverse)=Alt+Shift+Tab,Alt+Shift+Tab\tMeta+Shift+Tab,Walk Through Windows (Reverse)
+Window Close=Alt+F4\tMeta+Q\tMeta+W,Alt+F4,Close Window
+Window Fullscreen=Meta+F,none,Make Window Fullscreen
+Window Maximize Horizontal=Meta+Alt+F,none,Maximize Window Horizontally
+Window Minimize=Meta+S\tMeta+PgDown,Meta+PgDown,Minimize Window
+Window One Screen Down=Meta+Alt+Shift+Down,none,Move Window One Screen Down
+Window One Screen Up=Meta+Alt+Shift+Up,none,Move Window One Screen Up
+Window One Screen to the Left=Meta+Alt+Shift+Left,none,Move Window One Screen to the Left
+Window One Screen to the Right=Meta+Alt+Shift+Right,none,Move Window One Screen to the Right
+Window Quick Tile Bottom=none,Meta+Down,Quick Tile Window to the Bottom
+Window Quick Tile Left=none,Meta+Left,Quick Tile Window to the Left
+Window Quick Tile Right=none,Meta+Right,Quick Tile Window to the Right
+Window Quick Tile Top=none,Meta+Up,Quick Tile Window to the Top
+Window to Desktop 1=Meta+!\tMeta+Shift+1,none,Window to Desktop 1
+Window to Desktop 2=Meta+@\tMeta+Shift+2,none,Window to Desktop 2
+Window to Desktop 3=Meta+#\tMeta+Shift+3,none,Window to Desktop 3
+Window to Desktop 4=Meta+$\tMeta+Shift+4,none,Window to Desktop 4
+Window to Next Screen=none,Meta+Shift+Right,Move Window to Next Screen
+Window to Previous Screen=none,Meta+Shift+Left,Move Window to Previous Screen
+view_actual_size=Meta+Ctrl+Alt+Z,Meta+0,Zoom to Actual Size
+view_zoom_in=Meta+Ctrl+Z,Meta++\tMeta+=,Zoom In
+view_zoom_out=Meta+Ctrl+Shift+Z,Meta+-,Zoom Out
+
+[mediacontrol]
+nextmedia=Media Next\tAlt+Media Play,Media Next,Media playback next
+previousmedia=Media Previous\tAlt+Shift+Media Play,Media Previous,Media playback previous
+
+[org_kde_powerdevil]
+Decrease Screen Brightness Small=Shift+Monitor Brightness Down\tAlt+Monitor Brightness Down,Shift+Monitor Brightness Down,Decrease Screen Brightness by 1%
+Increase Screen Brightness Small=Shift+Monitor Brightness Up\tAlt+Monitor Brightness Up,Shift+Monitor Brightness Up,Increase Screen Brightness by 1%
+Turn Off Screen=Meta+Ctrl+Del,none,Turn Off Screen
 
 [plasmashell]
-activate application launcher=Meta,Meta\tAlt+F1,Activate Application Launcher
+activate application launcher=Meta\tMeta+Alt+Space,Meta\tAlt+F1,Activate Application Launcher
 activate task manager entry 1=none,Meta+1,Activate Task Manager Entry 1
 activate task manager entry 2=none,Meta+2,Activate Task Manager Entry 2
 activate task manager entry 3=none,Meta+3,Activate Task Manager Entry 3
@@ -57,9 +97,121 @@ activate task manager entry 6=none,Meta+6,Activate Task Manager Entry 6
 activate task manager entry 7=none,Meta+7,Activate Task Manager Entry 7
 activate task manager entry 8=none,Meta+8,Activate Task Manager Entry 8
 activate task manager entry 9=none,Meta+9,Activate Task Manager Entry 9
+clipboard_action=none,Meta+Ctrl+X,Automatic Action Popup Menu
 manage activities=none,Meta+Q,Show Activity Switcher
-next activity=Meta+A,none,Walk through activities
-previous activity=Meta+Shift+A,none,Walk through activities (Reverse)
+show-on-mouse-pos=Meta+Ctrl+V,Meta+V,Show Clipboard Items at Mouse Position
+toggle do not disturb=Meta+Ctrl+\\,,none,Toggle do not disturb
+
+[services][omarchy-activity.desktop]
+_launch=Meta+Ctrl+T
+
+[services][omarchy-ai-agent.desktop]
+_launch=Meta+Ctrl+Shift+A
+
+[services][omarchy-ai-chatgpt.desktop]
+_launch=Meta+Shift+A
+
+[services][omarchy-ai-claude.desktop]
+_launch=Meta+Alt+Shift+A
+
+[services][omarchy-browser-private.desktop]
+_launch=Meta+Alt+Shift+B
+
+[services][omarchy-browser.desktop]
+_launch=Meta+Shift+Return
+
+[services][omarchy-calendar.desktop]
+_launch=Meta+Shift+C
+
+[services][omarchy-editor.desktop]
+_launch=Meta+Shift+N
+
+[services][omarchy-email-new.desktop]
+_launch=Meta+Alt+Shift+E
+
+[services][omarchy-email.desktop]
+_launch=Meta+Shift+E
+
+[services][omarchy-emoji.desktop]
+_launch=Meta+Ctrl+E
+
+[services][omarchy-files.desktop]
+_launch=Meta+Shift+F
+
+[services][omarchy-gmessages.desktop]
+_launch=Meta+Ctrl+Shift+G
+
+[services][omarchy-maps.desktop]
+_launch=Meta+Shift+S
+
+[services][omarchy-messenger.desktop]
+_launch=Meta+Shift+G
+
+[services][omarchy-music.desktop]
+_launch=Meta+Shift+M
+
+[services][omarchy-notice-battery.desktop]
+_launch=Meta+Ctrl+Alt+B
+
+[services][omarchy-notice-time.desktop]
+_launch=Meta+Ctrl+Alt+T
+
+[services][omarchy-obsidian.desktop]
+_launch=Meta+Shift+O
+
+[services][omarchy-panel-audio.desktop]
+_launch=Meta+Ctrl+A
+
+[services][omarchy-panel-bluetooth.desktop]
+_launch=Meta+Ctrl+B
+
+[services][omarchy-panel-display.desktop]
+_launch=Meta+Ctrl+D
+
+[services][omarchy-panel-network.desktop]
+_launch=Meta+Ctrl+W
+
+[services][omarchy-panel-power.desktop]
+_launch=Meta+Ctrl+P
+
+[services][omarchy-photos.desktop]
+_launch=Meta+Shift+P
+
+[services][omarchy-pin-window.desktop]
+_launch=Meta+O
+
+[services][omarchy-record.desktop]
+_launch=Alt+Print
+
+[services][omarchy-share.desktop]
+_launch=Meta+Ctrl+S
+
+[services][omarchy-terminal.desktop]
+_launch=Meta+Return
+
+[services][omarchy-theme.desktop]
+_launch=Meta+Ctrl+Shift+Space
+
+[services][omarchy-tmux.desktop]
+_launch=Meta+Alt+Return
+
+[services][omarchy-wallpaper.desktop]
+_launch=Meta+Ctrl+Space
+
+[services][omarchy-whatsapp.desktop]
+_launch=Meta+Alt+Shift+G
+
+[services][omarchy-x-compose.desktop]
+_launch=Meta+Alt+Shift+X
+
+[services][omarchy-x.desktop]
+_launch=Meta+Shift+X
+
+[services][omarchy-youtube.desktop]
+_launch=Meta+Shift+Y
+
+[services][org.kde.kcalc.desktop]
+_launch=Meta+Ctrl+Q
 
 [services][org.kde.konsole.desktop]
 _launch=none
@@ -68,5 +220,9 @@ _launch=none
 _launch=Search\tAlt+F2\tMeta+Space
 
 [services][org.kde.spectacle.desktop]
-RectangularRegionScreenShot=Meta+Shift+S\tMeta+Shift+Print
-_launch=Print
+ActiveWindowScreenShot=none
+CurrentMonitorScreenShot=none
+OpenWithoutScreenshot=none
+RectangularRegionScreenShot=Print
+WindowUnderCursorScreenShot=none
+_launch=Meta+Ctrl+C
