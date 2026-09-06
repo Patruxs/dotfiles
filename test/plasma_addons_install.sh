@@ -59,7 +59,12 @@ set -euo pipefail
 echo "$*" >>"${FAKE_KWIN_LOG:?}"
 case "${3:-}" in
   org.kde.kwin.Effects.isEffectLoaded) [ -f "${FAKE_KWIN_LOG%.log}.loaded-$4" ] && echo true || echo false ;;
-  org.kde.kwin.Effects.loadEffect) touch "${FAKE_KWIN_LOG%.log}.loaded-$4"; echo true ;;
+  org.kde.kwin.Effects.loadEffect)
+    if [ -f "${FAKE_KWIN_LOG%.log}.software" ]; then echo false; else touch "${FAKE_KWIN_LOG%.log}.loaded-$4"; echo true; fi ;;
+  org.kde.kwin.Effects.listOfEffects) echo "blur,kwin4_effect_geometry_change,zoom" ;;
+  org.kde.KWin.supportInformation)
+    printf 'KWin version: 6.7.4\n'
+    if [ -f "${FAKE_KWIN_LOG%.log}.software" ]; then printf 'Compositing Type: QPainter\n'; else printf 'Compositing Type: OpenGL\n'; fi ;;
   *) echo "" ;;
 esac
 EOF
@@ -263,6 +268,13 @@ grep -q '^krohnkite: installed 0.9.9.3$' "$work/install5.out" || fail "krohnkite
 grep -q '^geometry_change: installed 1.5$' "$work/install5.out" || fail "geometry_change must install without the GitHub API: $(cat "$work/install5.out")"
 [ -f "$XDG_DATA_HOME/kwin/effects/kwin4_effect_geometry_change/contents/code/main.js" ] || fail "geometry change effect files missing after API-free install"
 rm -f "$work/api-down"
+
+rm -f "${FAKE_KWIN_LOG%.log}.loaded-kwin4_effect_geometry_change"
+touch "${FAKE_KWIN_LOG%.log}.software"
+"$install" check >"$work/check8.out" 2>&1 || true
+grep -q "geometry_change: installed but not loaded by KWin (compositing: QPainter)" "$work/check8.out" || fail "check must show the compositing type when KWin will not load the effect: $(cat "$work/check8.out")"
+grep -q "refuses to load it because compositing is 'QPainter'" "$work/check8.out" || fail "check must explain software rendering: $(cat "$work/check8.out")"
+rm -f "${FAKE_KWIN_LOG%.log}.software"
 
 rm -rf "$XDG_DATA_HOME/kwin" "$XDG_DATA_HOME/plasma"
 touch "$FAKE_KPACKAGE_BROKEN"

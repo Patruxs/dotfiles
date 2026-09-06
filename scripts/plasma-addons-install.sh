@@ -213,6 +213,31 @@ kwin_load_effect() {
   kwin_call /Effects org.kde.kwin.Effects loadEffect "$1" >/dev/null 2>&1 || true
 }
 
+kwin_effect_known() {
+  kwin_call /Effects org.kde.kwin.Effects listOfEffects 2>/dev/null | tr ',' '\n' | grep -qx "$1"
+}
+
+kwin_compositing_type() {
+  kwin_call /KWin org.kde.KWin supportInformation 2>/dev/null | sed -n 's/^Compositing Type:[[:space:]]*//p' | head -n 1
+}
+
+explain_effect_not_loaded() {
+  local effect="$1" compositing
+  compositing="$(kwin_compositing_type)"
+  if ! kwin_effect_known "$effect"; then
+    warn "$effect: installed under ~/.local/share/kwin/effects but the running KWin does not list it; log out and back in so KWin rescans its effect packages"
+    return 0
+  fi
+  case "$compositing" in
+    QPainter|None|"")
+      warn "$effect: KWin lists it but refuses to load it because compositing is '${compositing:-unknown}' (software rendering); animated effects need OpenGL. Enable 3D acceleration for this machine or VM and install the GPU driver, then log out and back in"
+      ;;
+    *)
+      warn "$effect: KWin lists it but could not load it while compositing with $compositing; log out and back in, then check System Settings > Desktop Effects and 'journalctl --user -b | grep -i $effect'"
+      ;;
+  esac
+}
+
 geometry_change_activate() {
   kwin_reachable || return 0
   if kwin_effect_loaded kwin4_effect_geometry_change; then
@@ -223,7 +248,7 @@ geometry_change_activate() {
   if kwin_effect_loaded kwin4_effect_geometry_change; then
     log "geometry_change: loaded into the running KWin"
   else
-    warn "geometry_change: installed but the running KWin could not load it; log out and back in, then check System Settings > Desktop Effects"
+    explain_effect_not_loaded kwin4_effect_geometry_change
   fi
 }
 
@@ -255,7 +280,8 @@ run_check() {
     if kwin_effect_loaded kwin4_effect_geometry_change; then
       log "geometry_change: loaded by KWin"
     else
-      log "geometry_change: installed but not loaded by KWin (enabled by the stored kwinrc; loaded on install or at the next login)"
+      log "geometry_change: installed but not loaded by KWin (compositing: $(kwin_compositing_type))"
+      explain_effect_not_loaded kwin4_effect_geometry_change
     fi
   fi
   [ "$outdated" -eq 0 ]
