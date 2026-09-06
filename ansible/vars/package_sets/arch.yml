@@ -24,6 +24,7 @@ package_sets:
     pacman:
       - flatpak
       - gparted
+      - rofi
       - python-psutil
     flatpak:
       - com.gitbutler.gitbutler

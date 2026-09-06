@@ -21,6 +21,7 @@ package_sets:
     apt:
       - flatpak
       - gparted
+      - rofi
       - python3-psutil
     flatpak:
       - com.gitbutler.gitbutler

@@ -1,0 +1,45 @@
+#!/bin/sh
+# Omarchy-style "pin": toggle active window between tiled and floating + on all desktops + kept above.
+# Runs two one-shot KWin scripts: step 1 flips state (Krohnkite float toggle), step 2 resizes/centers and shows an OSD.
+D=$(mktemp -d)
+cat > "$D/step1.js" <<'JS'
+(function () {
+  const w = workspace.activeWindow;
+  if (!w || !w.normalWindow) {
+    callDBus("org.kde.plasmashell", "/org/kde/osdService", "org.kde.osdService", "showText", "window-pin", "No window to pin");
+    return;
+  }
+  const pin = !w.onAllDesktops;
+  w.onAllDesktops = pin;
+  w.keepAbove = pin;
+  callDBus("org.kde.kglobalaccel", "/component/kwin", "org.kde.kglobalaccel.Component", "invokeShortcut", "KrohnkiteToggleFloat");
+})();
+JS
+cat > "$D/step2.js" <<'JS'
+(function () {
+  const w = workspace.activeWindow;
+  if (!w || !w.normalWindow) return;
+  const pin = w.onAllDesktops;
+  if (pin) {
+    const a = workspace.clientArea(KWin.PlacementArea, w);
+    const W = Math.round(a.width * 0.6), H = Math.round(a.height * 0.7);
+    const x = Math.round(a.x + (a.width - W) / 2), y = Math.round(a.y + (a.height - H) / 2);
+    let ok = false;
+    try { if (typeof Qt !== "undefined" && Qt.rect) { w.frameGeometry = Qt.rect(x, y, W, H); ok = true; } } catch (e) {}
+    if (!ok) { try { w.frameGeometry = { x: x, y: y, width: W, height: H }; } catch (e) {} }
+    w.keepAbove = true;   // Krohnkite resets the layer when it floats the window, so set it after
+  }
+  callDBus("org.kde.plasmashell", "/org/kde/osdService", "org.kde.osdService", "showText",
+           pin ? "window-pin" : "window-unpin",
+           pin ? "Pinned: floating, on all desktops, kept above" : "Unpinned: back to tiling");
+})();
+JS
+run() {
+  id=$(qdbus org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript "$1" "omarchy-pin-$2") || return 1
+  qdbus "org.kde.KWin" "/Scripting/Script$id" org.kde.kwin.Script.run >/dev/null
+  qdbus org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript "omarchy-pin-$2" >/dev/null
+}
+run "$D/step1.js" 1
+sleep 0.35
+run "$D/step2.js" 2
+rm -rf "$D"

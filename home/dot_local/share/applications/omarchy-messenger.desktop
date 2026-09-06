@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Omarchy: Messenger (Telegram)
+Exec=/usr/bin/flatpak run org.telegram.desktop
+Icon=org.telegram.desktop
+NoDisplay=true
+Terminal=false
+X-KDE-Omarchy=true

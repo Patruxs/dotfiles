@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Omarchy: Emoji picker
+Exec=/usr/bin/plasma-emojier
+Icon=face-smile
+NoDisplay=true
+Terminal=false
+X-KDE-Omarchy=true

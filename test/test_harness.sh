@@ -72,6 +72,13 @@ log_info "Running KDE settings sync regression test..."
 }
 log_info "KDE settings sync regression test passed."
 
+log_info "Running KWin add-ons install regression test..."
+./test/kwin_addons_install.sh || {
+    log_err "KWin add-ons install regression test failed."
+    exit 1
+}
+log_info "KWin add-ons install regression test passed."
+
 log_info "Running bootstrap best-effort step handling test..."
 ./test/bootstrap_best_effort.sh || {
     log_err "Bootstrap best-effort step handling test failed."

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Omarchy: Screen recording (region)
+Exec=/usr/bin/spectacle -R r
+Icon=spectacle
+NoDisplay=true
+Terminal=false
+X-KDE-Omarchy=true

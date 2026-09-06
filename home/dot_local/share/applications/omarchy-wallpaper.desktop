@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Omarchy: Pick wallpaper
+Exec=/usr/bin/kcmshell6 kcm_wallpaper
+Icon=preferences-desktop-wallpaper
+NoDisplay=true
+Terminal=false
+X-KDE-Omarchy=true

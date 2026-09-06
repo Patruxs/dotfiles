@@ -1,0 +1,26 @@
+---
+- name: Install KWin add-ons on KDE Plasma
+  include_tasks: linux.yml
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - dotfiles_desktop | default('none') == 'kde'
+    - not (dotfiles_ci | default(false))
+
+- name: Record skipped KWin add-ons
+  set_fact:
+    dotfiles_setup_skipped: >-
+      {{
+        (dotfiles_setup_skipped | default([])) + [
+          {
+            'phase': 'feature',
+            'name': 'kwin_addons',
+            'detail': 'KWin add-ons need a KDE Plasma desktop, but '
+                      ~ (dotfiles_desktop_detail | default('no desktop session')) ~ ' was detected.'
+                      ~ ' Set DOTFILES_DESKTOP=kde to choose it explicitly.'
+          }
+        ]
+      }}
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - dotfiles_desktop | default('none') != 'kde'
+    - not (dotfiles_ci | default(false))

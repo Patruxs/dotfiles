@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Omarchy: Display panel
+Exec=/usr/bin/kcmshell6 kcm_kscreen
+Icon=preferences-desktop-display
+NoDisplay=true
+Terminal=false
+X-KDE-Omarchy=true

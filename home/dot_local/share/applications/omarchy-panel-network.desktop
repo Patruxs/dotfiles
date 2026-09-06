@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Omarchy: Network panel
+Exec=/usr/bin/kcmshell6 kcm_networkmanagement
+Icon=network-wireless
+NoDisplay=true
+Terminal=false
+X-KDE-Omarchy=true

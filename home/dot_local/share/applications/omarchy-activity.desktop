@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Omarchy: Activity (btop)
+Exec=/usr/bin/ghostty -e btop
+Icon=com.mitchellh.ghostty
+NoDisplay=true
+Terminal=false
+X-KDE-Omarchy=true

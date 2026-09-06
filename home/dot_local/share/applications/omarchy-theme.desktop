@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Omarchy: Pick theme
+Exec=/usr/bin/kcmshell6 kcm_lookandfeel
+Icon=preferences-desktop-theme-global
+NoDisplay=true
+Terminal=false
+X-KDE-Omarchy=true

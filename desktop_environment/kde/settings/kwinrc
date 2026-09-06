@@ -12,6 +12,9 @@ Rows=1
 [Effect-blur]
 NoiseStrength=6
 
+[Effect-kwin4_effect_geometry_change]
+Duration=400
+
 [ModifierOnlyShortcuts]
 Meta=org.kde.plasmashell,/PlasmaShell,org.kde.PlasmaShell,activateLauncherMenu
 
@@ -21,12 +24,18 @@ NightTemperature=4700
 
 [Plugins]
 diminactiveEnabled=true
+fadedesktopEnabled=true
+glideEnabled=true
 krohnkiteEnabled=true
+kwin4_effect_geometry_changeEnabled=true
+maximizeEnabled=false
+scaleEnabled=false
 slideEnabled=false
+squashEnabled=false
 tileseditorEnabled=false
 
 [Script-krohnkite]
-binaryTreeLayoutOrder=1
+binaryTreeLayoutOrder=2
 columnsLayoutOrder=8
 floatingLayoutOrder=10
 monocleLayoutOrder=4
@@ -37,7 +46,7 @@ screenGapBottom=10
 screenGapLeft=10
 screenGapRight=10
 screenGapTop=10
-spiralLayoutOrder=2
+spiralLayoutOrder=1
 spreadLayoutOrder=9
 stackedLayoutOrder=7
 stairLayoutOrder=11

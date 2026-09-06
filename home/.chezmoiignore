@@ -79,6 +79,12 @@
 .config/systemd/**
 .config/user-dirs.dirs
 .config/user-dirs.locale
+.config/rofi/**
+.local/share/rofi/**
+.local/share/applications/omarchy-*.desktop
+.local/bin/omarchy-pin-window
+.local/bin/omarchy-show-battery
+.local/bin/omarchy-show-time
 .local/bin/update-flatpak-wrappers
 {{- end }}
 

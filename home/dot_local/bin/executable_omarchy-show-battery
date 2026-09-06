@@ -1,0 +1,7 @@
+#!/bin/sh
+B=$(upower -e | grep -m1 BAT)
+if [ -n "$B" ]; then
+  notify-send -a Omarchy -i battery "Battery" "$(upower -i "$B" | awk -F: '/percentage|state|time to/{gsub(/^ +/,"",$2); print $1": "$2}')"
+else
+  notify-send -a Omarchy -i battery "Battery" "No battery detected"
+fi

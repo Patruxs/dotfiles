@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Omarchy: Launcher (rofi)
+Exec=/usr/bin/rofi -show drun
+Icon=start-here
+NoDisplay=true
+Terminal=false
+X-KDE-Omarchy=true

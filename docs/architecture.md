@@ -217,6 +217,8 @@ So desktop settings are keyed on what is actually running. One detector (`script
 
 KDE settings are stored as INI fragments rather than managed files because KDE rewrites its config files atomically, which would replace a chezmoi symlink with a plain file on the first save, and because those files mix preferences with runtime state (update stamps, window geometry, per-screen tiling layouts, UUIDs). Writing the stored keys back one at a time with `kwriteconfig6` keeps the rest of the live file, and the parts that are machine state, alone.
 
+The stored kwinrc switches on add-ons that Plasma does not ship: the Krohnkite tiling script, the geometry change effect and the Active Accent Frame window decoration. Writing `krohnkiteEnabled=true` on a machine without Krohnkite does nothing, so `kwin_addons` is a feature of its own that installs them from their upstream GitHub projects before `desktop_base` applies the settings. It runs only when the detected desktop is KDE and records a skipped entry otherwise, the same way the desktop settings do. Like every other download in this repository it asks upstream for the current release rather than pinning one, and it compares that with the installed copy's own metadata so a second run changes nothing.
+
 ### Failing early, and never silently
 
 A selected feature that cannot be installed here is a bug in the request, not a condition to work around. If setup skipped it quietly, a successful-looking run would leave the machine missing a capability someone explicitly asked for, and the output would stop being trustworthy.
@@ -282,6 +284,7 @@ scripts/
   detect-desktop.sh                   the one desktop detector bootstrap and Ansible share
   gnome-extensions-sync.sh            capture/apply GNOME Shell extension state
   kde-settings-sync.sh                capture/apply KDE Plasma settings
+  kwin-addons-install.sh              install/update the KWin add-ons the stored KDE settings enable
 
 desktop_environment/
   gnome/                              captured GNOME Shell extension state
@@ -301,6 +304,7 @@ test/                                 harness and bootstrap regression checks
 - `--platform` works under CI and is rejected on real machines
 - the desktop detector follows the running session, then this user's processes, then the installed session files, reports `none` rather than guessing between two installed desktops, and honours `DOTFILES_DESKTOP` (`test/desktop_detection.sh`)
 - KDE settings capture drops runtime state and default shortcuts, `check` and `diff` see exactly the stored entries, and `apply` writes only what differs and leaves the rest of the live file alone (`test/kde_settings_sync.sh`)
+- KWin add-ons (Krohnkite, the geometry change effect, the Active Accent Frame decoration) are installed from their upstream projects at the current version, `check` reports missing and outdated ones, and `install` touches only those and nothing on a second run (`test/kwin_addons_install.sh`)
 - a failed bootstrap step is recorded and skipped in best-effort mode, stops the run in strict mode or when critical, and always reaches the Markdown report (`test/bootstrap_best_effort.sh`)
 - best-effort `chezmoi apply` isolates managed files from each `run_` script and records per-script failures
 - no install path hardcodes a tool version: download URLs must resolve the release at run time, `winget import` runs without `--no-upgrade` so installed packages are upgraded, Docker Desktop and VirtualBox resolve their current release from the vendor feed, and the upstream installers (zoxide, llmfit, superfile) are fetched unpinned and still resolve the latest release themselves (`test/upstream_installers_latest.sh`)

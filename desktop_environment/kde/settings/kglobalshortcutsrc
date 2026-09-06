@@ -141,8 +141,11 @@ _launch=Meta+Shift+F
 [services][omarchy-gmessages.desktop]
 _launch=Meta+Ctrl+Shift+G
 
+[services][omarchy-launcher.desktop]
+_launch=Meta+Space
+
 [services][omarchy-maps.desktop]
-_launch=Meta+Shift+S
+_launch=none
 
 [services][omarchy-messenger.desktop]
 _launch=Meta+Shift+G
@@ -217,7 +220,7 @@ _launch=Meta+Ctrl+Q
 _launch=none
 
 [services][org.kde.krunner.desktop]
-_launch=Search\tAlt+F2\tMeta+Space
+_launch=Search\tAlt+F2
 
 [services][org.kde.spectacle.desktop]
 ActiveWindowScreenShot=none
@@ -226,3 +229,6 @@ OpenWithoutScreenshot=none
 RectangularRegionScreenShot=Print
 WindowUnderCursorScreenShot=none
 _launch=Meta+Ctrl+C
+
+[services][systemsettings.desktop]
+_launch=Meta+Shift+S

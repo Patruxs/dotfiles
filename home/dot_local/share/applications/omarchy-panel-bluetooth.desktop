@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Omarchy: Bluetooth panel
+Exec=/usr/bin/kcmshell6 kcm_bluetooth
+Icon=preferences-system-bluetooth
+NoDisplay=true
+Terminal=false
+X-KDE-Omarchy=true

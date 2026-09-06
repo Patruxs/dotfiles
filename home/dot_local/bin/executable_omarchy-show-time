@@ -1,0 +1,2 @@
+#!/bin/sh
+notify-send -a Omarchy -i clock "$(date +%H:%M)" "$(date +'%A, %d %B %Y')"

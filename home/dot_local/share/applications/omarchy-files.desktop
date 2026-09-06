@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Omarchy: File manager (Dolphin)
+Exec=/usr/bin/dolphin
+Icon=system-file-manager
+NoDisplay=true
+Terminal=false
+X-KDE-Omarchy=true
