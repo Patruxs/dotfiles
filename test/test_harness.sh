@@ -86,6 +86,13 @@ log_info "Running Plasma panels sync regression test..."
 }
 log_info "Plasma panels sync regression test passed."
 
+log_info "Running Nerd Font install regression test..."
+./test/nerd_font_install.sh || {
+    log_err "Nerd Font install regression test failed."
+    exit 1
+}
+log_info "Nerd Font install regression test passed."
+
 log_info "Running bootstrap best-effort step handling test..."
 ./test/bootstrap_best_effort.sh || {
     log_err "Bootstrap best-effort step handling test failed."

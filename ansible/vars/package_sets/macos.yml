@@ -56,6 +56,9 @@ package_sets:
   kiro_ide:
     cask:
       - kiro
+  jetbrains_mono_nerd_font:
+    cask:
+      - font-jetbrains-mono-nerd-font
   starship_prompt:
     brew:
       - starship

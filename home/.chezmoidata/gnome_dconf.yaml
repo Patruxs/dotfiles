@@ -13,6 +13,12 @@ gnome_dconf:
       value: "[('xkb', 'us'), ('ibus', 'Bamboo::Us')]"
     - key: /org/gnome/desktop/input-sources/xkb-options
       value: "['lv3:ralt_switch']"
+    - key: /org/gnome/desktop/interface/document-font-name
+      value: "'JetBrainsMono Nerd Font 11'"
+    - key: /org/gnome/desktop/interface/font-name
+      value: "'JetBrainsMono Nerd Font 11'"
+    - key: /org/gnome/desktop/interface/monospace-font-name
+      value: "'JetBrainsMono Nerd Font Mono 10'"
     - key: /org/gnome/desktop/interface/clock-format
       value: "'24h'"
     - key: /org/gnome/desktop/interface/clock-show-date

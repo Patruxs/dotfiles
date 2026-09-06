@@ -8,6 +8,7 @@ supported_platforms:
 features:
   - core_cli
   - desktop_base
+  - jetbrains_mono_nerd_font
   - plasma_addons
   - shell
   - starship_prompt

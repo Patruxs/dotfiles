@@ -1,0 +1,23 @@
+---
+- name: Check whether JetBrainsMono Nerd Font is installed and current
+  command:
+    argv:
+      - "{{ chezmoi_dir }}/scripts/nerd-font-install.sh"
+      - check
+  register: nerd_font_check
+  failed_when: false
+  changed_when: false
+
+- name: Install or update JetBrainsMono Nerd Font
+  command:
+    argv:
+      - "{{ chezmoi_dir }}/scripts/nerd-font-install.sh"
+      - install
+  register: nerd_font_install
+  changed_when: true
+  when: nerd_font_check.rc != 0
+
+- name: Report the font install
+  debug:
+    var: nerd_font_install.stdout_lines
+  when: nerd_font_install is not skipped

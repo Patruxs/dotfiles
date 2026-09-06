@@ -57,6 +57,9 @@ package_sets:
   docker_engine:
     pacman:
       - docker
+  jetbrains_mono_nerd_font:
+    pacman:
+      - ttf-jetbrains-mono-nerd
   starship_prompt:
     pacman:
       - starship

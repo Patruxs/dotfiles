@@ -17,6 +17,7 @@
 - name: Define known feature implementations
   set_fact:
     dotfiles_feature_execution_order:
+      - jetbrains_mono_nerd_font
       - plasma_addons
       - desktop_base
       - shell

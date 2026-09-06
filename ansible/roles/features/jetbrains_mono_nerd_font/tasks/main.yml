@@ -1,0 +1,7 @@
+---
+- name: Install JetBrainsMono Nerd Font from the upstream release
+  include_tasks: linux.yml
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - dotfiles_platform.name in ['fedora', 'ubuntu']
+    - not (dotfiles_ci | default(false))
