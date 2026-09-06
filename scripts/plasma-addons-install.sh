@@ -35,7 +35,21 @@ json_field() {
 }
 
 release_tag() {
-  fetch "$github_api/repos/$1/releases/latest" | json_field tag_name | sed 's/^v//'
+  local tag
+  tag="$(curl -fsSLI --max-time 60 --retry 3 --retry-delay 2 -o /dev/null -w '%{url_effective}' "$github_web/$1/releases/latest" 2>/dev/null | sed -n 's#.*/releases/tag/##p')"
+  [ -n "$tag" ] || tag="$(fetch "$github_api/repos/$1/releases/latest" | json_field tag_name)"
+  printf '%s' "$tag" | sed 's/^v//'
+}
+
+download_release_asset() {
+  local repo="$1" tag="$2" name="$3" target="$4" url
+  if fetch "$github_web/$repo/releases/download/$tag/$name" -o "$target" 2>/dev/null; then
+    return 0
+  fi
+  url="$(release_asset_url "$repo" "/$name\$")"
+  [ -n "$url" ] || url="$(release_asset_url "$repo" "$5")"
+  [ -n "$url" ] || die "no $name asset in the latest $repo release"
+  fetch "$url" -o "$target"
 }
 
 release_asset_url() {
@@ -53,25 +67,49 @@ kpackagetool_bin() {
   fi
 }
 
-kpackage_install() {
-  local type="$1" installed_dir="$2" source="$3" tool
-  tool="$(kpackagetool_bin)" || die "kpackagetool6 is not installed; install the KDE package tools (kpackage)"
-  if [ -d "$installed_dir" ]; then
-    "$tool" --type="$type" --upgrade "$source" >/dev/null
-  else
-    "$tool" --type="$type" --install "$source" >/dev/null
+package_dir_of() {
+  local source="$1" unpacked
+  if [ -d "$source" ]; then
+    printf '%s' "$source"
+    return 0
   fi
+  have unzip || die "unzip is required to unpack $(basename "$source") without kpackagetool6"
+  unpacked="$workdir/unzipped-$(basename "$source")"
+  rm -rf "$unpacked"
+  mkdir -p "$unpacked"
+  unzip -q -o "$source" -d "$unpacked"
+  find "$unpacked" -name metadata.json -print -quit | xargs -r dirname
+}
+
+kpackage_install() {
+  local type="$1" installed_dir="$2" source="$3" tool output package
+  if tool="$(kpackagetool_bin)"; then
+    if [ -d "$installed_dir" ]; then
+      output="$("$tool" --type="$type" --upgrade "$source" 2>&1)" || warn "$tool --upgrade failed: $output"
+    else
+      output="$("$tool" --type="$type" --install "$source" 2>&1)" || warn "$tool --install failed: $output"
+    fi
+  else
+    warn "kpackagetool6 is not installed; copying the package into place instead"
+  fi
+  if [ ! -f "$installed_dir/metadata.json" ]; then
+    package="$(package_dir_of "$source")"
+    [ -n "$package" ] && [ -f "$package/metadata.json" ] || die "no package with metadata.json found in $(basename "$source")"
+    mkdir -p "$(dirname "$installed_dir")"
+    rm -rf "$installed_dir"
+    cp -R "$package" "$installed_dir"
+  fi
+  [ -f "$installed_dir/metadata.json" ] || die "$type package was not installed at $installed_dir"
 }
 
 krohnkite_dir="$data_home/kwin/scripts/krohnkite"
 krohnkite_installed() { [ -f "$krohnkite_dir/metadata.json" ] && json_field Version <"$krohnkite_dir/metadata.json"; }
 krohnkite_latest()    { release_tag anametologin/krohnkite; }
 krohnkite_install() {
-  local url tmp="$workdir/krohnkite"
-  url="$(release_asset_url anametologin/krohnkite '\.kwinscript$')"
-  [ -n "$url" ] || die "no .kwinscript asset in the latest krohnkite release"
+  local tag tmp="$workdir/krohnkite"
+  tag="$(release_tag anametologin/krohnkite)"
   mkdir -p "$tmp"
-  fetch "$url" -o "$tmp/krohnkite.kwinscript"
+  download_release_asset anametologin/krohnkite "$tag" krohnkite.kwinscript "$tmp/krohnkite.kwinscript" '\.kwinscript$'
   kpackage_install KWin/Script "$krohnkite_dir" "$tmp/krohnkite.kwinscript"
 }
 
@@ -79,11 +117,10 @@ geometry_change_dir="$data_home/kwin/effects/kwin4_effect_geometry_change"
 geometry_change_installed() { [ -f "$geometry_change_dir/metadata.json" ] && json_field Version <"$geometry_change_dir/metadata.json"; }
 geometry_change_latest()    { release_tag peterfajdiga/kwin4_effect_geometry_change; }
 geometry_change_install() {
-  local url package tmp="$workdir/geometry_change"
-  url="$(release_asset_url peterfajdiga/kwin4_effect_geometry_change '\.tar\.gz$')"
-  [ -n "$url" ] || die "no .tar.gz asset in the latest kwin4_effect_geometry_change release"
+  local tag package tmp="$workdir/geometry_change"
+  tag="$(release_tag peterfajdiga/kwin4_effect_geometry_change)"
   mkdir -p "$tmp"
-  fetch "$url" -o "$tmp/effect.tar.gz"
+  download_release_asset peterfajdiga/kwin4_effect_geometry_change "v$tag" "kwin4_effect_geometry_change_${tag//./_}.tar.gz" "$tmp/effect.tar.gz" '\.tar\.gz$'
   mkdir -p "$tmp/unpacked"
   extract "$tmp/effect.tar.gz" "$tmp/unpacked"
   package="$(find "$tmp/unpacked" -name metadata.json -print -quit | xargs -r dirname)"
@@ -181,6 +218,9 @@ run_install_one() {
     exit 0
   fi
   "${addon}_install"
+  local now
+  now="$("${addon}_installed" || true)"
+  [ "$now" = "$latest" ] || die "$addon: install finished but version '${now:-none}' is on disk instead of $latest"
   if [ -z "$installed" ]; then
     log "$addon: installed $latest"
   else

@@ -21,6 +21,7 @@ export DOTFILES_GITHUB_API="https://api.github.com"
 export DOTFILES_GITHUB_WEB="https://github.com"
 export DOTFILES_GITHUB_RAW="https://raw.githubusercontent.com"
 export DOTFILES_KDE_STORE_API="https://api.kde-look.org/ocs/v1"
+export FAKE_KPACKAGE_BROKEN="$work/kpackage-broken"
 
 cat >"$work/bin/curl" <<EOF
 #!/usr/bin/env bash
@@ -28,16 +29,25 @@ set -euo pipefail
 root="$work/http"
 out=""
 url=""
+head=0
+write=""
 while [ \$# -gt 0 ]; do
   case "\$1" in
     -o) out="\$2"; shift 2 ;;
-    -H) shift 2 ;;
-    --max-time) shift 2 ;;
+    -w) write="\$2"; shift 2 ;;
+    -H|--max-time|--retry|--retry-delay) shift 2 ;;
+    -fsSLI) head=1; shift ;;
     -*) shift ;;
     *) url="\$1"; shift ;;
   esac
 done
+[ -f "$work/api-down" ] && [[ "\$url" == https://api.github.com/* ]] && { echo "fake curl: 403 rate limited" >&2; exit 22; }
 path="\$root/\${url#https://}"
+if [ "\$head" -eq 1 ]; then
+  [ -f "\$path.redirect" ] || { echo "fake curl: no redirect fixture for \$url" >&2; exit 22; }
+  [ "\$write" = '%{url_effective}' ] && cat "\$path.redirect"
+  exit 0
+fi
 [ -f "\$path" ] || { echo "fake curl: no fixture for \$url" >&2; exit 22; }
 if [ -n "\$out" ]; then cp "\$path" "\$out"; else cat "\$path"; fi
 EOF
@@ -46,6 +56,10 @@ chmod +x "$work/bin/curl"
 cat >"$work/bin/kpackagetool6" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+if [ -f "${FAKE_KPACKAGE_BROKEN:-/nonexistent}" ]; then
+  echo "Error: could not install package" >&2
+  exit 1
+fi
 type=""
 source=""
 for arg in "$@"; do
@@ -65,7 +79,10 @@ if [ -d "$source" ]; then
   package="$source"
 else
   unpacked="$(mktemp -d)"
-  tar -xf "$source" -C "$unpacked"
+  case "$source" in
+    *.kwinscript) unzip -q -o "$source" -d "$unpacked" ;;
+    *) tar -xf "$source" -C "$unpacked" ;;
+  esac
   package="$(dirname "$(find "$unpacked" -name metadata.json -print -quit)")"
 fi
 id="$(sed -n 's/^[[:space:]]*"Id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$package/metadata.json" | head -n 1)"
@@ -88,7 +105,10 @@ publish_krohnkite() {
   make_package "$src/krohnkite" krohnkite "$version"
   mkdir -p "$work/http/github.com/anametologin/krohnkite/releases/download/$version" \
     "$work/http/api.github.com/repos/anametologin/krohnkite/releases"
-  tar -czf "$work/http/github.com/anametologin/krohnkite/releases/download/$version/krohnkite.kwinscript" -C "$src" krohnkite
+  (cd "$src" && zip -q -r "$work/http/github.com/anametologin/krohnkite/releases/download/$version/krohnkite.kwinscript" krohnkite)
+  mkdir -p "$work/http/github.com/anametologin/krohnkite/releases/latest/download"
+  cp "$work/http/github.com/anametologin/krohnkite/releases/download/$version/krohnkite.kwinscript" "$work/http/github.com/anametologin/krohnkite/releases/latest/download/krohnkite.kwinscript"
+  printf 'https://github.com/anametologin/krohnkite/releases/tag/%s\n' "$version" >"$work/http/github.com/anametologin/krohnkite/releases/latest.redirect"
   cat >"$work/http/api.github.com/repos/anametologin/krohnkite/releases/latest" <<EOF
 {
   "tag_name": "$version",
@@ -109,6 +129,9 @@ publish_geometry_change() {
   mkdir -p "$work/http/github.com/peterfajdiga/kwin4_effect_geometry_change/releases/download/v$version" \
     "$work/http/api.github.com/repos/peterfajdiga/kwin4_effect_geometry_change/releases"
   tar -czf "$work/http/github.com/peterfajdiga/kwin4_effect_geometry_change/releases/download/v$version/effect.tar.gz" -C "$src" kwin4_effect_geometry_change
+  cp "$work/http/github.com/peterfajdiga/kwin4_effect_geometry_change/releases/download/v$version/effect.tar.gz" \
+    "$work/http/github.com/peterfajdiga/kwin4_effect_geometry_change/releases/download/v$version/kwin4_effect_geometry_change_${version//./_}.tar.gz"
+  printf 'https://github.com/peterfajdiga/kwin4_effect_geometry_change/releases/tag/v%s\n' "$version" >"$work/http/github.com/peterfajdiga/kwin4_effect_geometry_change/releases/latest.redirect"
   cat >"$work/http/api.github.com/repos/peterfajdiga/kwin4_effect_geometry_change/releases/latest" <<EOF
 {
   "tag_name": "v$version",
@@ -210,6 +233,29 @@ grep -q '^1 add-on(s) changed$' "$work/install4.out" || fail "only the successfu
 grep -q '1 add-on(s) failed to install' "$work/install4.out" || fail "the failure count must be reported: $(cat "$work/install4.out")"
 [ -f "$XDG_DATA_HOME/kwin/scripts/krohnkite/metadata.json" ] || fail "krohnkite must be installed even though a later add-on failed"
 [ ! -e "$XDG_DATA_HOME/plasma/plasmoids/KdeControlStation" ] || fail "a failed download must not leave a half-installed widget"
+
+rm -rf "$XDG_DATA_HOME/kwin" "$XDG_DATA_HOME/aurorae" "$XDG_DATA_HOME/plasma"
+publish_kde_control_station 2.15.0 2.12.0
+touch "$work/api-down"
+"$install" check >"$work/check6.out" 2>&1 && fail "check must fail while nothing is installed"
+grep -q '^krohnkite: missing (latest 0.9.9.3)$' "$work/check6.out" || fail "krohnkite version must resolve without the GitHub API: $(cat "$work/check6.out")"
+grep -q '^geometry_change: missing (latest 1.5)$' "$work/check6.out" || fail "geometry_change version must resolve without the GitHub API: $(cat "$work/check6.out")"
+"$install" install >"$work/install5.out" 2>&1 || fail "install must work without the GitHub API: $(cat "$work/install5.out")"
+grep -q '^krohnkite: installed 0.9.9.3$' "$work/install5.out" || fail "krohnkite must install without the GitHub API: $(cat "$work/install5.out")"
+grep -q '^geometry_change: installed 1.5$' "$work/install5.out" || fail "geometry_change must install without the GitHub API: $(cat "$work/install5.out")"
+[ -f "$XDG_DATA_HOME/kwin/effects/kwin4_effect_geometry_change/contents/code/main.js" ] || fail "geometry change effect files missing after API-free install"
+rm -f "$work/api-down"
+
+rm -rf "$XDG_DATA_HOME/kwin" "$XDG_DATA_HOME/plasma"
+touch "$FAKE_KPACKAGE_BROKEN"
+"$install" install >"$work/install6.out" 2>&1 || fail "install must fall back to copying when kpackagetool6 fails: $(cat "$work/install6.out")"
+grep -q 'kpackagetool6 --install failed: Error: could not install package' "$work/install6.out" || fail "the package tool error must be shown: $(cat "$work/install6.out")"
+grep -q '^geometry_change: installed 1.5$' "$work/install6.out" || fail "geometry_change must be copied into place when kpackagetool6 fails: $(cat "$work/install6.out")"
+grep -q '^krohnkite: installed 0.9.9.3$' "$work/install6.out" || fail "krohnkite must be unzipped into place when kpackagetool6 fails: $(cat "$work/install6.out")"
+[ -f "$XDG_DATA_HOME/kwin/effects/kwin4_effect_geometry_change/metadata.json" ] || fail "copy fallback did not install the effect"
+[ -f "$XDG_DATA_HOME/kwin/scripts/krohnkite/metadata.json" ] || fail "copy fallback did not install the script"
+rm -f "$FAKE_KPACKAGE_BROKEN"
+"$install" check >"$work/check7.out" 2>&1 || fail "check must pass after the fallback install: $(cat "$work/check7.out")"
 
 if "$install" >/dev/null 2>&1; then
   fail "running without a subcommand must fail"
