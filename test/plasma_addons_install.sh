@@ -60,11 +60,13 @@ echo "$*" >>"${FAKE_KWIN_LOG:?}"
 case "${3:-}" in
   org.kde.kwin.Effects.isEffectLoaded) [ -f "${FAKE_KWIN_LOG%.log}.loaded-$4" ] && echo true || echo false ;;
   org.kde.kwin.Effects.loadEffect)
-    if [ -f "${FAKE_KWIN_LOG%.log}.software" ]; then echo false; else touch "${FAKE_KWIN_LOG%.log}.loaded-$4"; echo true; fi ;;
+    if [ -f "${FAKE_KWIN_LOG%.log}.software" ] || [ -f "${FAKE_KWIN_LOG%.log}.llvmpipe" ]; then echo false; else touch "${FAKE_KWIN_LOG%.log}.loaded-$4"; echo true; fi ;;
   org.kde.kwin.Effects.listOfEffects) echo "blur,kwin4_effect_geometry_change,zoom" ;;
   org.kde.KWin.supportInformation)
     printf 'KWin version: 6.7.4\n'
-    if [ -f "${FAKE_KWIN_LOG%.log}.software" ]; then printf 'Compositing Type: QPainter\n'; else printf 'Compositing Type: OpenGL\n'; fi ;;
+    if [ -f "${FAKE_KWIN_LOG%.log}.llvmpipe" ]; then printf 'Compositing Type: OpenGL\nOpenGL renderer string: llvmpipe (LLVM 22.1.8, 256 bits)\n'
+    elif [ -f "${FAKE_KWIN_LOG%.log}.software" ]; then printf 'Compositing Type: QPainter\n'
+    else printf 'Compositing Type: OpenGL\nOpenGL renderer string: Mesa Intel(R) Iris(R) Xe Graphics\n'; fi ;;
   *) echo "" ;;
 esac
 EOF
@@ -275,6 +277,17 @@ touch "${FAKE_KWIN_LOG%.log}.software"
 grep -q "geometry_change: installed but not loaded by KWin (compositing: QPainter)" "$work/check8.out" || fail "check must show the compositing type when KWin will not load the effect: $(cat "$work/check8.out")"
 grep -q "refuses to load it because compositing is 'QPainter'" "$work/check8.out" || fail "check must explain software rendering: $(cat "$work/check8.out")"
 rm -f "${FAKE_KWIN_LOG%.log}.software"
+
+touch "${FAKE_KWIN_LOG%.log}.llvmpipe"
+env_file="$HOME/.config/environment.d/50-kwin-force-animations.conf"
+[ ! -e "$env_file" ] || fail "the force-animations override must not exist before the software renderer is seen"
+"$install" check >"$work/check9.out" 2>&1 || true
+grep -q "refuses to load animated effects on the software renderer 'llvmpipe" "$work/check9.out" || fail "check must recognise llvmpipe as a software renderer: $(cat "$work/check9.out")"
+grep -q "wrote KWIN_EFFECTS_FORCE_ANIMATIONS=1 to ~/.config/environment.d/50-kwin-force-animations.conf; log out and back in" "$work/check9.out" || fail "the override must be written and a relogin requested: $(cat "$work/check9.out")"
+[ "$(cat "$env_file")" = "KWIN_EFFECTS_FORCE_ANIMATIONS=1" ] || fail "the override file has the wrong content: $(cat "$env_file")"
+"$install" check >"$work/check10.out" 2>&1 || true
+grep -q "is already set in ~/.config/environment.d/50-kwin-force-animations.conf" "$work/check10.out" || fail "a second run must not rewrite the override: $(cat "$work/check10.out")"
+rm -f "${FAKE_KWIN_LOG%.log}.llvmpipe" "$env_file"
 
 rm -rf "$XDG_DATA_HOME/kwin" "$XDG_DATA_HOME/plasma"
 touch "$FAKE_KPACKAGE_BROKEN"

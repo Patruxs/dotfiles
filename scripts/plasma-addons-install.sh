@@ -221,11 +221,50 @@ kwin_compositing_type() {
   kwin_call /KWin org.kde.KWin supportInformation 2>/dev/null | sed -n 's/^Compositing Type:[[:space:]]*//p' | head -n 1
 }
 
+kwin_renderer() {
+  kwin_call /KWin org.kde.KWin supportInformation 2>/dev/null | sed -n 's/^OpenGL renderer string:[[:space:]]*//p' | head -n 1
+}
+
+software_renderer() {
+  case "$(kwin_renderer)" in
+    *llvmpipe*|*softpipe*|*swrast*|*"Software Rasterizer"*|*SWR*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+force_animations_file="${XDG_CONFIG_HOME:-$HOME/.config}/environment.d/50-kwin-force-animations.conf"
+
+pretty_path() {
+  case "$1" in
+    "$HOME"/*) printf '~%s' "${1#"$HOME"}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+force_animations_enabled() {
+  [ -f "$force_animations_file" ] && grep -qx 'KWIN_EFFECTS_FORCE_ANIMATIONS=1' "$force_animations_file"
+}
+
+enable_force_animations() {
+  if force_animations_enabled; then
+    log "KWIN_EFFECTS_FORCE_ANIMATIONS=1 is already set in $(pretty_path "$force_animations_file"); log out and back in for KWin to pick it up"
+    return 0
+  fi
+  mkdir -p "$(dirname "$force_animations_file")"
+  printf 'KWIN_EFFECTS_FORCE_ANIMATIONS=1\n' >"$force_animations_file"
+  log "wrote KWIN_EFFECTS_FORCE_ANIMATIONS=1 to $(pretty_path "$force_animations_file"); log out and back in for KWin to load animated effects on this software renderer"
+}
+
 explain_effect_not_loaded() {
   local effect="$1" compositing
   compositing="$(kwin_compositing_type)"
   if ! kwin_effect_known "$effect"; then
     warn "$effect: installed under ~/.local/share/kwin/effects but the running KWin does not list it; log out and back in so KWin rescans its effect packages"
+    return 0
+  fi
+  if software_renderer; then
+    warn "$effect: KWin lists it but refuses to load animated effects on the software renderer '$(kwin_renderer)' (no GPU acceleration; in a VM enable 3D acceleration)"
+    enable_force_animations
     return 0
   fi
   case "$compositing" in
