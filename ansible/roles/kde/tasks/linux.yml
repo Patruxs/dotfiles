@@ -94,7 +94,7 @@
             'phase': 'feature',
             'name': 'desktop_base panels',
             'detail': 'Stored Plasma panels were not applied because no Plasma session is reachable ('
-                      ~ (kde_panels_check.stdout | default('') | trim) ~ '). Log in to Plasma and run scripts/plasma-panels-sync.sh apply.'
+                      ~ (kde_panels_check.stdout | default('') | trim) ~ '). Run bootstrap again from a terminal inside the Plasma session, or run scripts/plasma-panels-sync.sh apply there.'
           }
         ]
       }}

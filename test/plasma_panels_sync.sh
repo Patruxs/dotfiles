@@ -33,6 +33,8 @@ else
 fi
 EOF
 chmod +x "$work/bin/qdbus"
+ln -s "$work/bin/qdbus" "$work/bin/qdbus6"
+ln -s "$work/bin/qdbus" "$work/bin/qdbus-qt6"
 
 cat >"$FAKE_PLASMA_STATE/live.json" <<EOF
 [{"location":"top","alignment":"center","hiding":"none","lengthMode":"fill","minimumLength":2560,"maximumLength":2560,"offset":0,"height":30,"floating":false,"opacity":"adaptive","widgets":[
@@ -107,6 +109,44 @@ touch "$FAKE_PLASMA_STATE/down"
 [ "$("$sync" check >/dev/null 2>&1; echo $?)" -eq 2 ] || fail "check must exit 2 without a Plasma session"
 [ "$("$sync" apply >/dev/null 2>&1; echo $?)" -eq 2 ] || fail "apply must exit 2 without a Plasma session"
 rm -f "$FAKE_PLASMA_STATE/down"
+
+cat >"$work/bin/dbus-send" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[ -f "$FAKE_PLASMA_STATE/down" ] && exit 1
+method=""
+script=""
+for arg in "$@"; do
+  case "$arg" in
+    string:*) script="${arg#string:}" ;;
+    org.kde.PlasmaShell.evaluateScript|org.freedesktop.DBus.Peer.Ping) method="$arg" ;;
+  esac
+done
+printf 'method return time=1.0 sender=:1.1 -> destination=:1.2 serial=1 reply_serial=2\n'
+[ "$method" = org.kde.PlasmaShell.evaluateScript ] || exit 0
+if [[ "$script" == *"JSON.stringify(out)"* ]]; then
+  printf '   string "%s"\n' "$(cat "$FAKE_PLASMA_STATE/live.json" | tr -d '\n')"
+else
+  printf '%s\n' "$script" >"$FAKE_PLASMA_STATE/applied.js"
+  printf '   string ""\n'
+fi
+EOF
+chmod +x "$work/bin/dbus-send"
+rm -f "$work/bin/qdbus" "$work/bin/qdbus6" "$work/bin/qdbus-qt6" "$FAKE_PLASMA_STATE/applied.js"
+only="$work/only"
+mkdir -p "$only"
+for tool in bash sh python3 diff cat mkdir dirname basename printf env grep sed head tail sort tr rm; do
+  ln -s "$(command -v "$tool")" "$only/$tool"
+done
+ln -s "$work/bin/dbus-send" "$only/dbus-send"
+if PATH="$only" "$sync" check >"$work/check5.out" 2>&1; then
+  fail "check via dbus-send must still see the stored layout differ: $(cat "$work/check5.out")"
+fi
+grep -q 'differ' "$work/check5.out" || fail "check via dbus-send did not compare layouts: $(cat "$work/check5.out")"
+PATH="$only" "$sync" apply >"$work/apply3.out" 2>&1 || fail "apply via dbus-send failed: $(cat "$work/apply3.out")"
+grep -q '^p0.height = 36;' "$FAKE_PLASMA_STATE/applied.js" || fail "apply via dbus-send did not send the layout script"
+rm -f "$only/dbus-send"
+[ "$(PATH="$only" "$sync" check >/dev/null 2>&1; echo $?)" -eq 2 ] || fail "check must exit 2 when no D-Bus client is installed"
 
 if "$sync" >/dev/null 2>&1; then
   fail "running without a subcommand must fail"

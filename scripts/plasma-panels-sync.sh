@@ -9,22 +9,50 @@ log()  { printf '%s\n' "$*"; }
 die()  { printf 'error: %s\n' "$*" >&2; exit 1; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
-qdbus_bin() {
-  if have qdbus6; then printf 'qdbus6'
-  elif have qdbus; then printf 'qdbus'
-  else return 1
+dbus_tool() {
+  local tool
+  for tool in qdbus6 qdbus-qt6 qdbus dbus-send; do
+    if have "$tool"; then
+      printf '%s' "$tool"
+      return 0
+    fi
+  done
+  return 1
+}
+
+plasma_reachable() {
+  local tool
+  tool="$(dbus_tool)" || return 1
+  if [ "$tool" = dbus-send ]; then
+    dbus-send --session --print-reply --dest=org.kde.plasmashell /PlasmaShell org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1
+  else
+    "$tool" org.kde.plasmashell /PlasmaShell >/dev/null 2>&1
   fi
 }
 
 require_session() {
-  local q
   have python3 || die "python3 is required"
-  q="$(qdbus_bin)" || { log "no qdbus available; is a Plasma session running?"; exit 2; }
-  "$q" org.kde.plasmashell /PlasmaShell >/dev/null 2>&1 || { log "plasmashell is not reachable on the session bus; run this inside a Plasma session"; exit 2; }
+  dbus_tool >/dev/null || { log "no D-Bus client (qdbus6, qdbus-qt6, qdbus or dbus-send) is installed"; exit 2; }
+  plasma_reachable || { log "plasmashell is not reachable on the session bus; run this inside a Plasma session"; exit 2; }
 }
 
+dbus_send_reply_py='
+import sys
+reply = sys.stdin.read().split("\n", 1)
+body = reply[1].strip() if len(reply) > 1 else ""
+if not (body.startswith("string \"") and body.endswith("\"")):
+    sys.exit("unexpected dbus-send reply: " + body[:200])
+sys.stdout.write(body[len("string \""):-1])
+'
+
 plasma_eval() {
-  "$(qdbus_bin)" org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$1"
+  local tool
+  tool="$(dbus_tool)"
+  if [ "$tool" = dbus-send ]; then
+    dbus-send --session --print-reply --dest=org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript string:"$1" | python3 -c "$dbus_send_reply_py"
+  else
+    "$tool" org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$1"
+  fi
 }
 
 dump_script='

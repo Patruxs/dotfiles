@@ -10,3 +10,23 @@
   when:
     - dotfiles_platform.name == 'ubuntu'
     - not (dotfiles_ci | default(false))
+
+- name: Install or update Starship on Fedora from a repo that carries it or the upstream installer
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if rpm -q starship >/dev/null 2>&1 || dnf -q list --available starship >/dev/null 2>&1; then
+      if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+        sudo -S -p '' dnf install -y starship < {{ dotfiles_sudo_password_file | quote }}
+      else
+        sudo -n dnf install -y starship
+      fi
+    else
+      mkdir -p "$HOME/.local/bin"
+      curl -fsSL https://starship.rs/install.sh | sh -s -- --yes --bin-dir "$HOME/.local/bin"
+    fi
+  args:
+    executable: /bin/bash
+  changed_when: false
+  when:
+    - dotfiles_platform.name == 'fedora'
+    - not (dotfiles_ci | default(false))

@@ -12,6 +12,7 @@ kde_store_api="${DOTFILES_KDE_STORE_API:-https://api.kde-look.org/ocs/v1}"
 addons=(krohnkite geometry_change active_accent_frame kde_control_station)
 
 log()  { printf '%s\n' "$*"; }
+warn() { printf 'warning: %s\n' "$*" >&2; }
 die()  { printf 'error: %s\n' "$*" >&2; exit 1; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
@@ -19,9 +20,9 @@ fetch() {
   local url="$1"
   shift
   if [ -n "${GITHUB_TOKEN:-}" ] && [[ "$url" == "$github_api"/* ]]; then
-    curl -fsSL --max-time 60 -H "Authorization: Bearer $GITHUB_TOKEN" "$@" "$url"
+    curl -fsSL --max-time 60 --retry 3 --retry-delay 2 --retry-all-errors -H "Authorization: Bearer $GITHUB_TOKEN" "$@" "$url"
   else
-    curl -fsSL --max-time 60 "$@" "$url"
+    curl -fsSL --max-time 60 --retry 3 --retry-delay 2 --retry-all-errors "$@" "$url"
   fi
 }
 
@@ -131,11 +132,15 @@ kde_control_station_install() {
 }
 
 reconfigure_kwin() {
-  [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] || return 0
-  if have qdbus6; then
-    qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
-  elif have qdbus; then
-    qdbus org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
+  local tool
+  for tool in qdbus6 qdbus-qt6 qdbus; do
+    if have "$tool"; then
+      "$tool" org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
+      return 0
+    fi
+  done
+  if have dbus-send; then
+    dbus-send --session --dest=org.kde.KWin /KWin org.kde.KWin.reconfigure >/dev/null 2>&1 || true
   fi
 }
 
@@ -154,31 +159,46 @@ run_check() {
   local addon installed latest outdated=0
   for addon in "${addons[@]}"; do
     installed="$("${addon}_installed" || true)"
-    latest="$("${addon}_latest")"
-    [ -n "$latest" ] || die "could not determine the latest version of $addon"
+    latest="$("${addon}_latest" 2>/dev/null || true)"
+    if [ -z "$latest" ]; then
+      warn "$addon: could not determine the latest upstream version"
+      outdated=$((outdated + 1))
+      continue
+    fi
     status_line "$addon" "$installed" "$latest"
     [ "$installed" = "$latest" ] || outdated=$((outdated + 1))
   done
   [ "$outdated" -eq 0 ]
 }
 
+run_install_one() {
+  local addon="$1" installed latest
+  installed="$("${addon}_installed" || true)"
+  latest="$("${addon}_latest")"
+  [ -n "$latest" ] || die "$addon: could not determine the latest upstream version"
+  if [ "$installed" = "$latest" ]; then
+    log "$addon: unchanged ($installed)"
+    exit 0
+  fi
+  "${addon}_install"
+  if [ -z "$installed" ]; then
+    log "$addon: installed $latest"
+  else
+    log "$addon: updated $installed -> $latest"
+  fi
+  exit 3
+}
+
 run_install() {
-  local addon installed latest changed=0
+  local addon changed=0 failed=0 rc
   for addon in "${addons[@]}"; do
-    installed="$("${addon}_installed" || true)"
-    latest="$("${addon}_latest")"
-    [ -n "$latest" ] || die "could not determine the latest version of $addon"
-    if [ "$installed" = "$latest" ]; then
-      log "$addon: unchanged ($installed)"
-      continue
-    fi
-    "${addon}_install"
-    if [ -z "$installed" ]; then
-      log "$addon: installed $latest"
-    else
-      log "$addon: updated $installed -> $latest"
-    fi
-    changed=$((changed + 1))
+    rc=0
+    "${BASH_SOURCE[0]}" install-one "$addon" || rc=$?
+    case "$rc" in
+      0) ;;
+      3) changed=$((changed + 1)) ;;
+      *) warn "$addon: install failed, continuing with the remaining add-ons"; failed=$((failed + 1)) ;;
+    esac
   done
   if [ "$changed" -gt 0 ]; then
     reconfigure_kwin
@@ -186,11 +206,13 @@ run_install() {
   else
     log "all add-ons up to date"
   fi
+  [ "$failed" -eq 0 ] || die "$failed add-on(s) failed to install"
 }
 
 case "${1:-}" in
   check)   run_check ;;
   install) run_install ;;
+  install-one) run_install_one "$2" ;;
   list)    run_check || true ;;
   *)
     printf 'usage: %s check|install|list\n' "$(basename "$0")" >&2

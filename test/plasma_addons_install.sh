@@ -199,6 +199,18 @@ grep -q '"Version": "0.9.9.3"' "$XDG_DATA_HOME/kwin/scripts/krohnkite/metadata.j
 
 "$install" check >"$work/check4.out" 2>&1 || fail "check must pass after update: $(cat "$work/check4.out")"
 
+rm -rf "$XDG_DATA_HOME/kwin/scripts/krohnkite" "$XDG_DATA_HOME/plasma/plasmoids/KdeControlStation"
+rm -f "$work/http/files.pling.com/download/KdeControlStation.tar.xz"
+if "$install" install >"$work/install4.out" 2>&1; then
+  fail "install must exit non-zero when an add-on cannot be downloaded: $(cat "$work/install4.out")"
+fi
+grep -q '^krohnkite: installed 0.9.9.3$' "$work/install4.out" || fail "a failed add-on must not stop the others: $(cat "$work/install4.out")"
+grep -q 'kde_control_station: install failed, continuing' "$work/install4.out" || fail "the failed add-on must be reported: $(cat "$work/install4.out")"
+grep -q '^1 add-on(s) changed$' "$work/install4.out" || fail "only the successful add-on counts as changed: $(cat "$work/install4.out")"
+grep -q '1 add-on(s) failed to install' "$work/install4.out" || fail "the failure count must be reported: $(cat "$work/install4.out")"
+[ -f "$XDG_DATA_HOME/kwin/scripts/krohnkite/metadata.json" ] || fail "krohnkite must be installed even though a later add-on failed"
+[ ! -e "$XDG_DATA_HOME/plasma/plasmoids/KdeControlStation" ] || fail "a failed download must not leave a half-installed widget"
+
 if "$install" >/dev/null 2>&1; then
   fail "running without a subcommand must fail"
 fi

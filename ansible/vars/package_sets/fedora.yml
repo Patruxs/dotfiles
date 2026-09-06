@@ -54,9 +54,6 @@ package_sets:
   docker_engine:
     dnf:
       - moby-engine
-  starship_prompt:
-    dnf:
-      - starship
   terminal_toys:
     dnf:
       - cmatrix

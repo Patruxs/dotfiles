@@ -102,6 +102,19 @@ die()  { printf 'error: %s\n' "$*" >&2; exit 1; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # Plasma 6 ships the *6 tools, Plasma 5 the *5 ones.
+kwin_reconfigure() {
+  local tool
+  for tool in qdbus6 qdbus-qt6 qdbus; do
+    if have "$tool"; then
+      "$tool" org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
+      return 0
+    fi
+  done
+  if have dbus-send; then
+    dbus-send --session --dest=org.kde.KWin /KWin org.kde.KWin.reconfigure >/dev/null 2>&1 || true
+  fi
+}
+
 kwriteconfig_bin() {
   if have kwriteconfig6; then printf 'kwriteconfig6'
   elif have kwriteconfig5; then printf 'kwriteconfig5'
@@ -443,11 +456,7 @@ cmd_apply() {
   log "wrote $count setting(s)"
 
   if [ "$kwin_changed" -eq 1 ] && session_running; then
-    if have qdbus6; then
-      qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
-    elif have qdbus; then
-      qdbus org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
-    fi
+    kwin_reconfigure
   fi
 
   log ""
