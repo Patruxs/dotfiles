@@ -81,6 +81,7 @@
 .config/user-dirs.locale
 .config/rofi/**
 .local/share/rofi/**
+.local/share/icons/dotfiles/**
 .local/share/applications/omarchy-*.desktop
 .local/bin/omarchy-pin-window
 .local/bin/omarchy-show-battery

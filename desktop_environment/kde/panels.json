@@ -1,0 +1,60 @@
+[
+  {
+    "alignment": "center",
+    "floating": false,
+    "height": 30,
+    "hiding": "none",
+    "lengthMode": "fill",
+    "location": "top",
+    "offset": 0,
+    "opacity": "adaptive",
+    "widgets": [
+      {
+        "config": {
+          "General": {
+            "favoritesPortedToKAstats": "true",
+            "icon": "~/.local/share/icons/dotfiles/archlinux-logo.png",
+            "systemFavorites": "suspend\\,hibernate\\,reboot\\,shutdown"
+          }
+        },
+        "plugin": "org.kde.plasma.kicker"
+      },
+      {
+        "config": {},
+        "plugin": "org.kde.plasma.panelspacer"
+      },
+      {
+        "config": {
+          "Appearance": {
+            "autoFontAndSize": "false",
+            "customDateFormat": "dd-MM-yyyy",
+            "dateDisplayFormat": "BesideTime",
+            "dateFormat": "custom",
+            "fontFamily": "Adwaita Mono",
+            "fontSize": "14",
+            "fontStyleName": "Regular",
+            "fontWeight": "400",
+            "showSeconds": "Never"
+          }
+        },
+        "plugin": "org.kde.plasma.digitalclock"
+      },
+      {
+        "config": {},
+        "plugin": "org.kde.plasma.panelspacer"
+      },
+      {
+        "config": {
+          "General": {
+            "extraItems": "org.kde.plasma.clipboard,org.kde.plasma.manage-inputmethod,org.kde.plasma.notifications"
+          }
+        },
+        "plugin": "org.kde.plasma.systemtray"
+      },
+      {
+        "config": {},
+        "plugin": "KdeControlStation"
+      }
+    ]
+  }
+]

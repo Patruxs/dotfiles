@@ -72,12 +72,19 @@ log_info "Running KDE settings sync regression test..."
 }
 log_info "KDE settings sync regression test passed."
 
-log_info "Running KWin add-ons install regression test..."
-./test/kwin_addons_install.sh || {
-    log_err "KWin add-ons install regression test failed."
+log_info "Running Plasma add-ons install regression test..."
+./test/plasma_addons_install.sh || {
+    log_err "Plasma add-ons install regression test failed."
     exit 1
 }
-log_info "KWin add-ons install regression test passed."
+log_info "Plasma add-ons install regression test passed."
+
+log_info "Running Plasma panels sync regression test..."
+./test/plasma_panels_sync.sh || {
+    log_err "Plasma panels sync regression test failed."
+    exit 1
+}
+log_info "Plasma panels sync regression test passed."
 
 log_info "Running bootstrap best-effort step handling test..."
 ./test/bootstrap_best_effort.sh || {

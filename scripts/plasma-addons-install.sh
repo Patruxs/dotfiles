@@ -7,8 +7,9 @@ trap 'rm -rf "$workdir"' EXIT
 github_api="${DOTFILES_GITHUB_API:-https://api.github.com}"
 github_web="${DOTFILES_GITHUB_WEB:-https://github.com}"
 github_raw="${DOTFILES_GITHUB_RAW:-https://raw.githubusercontent.com}"
+kde_store_api="${DOTFILES_KDE_STORE_API:-https://api.kde-look.org/ocs/v1}"
 
-addons=(krohnkite geometry_change active_accent_frame)
+addons=(krohnkite geometry_change active_accent_frame kde_control_station)
 
 log()  { printf '%s\n' "$*"; }
 die()  { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -24,8 +25,12 @@ fetch() {
   fi
 }
 
+json_strings() {
+  grep -o "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" | sed 's/^"[^"]*"[[:space:]]*:[[:space:]]*"//; s/"$//; s#\\/#/#g'
+}
+
 json_field() {
-  sed -n "s/^[[:space:]]*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" | head -n 1
+  json_strings "$1" | head -n 1
 }
 
 release_tag() {
@@ -33,9 +38,11 @@ release_tag() {
 }
 
 release_asset_url() {
-  fetch "$github_api/repos/$1/releases/latest" \
-    | sed -n 's/^[[:space:]]*"browser_download_url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
-    | grep -E "$2" | head -n 1
+  fetch "$github_api/repos/$1/releases/latest" | json_strings browser_download_url | grep -E "$2" | head -n 1
+}
+
+extract() {
+  tar -xf "$1" -C "$2" --warning=no-unknown-keyword
 }
 
 kpackagetool_bin() {
@@ -77,7 +84,7 @@ geometry_change_install() {
   mkdir -p "$tmp"
   fetch "$url" -o "$tmp/effect.tar.gz"
   mkdir -p "$tmp/unpacked"
-  tar -xzf "$tmp/effect.tar.gz" -C "$tmp/unpacked"
+  extract "$tmp/effect.tar.gz" "$tmp/unpacked"
   package="$(find "$tmp/unpacked" -name metadata.json -print -quit | xargs -r dirname)"
   [ -n "$package" ] || die "the kwin4_effect_geometry_change archive has no metadata.json"
   kpackage_install KWin/Effect "$geometry_change_dir" "$package"
@@ -94,12 +101,33 @@ active_accent_frame_install() {
   mkdir -p "$tmp"
   fetch "$github_web/nclarius/Plasma-window-decorations/archive/HEAD.tar.gz" -o "$tmp/decorations.tar.gz"
   mkdir -p "$tmp/unpacked"
-  tar -xzf "$tmp/decorations.tar.gz" -C "$tmp/unpacked"
+  extract "$tmp/decorations.tar.gz" "$tmp/unpacked"
   theme="$(find "$tmp/unpacked" -type d -name ActiveAccentFrame -print -quit)"
   [ -n "$theme" ] || die "the Plasma-window-decorations archive has no ActiveAccentFrame directory"
   mkdir -p "$(dirname "$active_accent_frame_dir")"
   rm -rf "$active_accent_frame_dir"
   cp -R "$theme" "$active_accent_frame_dir"
+}
+
+kde_control_station_dir="$data_home/plasma/plasmoids/KdeControlStation"
+kde_control_station_marker="$kde_control_station_dir/.store-version"
+kde_control_station_store() { fetch "$kde_store_api/content/data/2196105?format=json"; }
+kde_control_station_installed() { [ -f "$kde_control_station_dir/metadata.json" ] && [ -f "$kde_control_station_marker" ] && cat "$kde_control_station_marker"; }
+kde_control_station_latest()    { kde_control_station_store | json_field download_version1; }
+kde_control_station_install() {
+  local url version package tmp="$workdir/kde_control_station"
+  local listing
+  listing="$(kde_control_station_store)"
+  url="$(printf '%s' "$listing" | json_field downloadlink1)"
+  version="$(printf '%s' "$listing" | json_field download_version1)"
+  [ -n "$url" ] || die "no download link for KDE Control Station on the KDE store"
+  mkdir -p "$tmp/unpacked"
+  fetch "$url" -o "$tmp/KdeControlStation.tar.xz"
+  extract "$tmp/KdeControlStation.tar.xz" "$tmp/unpacked"
+  package="$(find "$tmp/unpacked" -name metadata.json -print -quit | xargs -r dirname)"
+  [ -n "$package" ] || die "the KDE Control Station archive has no metadata.json"
+  kpackage_install Plasma/Applet "$kde_control_station_dir" "$package"
+  printf '%s\n' "$version" >"$kde_control_station_marker"
 }
 
 reconfigure_kwin() {

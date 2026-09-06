@@ -53,3 +53,51 @@
   debug:
     var: kde_settings_apply.stdout_lines
   when: kde_settings_apply is not skipped
+
+- name: Check for stored Plasma panels
+  stat:
+    path: "{{ chezmoi_dir }}/desktop_environment/kde/panels.json"
+  register: kde_panels_file
+
+- name: Check whether the Plasma panels already match the repo
+  command:
+    argv:
+      - "{{ chezmoi_dir }}/scripts/plasma-panels-sync.sh"
+      - check
+  register: kde_panels_check
+  failed_when: false
+  changed_when: false
+  when: kde_panels_file.stat.exists
+
+- name: Apply stored Plasma panels
+  command:
+    argv:
+      - "{{ chezmoi_dir }}/scripts/plasma-panels-sync.sh"
+      - apply
+  register: kde_panels_apply
+  changed_when: true
+  when:
+    - kde_panels_file.stat.exists
+    - kde_panels_check.rc == 1
+
+- name: Report the Plasma panels restore
+  debug:
+    var: kde_panels_apply.stdout_lines
+  when: kde_panels_apply is not skipped
+
+- name: Record skipped Plasma panels
+  set_fact:
+    dotfiles_setup_skipped: >-
+      {{
+        (dotfiles_setup_skipped | default([])) + [
+          {
+            'phase': 'feature',
+            'name': 'desktop_base panels',
+            'detail': 'Stored Plasma panels were not applied because no Plasma session is reachable ('
+                      ~ (kde_panels_check.stdout | default('') | trim) ~ '). Log in to Plasma and run scripts/plasma-panels-sync.sh apply.'
+          }
+        ]
+      }}
+  when:
+    - kde_panels_file.stat.exists
+    - kde_panels_check.rc == 2

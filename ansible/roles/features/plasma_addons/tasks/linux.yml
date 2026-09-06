@@ -1,0 +1,38 @@
+---
+- name: Check for the KDE package tool
+  command:
+    argv:
+      - sh
+      - -c
+      - command -v kpackagetool6 || command -v kpackagetool5
+  register: plasma_addons_package_tool
+  failed_when: false
+  changed_when: false
+
+- name: Fail when Plasma add-ons cannot be installed on this machine
+  fail:
+    msg: "plasma_addons is selected but neither kpackagetool6 nor kpackagetool5 is installed; install the KDE package tools (kpackage) or drop plasma_addons from the profile."
+  when: plasma_addons_package_tool.rc != 0
+
+- name: Check whether the Plasma add-ons already match upstream
+  command:
+    argv:
+      - "{{ chezmoi_dir }}/scripts/plasma-addons-install.sh"
+      - check
+  register: plasma_addons_check
+  failed_when: false
+  changed_when: false
+
+- name: Install or update the Plasma add-ons
+  command:
+    argv:
+      - "{{ chezmoi_dir }}/scripts/plasma-addons-install.sh"
+      - install
+  register: plasma_addons_install
+  changed_when: true
+  when: plasma_addons_check.rc != 0
+
+- name: Report the Plasma add-on install
+  debug:
+    var: plasma_addons_install.stdout_lines
+  when: plasma_addons_install is not skipped

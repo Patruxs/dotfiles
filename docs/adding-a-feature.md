@@ -138,7 +138,9 @@ If the file should only exist on some machines, guard it with the setup data the
 
 KDE's own rc files (`kdeglobals`, `kwinrc`, `kglobalshortcutsrc`, ...) are the exception: KDE rewrites them atomically, which replaces a chezmoi symlink with a plain file, so they are not managed by chezmoi. Add the keys you care about to `desktop_environment/kde/settings/<file>` (or run `./scripts/kde-settings-sync.sh capture`) and the `kde` role writes them with `kwriteconfig6`. GNOME preferences go in `home/.chezmoidata/gnome_dconf.yaml`.
 
-If a stored KDE setting enables something Plasma does not ship (a KWin script, effect or Aurorae decoration), the setting alone does nothing on a fresh machine. Add the add-on to `scripts/kwin-addons-install.sh` so the `kwin_addons` feature installs it from upstream at the current version, and extend `test/kwin_addons_install.sh` to cover it.
+Panels (the top bar and any others) are captured separately with `./scripts/plasma-panels-sync.sh capture` into `desktop_environment/kde/panels.json`, because their config file is keyed by per-machine IDs; the `kde` role rebuilds them from that file inside a Plasma session.
+
+If a stored KDE setting or panel enables something Plasma does not ship (a KWin script, effect, Aurorae decoration or widget), the setting alone does nothing on a fresh machine. Add the add-on to `scripts/plasma-addons-install.sh` so the `plasma_addons` feature installs it from upstream at the current version, and extend `test/plasma_addons_install.sh` to cover it.
 
 ## Before you open the pull request
 

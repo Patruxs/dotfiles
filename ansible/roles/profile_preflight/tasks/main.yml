@@ -17,7 +17,7 @@
 - name: Define known feature implementations
   set_fact:
     dotfiles_feature_execution_order:
-      - kwin_addons
+      - plasma_addons
       - desktop_base
       - shell
       - starship_prompt

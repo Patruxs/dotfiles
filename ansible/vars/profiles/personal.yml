@@ -8,7 +8,7 @@ supported_platforms:
 features:
   - core_cli
   - desktop_base
-  - kwin_addons
+  - plasma_addons
   - desktop_apps
   - shell
   - starship_prompt
