@@ -12,7 +12,7 @@
               {
                 'phase': 'feature',
                 'name': selected_feature,
-                'detail': 'Selected feature role finished; platform and environment conditions may skip individual subtasks.'
+                'detail': (dotfiles_feature_details | default({}))[selected_feature] | default('Selected feature role finished; platform and environment conditions may skip individual subtasks.')
               }
             ]
           }}
@@ -31,7 +31,7 @@
               {
                 'phase': 'feature',
                 'name': selected_feature,
-                'detail': 'Selected feature role finished; platform and environment conditions may skip individual subtasks.'
+                'detail': (dotfiles_feature_details | default({}))[selected_feature] | default('Selected feature role finished; platform and environment conditions may skip individual subtasks.')
               }
             ]
           }}

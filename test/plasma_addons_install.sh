@@ -53,6 +53,20 @@ if [ -n "\$out" ]; then cp "\$path" "\$out"; else cat "\$path"; fi
 EOF
 chmod +x "$work/bin/curl"
 
+cat >"$work/bin/qdbus6" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" >>"${FAKE_KWIN_LOG:?}"
+case "${3:-}" in
+  org.kde.kwin.Effects.isEffectLoaded) [ -f "${FAKE_KWIN_LOG%.log}.loaded-$4" ] && echo true || echo false ;;
+  org.kde.kwin.Effects.loadEffect) touch "${FAKE_KWIN_LOG%.log}.loaded-$4"; echo true ;;
+  *) echo "" ;;
+esac
+EOF
+chmod +x "$work/bin/qdbus6"
+export FAKE_KWIN_LOG="$work/kwin.log"
+: >"$FAKE_KWIN_LOG"
+
 cat >"$work/bin/kpackagetool6" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -191,9 +205,13 @@ grep -q '^kde_control_station: installed 2.14.1$' "$work/install1.out" || fail "
 [ -f "$XDG_DATA_HOME/kwin/effects/kwin4_effect_geometry_change/contents/code/main.js" ] || fail "geometry change was not installed as a KWin effect"
 [ -f "$XDG_DATA_HOME/aurorae/themes/ActiveAccentFrame/decoration.svg" ] || fail "ActiveAccentFrame was not installed as an Aurorae theme"
 [ ! -e "$XDG_DATA_HOME/aurorae/themes/ActiveAccentDark" ] || fail "only the ActiveAccentFrame flavour must be installed"
+grep -q 'org.kde.KWin /KWin org.kde.KWin.reconfigure' "$FAKE_KWIN_LOG" || fail "KWin must be asked to reconfigure after an install"
+grep -q 'org.kde.kwin.Effects.loadEffect kwin4_effect_geometry_change' "$FAKE_KWIN_LOG" || fail "the geometry change effect must be loaded into the running KWin: $(cat "$FAKE_KWIN_LOG")"
+grep -q '^geometry_change: loaded into the running KWin$' "$work/install1.out" || fail "loading the effect must be reported: $(cat "$work/install1.out")"
 
 "$install" check >"$work/check2.out" 2>&1 || fail "check must pass after install: $(cat "$work/check2.out")"
 [ "$(grep -c ': up to date (' "$work/check2.out")" -eq 4 ] || fail "check must report every add-on as up to date: $(cat "$work/check2.out")"
+grep -q '^geometry_change: loaded by KWin$' "$work/check2.out" || fail "check must report the effect as loaded: $(cat "$work/check2.out")"
 
 "$install" install >"$work/install2.out" 2>&1 || fail "second install failed: $(cat "$work/install2.out")"
 [ "$(grep -c ': unchanged (' "$work/install2.out")" -eq 4 ] || fail "second install must change nothing: $(cat "$work/install2.out")"

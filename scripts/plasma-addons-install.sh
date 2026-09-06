@@ -168,16 +168,62 @@ kde_control_station_install() {
   printf '%s\n' "$version" >"$kde_control_station_marker"
 }
 
-reconfigure_kwin() {
-  local tool
+kwin_call() {
+  local path="$1" interface="$2" method="$3" arg="${4-}" tool reply
   for tool in qdbus6 qdbus-qt6 qdbus; do
     if have "$tool"; then
-      "$tool" org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
-      return 0
+      if [ -n "$arg" ]; then "$tool" org.kde.KWin "$path" "$interface.$method" "$arg" 2>/dev/null; else "$tool" org.kde.KWin "$path" "$interface.$method" 2>/dev/null; fi
+      return
     fi
   done
   if have dbus-send; then
-    dbus-send --session --dest=org.kde.KWin /KWin org.kde.KWin.reconfigure >/dev/null 2>&1 || true
+    if [ -n "$arg" ]; then
+      reply="$(dbus-send --session --print-reply --dest=org.kde.KWin "$path" "$interface.$method" string:"$arg" 2>/dev/null)" || return 1
+    else
+      reply="$(dbus-send --session --print-reply --dest=org.kde.KWin "$path" "$interface.$method" 2>/dev/null)" || return 1
+    fi
+    printf '%s\n' "$reply" | sed -n '2,$p' | sed 's/^[[:space:]]*[a-z]* //; s/^"//; s/"$//'
+    return 0
+  fi
+  if have gdbus; then
+    if [ -n "$arg" ]; then
+      reply="$(gdbus call --session --dest org.kde.KWin --object-path "$path" --method "$interface.$method" "'$arg'" 2>/dev/null)" || return 1
+    else
+      reply="$(gdbus call --session --dest org.kde.KWin --object-path "$path" --method "$interface.$method" 2>/dev/null)" || return 1
+    fi
+    printf '%s\n' "$reply" | sed "s/^(//; s/,)\$//; s/^'//; s/'\$//"
+    return 0
+  fi
+  return 1
+}
+
+kwin_reachable() {
+  kwin_call /KWin org.kde.KWin supportInformation >/dev/null 2>&1
+}
+
+reconfigure_kwin() {
+  kwin_call /KWin org.kde.KWin reconfigure >/dev/null 2>&1 || true
+}
+
+kwin_effect_loaded() {
+  [ "$(kwin_call /Effects org.kde.kwin.Effects isEffectLoaded "$1" 2>/dev/null)" = true ]
+}
+
+kwin_load_effect() {
+  kwin_call /Effects org.kde.kwin.Effects loadEffect "$1" >/dev/null 2>&1 || true
+}
+
+geometry_change_activate() {
+  kwin_reachable || return 0
+  if kwin_effect_loaded kwin4_effect_geometry_change; then
+    log "geometry_change: loaded by KWin"
+    return 0
+  fi
+  kwin_load_effect kwin4_effect_geometry_change
+  if kwin_effect_loaded kwin4_effect_geometry_change; then
+    log "geometry_change: loaded into the running KWin"
+  else
+    warn "geometry_change: installed but the running KWin could not load it; log out and back in, then check System Settings > Desktop Effects"
   fi
 }
 
@@ -205,6 +251,13 @@ run_check() {
     status_line "$addon" "$installed" "$latest"
     [ "$installed" = "$latest" ] || outdated=$((outdated + 1))
   done
+  if [ -n "$(geometry_change_installed || true)" ] && kwin_reachable; then
+    if kwin_effect_loaded kwin4_effect_geometry_change; then
+      log "geometry_change: loaded by KWin"
+    else
+      log "geometry_change: installed but not loaded by KWin (enabled by the stored kwinrc; loaded on install or at the next login)"
+    fi
+  fi
   [ "$outdated" -eq 0 ]
 }
 
@@ -245,6 +298,9 @@ run_install() {
     log "$changed add-on(s) changed"
   else
     log "all add-ons up to date"
+  fi
+  if [ -n "$(geometry_change_installed || true)" ]; then
+    geometry_change_activate
   fi
   [ "$failed" -eq 0 ] || die "$failed add-on(s) failed to install"
 }

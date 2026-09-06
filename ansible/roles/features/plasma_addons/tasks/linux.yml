@@ -36,3 +36,17 @@
   debug:
     var: plasma_addons_install.stdout_lines
   when: plasma_addons_install is not skipped
+
+- name: Record the Plasma add-on results for the report
+  set_fact:
+    dotfiles_feature_details: >-
+      {{
+        (dotfiles_feature_details | default({})) | combine({
+          'plasma_addons': (
+            ((plasma_addons_install.stdout_lines + plasma_addons_install.stderr_lines)
+             if plasma_addons_install is not skipped
+             else (plasma_addons_check.stdout_lines + plasma_addons_check.stderr_lines))
+            | reject('equalto', '') | join('; ')
+          )
+        })
+      }}
