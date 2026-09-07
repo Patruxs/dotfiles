@@ -221,4 +221,38 @@ grep -q '^\[Containments\]\[2\]\[Applets\]\[23\]\[Configuration\]\[Appearance\]$
 grep -q '^PointerAcceleration=-0.26$' "$XDG_CONFIG_HOME/plasma-test-rc" || fail "a value starting with a dash was not written"
 "$sync" check || fail "check should pass after applying nested groups"
 
+mkdir -p "$work/bin"
+cat >"$work/bin/plasma-apply-lookandfeel" <<'EOF'
+#!/usr/bin/env bash
+printf '%s|%s\n' "$*" "${QT_QPA_PLATFORM:-}" >>"$FAKE_LOOKANDFEEL_LOG"
+[ -z "${FAKE_LOOKANDFEEL_FAIL:-}" ] || { echo "no such package"; exit 1; }
+writer="$(command -v kwriteconfig6 || command -v kwriteconfig5)"
+"$writer" --file kdeglobals --group KDE --key LookAndFeelPackage "$2"
+"$writer" --file kdeglobals --group General --key AccentColor 0,0,0
+EOF
+chmod +x "$work/bin/plasma-apply-lookandfeel"
+export FAKE_LOOKANDFEEL_LOG="$work/lookandfeel.log"
+: >"$FAKE_LOOKANDFEEL_LOG"
+printf '\n[KDE]\nLookAndFeelPackage=org.kde.breezedark.desktop\n\n[General]\nAccentColor=9,9,9\n' >>"$stored/kdeglobals"
+
+PATH="$work/bin:$PATH" env -u DISPLAY -u WAYLAND_DISPLAY "$sync" apply >/dev/null
+[ "$(cat "$FAKE_LOOKANDFEEL_LOG")" = "--apply org.kde.breezedark.desktop|offscreen" ] || fail "apply did not run plasma-apply-lookandfeel once, headless, without resetting the layout: $(cat "$FAKE_LOOKANDFEEL_LOG")"
+grep -q '^LookAndFeelPackage=org.kde.breezedark.desktop$' "$XDG_CONFIG_HOME/kdeglobals" || fail "the global theme was not recorded in kdeglobals"
+grep -q '^AccentColor=9,9,9$' "$XDG_CONFIG_HOME/kdeglobals" || fail "stored entries should be written after the global theme and win over it: $(grep '^AccentColor=' "$XDG_CONFIG_HOME/kdeglobals")"
+PATH="$work/bin:$PATH" "$sync" check || fail "check should pass after applying the global theme"
+
+PATH="$work/bin:$PATH" DISPLAY=:0 "$sync" apply >/dev/null
+[ "$(wc -l <"$FAKE_LOOKANDFEEL_LOG")" -eq 1 ] || fail "a second apply re-applied the global theme: $(cat "$FAKE_LOOKANDFEEL_LOG")"
+
+sed -i 's/^LookAndFeelPackage=.*/LookAndFeelPackage=org.kde.breeze.desktop/' "$XDG_CONFIG_HOME/kdeglobals"
+PATH="$work/bin:$PATH" DISPLAY=:0 "$sync" apply >/dev/null
+[ "$(tail -1 "$FAKE_LOOKANDFEEL_LOG")" = "--apply org.kde.breezedark.desktop|" ] || fail "a changed live theme was not re-applied, or the offscreen platform was forced inside a session: $(cat "$FAKE_LOOKANDFEEL_LOG")"
+
+# A failing theme tool is reported and the entries are still written.
+sed -i 's/^LookAndFeelPackage=.*/LookAndFeelPackage=org.kde.breeze.desktop/' "$XDG_CONFIG_HOME/kdeglobals"
+apply_output="$(PATH="$work/bin:$PATH" DISPLAY=:0 FAKE_LOOKANDFEEL_FAIL=1 "$sync" apply 2>&1)"
+printf '%s\n' "$apply_output" | grep -q 'no such package' || fail "a failed plasma-apply-lookandfeel was not reported: $apply_output"
+grep -q '^LookAndFeelPackage=org.kde.breezedark.desktop$' "$XDG_CONFIG_HOME/kdeglobals" || fail "LookAndFeelPackage was not written after the theme tool failed"
+PATH="$work/bin:$PATH" "$sync" check || fail "check should pass after a failed theme apply wrote the entries"
+
 echo "kde settings sync passed"

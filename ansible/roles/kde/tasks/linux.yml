@@ -54,6 +54,19 @@
     var: kde_settings_apply.stdout_lines
   when: kde_settings_apply is not skipped
 
+- name: Check for stored Plasma widgets
+  stat:
+    path: "{{ chezmoi_dir }}/desktop_environment/kde/plasmoids"
+  register: kde_plasmoids_dir
+
+- name: Install stored Plasma widgets
+  copy:
+    src: "{{ chezmoi_dir }}/desktop_environment/kde/plasmoids/"
+    dest: "{{ lookup('env', 'XDG_DATA_HOME') | default(lookup('env', 'HOME') ~ '/.local/share', true) }}/plasma/plasmoids/"
+    mode: preserve
+    directory_mode: "0755"
+  when: kde_plasmoids_dir.stat.exists
+
 - name: Check for stored Plasma panels
   stat:
     path: "{{ chezmoi_dir }}/desktop_environment/kde/panels.json"

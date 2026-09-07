@@ -7,8 +7,17 @@
     "lengthMode": "fill",
     "location": "top",
     "offset": 0,
-    "opacity": "adaptive",
+    "opacity": "translucent",
     "widgets": [
+      {
+        "config": {
+          "General": {
+            "expanding": "false",
+            "length": "5"
+          }
+        },
+        "plugin": "org.kde.plasma.panelspacer"
+      },
       {
         "config": {
           "General": {
@@ -18,6 +27,17 @@
           }
         },
         "plugin": "org.kde.plasma.kicker"
+      },
+      {
+        "config": {
+          "General": {
+            "currentDesktopSelected": "ShowDesktop",
+            "displayedText": "Number",
+            "showWindowOutlines": "false",
+            "wrapPage": "true"
+          }
+        },
+        "plugin": "pat.pagerdots"
       },
       {
         "config": {},
@@ -54,6 +74,15 @@
       {
         "config": {},
         "plugin": "KdeControlStation"
+      },
+      {
+        "config": {
+          "General": {
+            "expanding": "false",
+            "length": "5"
+          }
+        },
+        "plugin": "org.kde.plasma.panelspacer"
       }
     ]
   }

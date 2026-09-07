@@ -224,8 +224,6 @@ _launch=Search\tAlt+F2
 
 [services][org.kde.spectacle.desktop]
 ActiveWindowScreenShot=none
-CurrentMonitorScreenShot=none
-OpenWithoutScreenshot=none
 RectangularRegionScreenShot=Print
 WindowUnderCursorScreenShot=none
 _launch=Meta+Ctrl+C

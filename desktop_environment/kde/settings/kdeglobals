@@ -6,6 +6,8 @@
 # Values use KConfig's own escaping (a tab is \t, a backslash is \\).
 
 [General]
+AccentColor=183,173,228
+LastUsedCustomAccentColor=183,173,228
 fixed=JetBrainsMono Nerd Font,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,,0,0
 font=JetBrainsMono Nerd Font,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,,0,0
 menuFont=JetBrainsMono Nerd Font,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,,0,0
@@ -15,7 +17,7 @@ toolBarFont=JetBrainsMono Nerd Font,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,,0,0
 [KDE]
 AnimationDurationFactor=0.5
 DefaultDarkLookAndFeel=Ant-Dark
-LookAndFeelPackage=Ant-Dark
+LookAndFeelPackage=org.kde.breezedark.desktop
 contrast=4
 frameContrast=0.2
 

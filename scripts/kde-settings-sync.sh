@@ -129,6 +129,13 @@ kreadconfig_bin() {
   fi
 }
 
+lookandfeel_bin() {
+  if have plasma-apply-lookandfeel; then printf 'plasma-apply-lookandfeel'
+  elif have lookandfeeltool; then printf 'lookandfeeltool'
+  else return 1
+  fi
+}
+
 # Turn a KConfig INI file into one "group<RS>key<RS>value" record per entry.
 # Values keep their on-disk escaping. Nested groups are flattened to
 # "Outer][Inner"; entries before any group header get an empty group, which
@@ -426,10 +433,56 @@ require_stored_settings() {
     die "${data_dir#"$repo_dir"/} is empty - run 'capture' first"
 }
 
+stored_value() {
+  local file="$1" group="$2" key="$3" g k v
+  [ -f "$data_dir/$file" ] || return 0
+  while IFS="$rs" read -r g k v; do
+    if [ "$g" = "$group" ] && [ "$k" = "$key" ]; then
+      printf '%s' "$v"
+      return 0
+    fi
+  done < <(parse_ini "$data_dir/$file")
+}
+
+live_value() {
+  local file="$1" group="$2" key="$3" g k v
+  if effective_value "$file" "$group" "$key"; then
+    return 0
+  fi
+  [ -f "$config_home/$file" ] || return 0
+  while IFS="$rs" read -r g k v; do
+    if [ "$g" = "$group" ] && [ "$k" = "$key" ]; then
+      printf '%s' "$v"
+      return 0
+    fi
+  done < <(parse_ini "$config_home/$file")
+}
+
+apply_look_and_feel() {
+  local package live tool output
+  package="$(stored_value kdeglobals KDE LookAndFeelPackage)"
+  [ -n "$package" ] || return 0
+  live="$(live_value kdeglobals KDE LookAndFeelPackage || true)"
+  [ "$live" = "$package" ] && return 0
+  if ! tool="$(lookandfeel_bin)"; then
+    warn "plasma-apply-lookandfeel is not installed; LookAndFeelPackage=$package will be written but the global theme will not be applied"
+    return 0
+  fi
+  log "  applying global theme $package"
+  if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+    output="$(QT_QPA_PLATFORM=offscreen "$tool" --apply "$package" 2>&1)" || warn "$tool --apply $package failed: $output"
+  else
+    output="$("$tool" --apply "$package" 2>&1)" || warn "$tool --apply $package failed: $output"
+  fi
+  return 0
+}
+
 cmd_apply() {
   require_stored_settings
   local writer
   writer="$(kwriteconfig_bin)" || die "kwriteconfig6 (or kwriteconfig5) is not installed - is this a KDE Plasma machine?"
+
+  apply_look_and_feel
 
   # --notify makes running applications reload the changed file (KF5 5.x+).
   local -a notify=()
@@ -503,7 +556,9 @@ Usage: kde-settings-sync.sh <capture|apply|diff|check>
             desktop_environment/kde/settings/,
             without their runtime state, ready to commit.
   apply     Write every stored setting that differs to ~/.config with
-            kwriteconfig6, leaving other settings alone.
+            kwriteconfig6, leaving other settings alone. A stored global
+            theme (kdeglobals [KDE] LookAndFeelPackage) that differs is
+            applied with plasma-apply-lookandfeel first.
   diff      Show which stored settings differ from the live ones.
   check     Exit 0 if the machine already matches the repo, non-zero otherwise.
 USAGE
