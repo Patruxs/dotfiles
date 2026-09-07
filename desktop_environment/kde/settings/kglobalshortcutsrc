@@ -198,6 +198,9 @@ _launch=Meta+Ctrl+Shift+Space
 [services][omarchy-tmux.desktop]
 _launch=Meta+Alt+Return
 
+[services][omarchy-todo.desktop]
+_launch=Meta+Shift+T
+
 [services][omarchy-wallpaper.desktop]
 _launch=Meta+Ctrl+Space
 
