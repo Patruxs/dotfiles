@@ -183,9 +183,6 @@ _launch=Meta+Shift+P
 [services][omarchy-pin-window.desktop]
 _launch=Meta+O
 
-[services][omarchy-record.desktop]
-_launch=Alt+Print
-
 [services][omarchy-share.desktop]
 _launch=Meta+Ctrl+S
 
@@ -227,6 +224,7 @@ _launch=Search\tAlt+F2
 
 [services][org.kde.spectacle.desktop]
 ActiveWindowScreenShot=none
+RecordRegion=Alt+Print
 RectangularRegionScreenShot=Print
 WindowUnderCursorScreenShot=none
 _launch=Meta+Ctrl+C

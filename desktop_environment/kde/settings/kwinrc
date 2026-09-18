@@ -1,4 +1,3 @@
-
 # KDE Plasma settings for ~/.config/kwinrc, captured by scripts/kde-settings-sync.sh.
 #
 # Regenerate with:   ./scripts/kde-settings-sync.sh capture
@@ -24,7 +23,9 @@ Active=true
 NightTemperature=4700
 
 [Plugins]
-diminactiveEnabled=true
+dialogparentEnabled=false
+dimscreenEnabled=false
+eyeonscreenEnabled=true
 fadedesktopEnabled=true
 glideEnabled=true
 krohnkiteEnabled=true
@@ -34,6 +35,7 @@ scaleEnabled=false
 slideEnabled=false
 squashEnabled=false
 tileseditorEnabled=false
+windowapertureEnabled=false
 
 [Script-krohnkite]
 binaryTreeLayoutOrder=2

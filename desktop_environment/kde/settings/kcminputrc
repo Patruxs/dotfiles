@@ -5,5 +5,8 @@
 #
 # Values use KConfig's own escaping (a tab is \t, a backslash is \\).
 
+[Libinput][10182][3396][VEN_27C6:00 27C6:0D44 Touchpad]
+NaturalScroll=true
+
 [Mouse]
 X11LibInputXAccelProfileFlat=true

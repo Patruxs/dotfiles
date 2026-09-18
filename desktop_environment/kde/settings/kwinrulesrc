@@ -12,6 +12,15 @@ wmclass=ghostty com.mitchellh.ghostty
 wmclasscomplete=true
 wmclassmatch=1
 
+[00d0148d-6c88-43a2-9a57-a8517c228050]
+Description=Block compositing for DaVinci Resolve
+blockcompositing=true
+blockcompositingrule=2
+types=66494
+wmclass=resolve-real resolve-real
+wmclasscomplete=true
+wmclassmatch=1
+
 [General]
-count=1
-rules=6765abcf-b4a2-40bc-b975-8c66ea36e311
+count=2
+rules=6765abcf-b4a2-40bc-b975-8c66ea36e311,00d0148d-6c88-43a2-9a57-a8517c228050
