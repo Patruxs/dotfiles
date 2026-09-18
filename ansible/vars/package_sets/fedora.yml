@@ -20,9 +20,6 @@ package_sets:
       - btop
       - ripgrep
       - jq
-      - bat
-      - fd-find
-      - eza
   desktop_base:
     dnf:
       - flatpak

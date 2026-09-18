@@ -31,7 +31,20 @@ Feature names are lowercase with underscores, and they describe the capability r
 
 ### Step 3: Choose an implementation
 
-Ask one question: *can the platform's package manager install this by name alone?*
+Ask two questions. First: *is this a user-level CLI tool, the same binary on every platform, that needs no root and no GUI?*
+
+**Yes - mise tool list.** Add `home/dot_config/mise/conf.d/<feature_name>.toml` (the file name matches the feature name exactly, like a role directory), with one `= "latest"` line per tool. `mise registry` shows the short names; `"npm:<package>"`, `"github:<owner>/<repo>"` and the other backends are accepted too. Never pin a version and never add a lockfile. The `mise` feature installs mise itself, `home/.chezmoiignore` applies the file only when the profile selects both `mise` and your feature, and the `mise_tools` phase runs `mise install` and `mise upgrade` after `chezmoi apply`. That is the whole implementation: no role, no package-set entry, no execution-order change.
+
+```toml
+# home/dot_config/mise/conf.d/your_feature.toml
+[tools]
+lazygit = "latest"
+"npm:playwright" = "latest"
+```
+
+Keep the tool in the package set instead when it needs root (a daemon, a kernel module), is a GUI application, or Ansible itself needs it before the tool lists are applied (`git`, `curl`, `python3`). `npm:` entries need `node` on `PATH`, which the `devtools` package-set feature provides.
+
+Otherwise: *can the platform's package manager install this by name alone?*
 
 **Yes - package set only.** Add the feature to every platform where it is supported. Package sets hold nothing but names grouped by installer type.
 
@@ -57,7 +70,7 @@ package_sets:
 
 Everything the feature does lives under its own directory (`linux.yml`, `macos.yml`, helper task files); a feature role never includes task files from another role. Guard every task with the platforms it actually supports. A role that runs on a platform it was not written for is worse than one that is missing.
 
-**Both.** A feature can have package-set entries *and* a role - `docker_desktop` installs its dependency packages from the package set and does the rest procedurally.
+**Both.** A feature can have package-set entries *and* a role - `docker_desktop` installs its dependency packages from the package set and does the rest procedurally. `mise` itself is a package on Arch and macOS and a role (the `mise.run` installer) on Ubuntu and Fedora.
 
 ### Step 4: Register the role in the execution order
 
@@ -150,7 +163,8 @@ A widget you wrote yourself has no upstream to fetch from: put its package direc
 
 - [ ] The feature name means the same thing on every platform.
 - [ ] Package sets contain only package names, with no logic.
-- [ ] The feature role directory name matches the feature name exactly.
+- [ ] The feature role directory name, or the mise tool list file name, matches the feature name exactly.
+- [ ] Every mise tool list entry is `"latest"`.
 - [ ] The role is registered in `dotfiles_feature_execution_order`.
 - [ ] Unsupported platforms, versions, and architectures fail in preflight rather than mid-install.
 - [ ] Re-running the setup changes nothing the second time.

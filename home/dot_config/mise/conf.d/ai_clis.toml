@@ -1,0 +1,7 @@
+[tools]
+codex = "latest"
+opencode = "latest"
+pi = "latest"
+herdr = "latest"
+agy = "latest"
+"npm:@getpaseo/cli" = "latest"

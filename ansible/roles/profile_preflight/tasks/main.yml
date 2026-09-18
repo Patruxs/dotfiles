@@ -17,16 +17,12 @@
 - name: Define known feature implementations
   set_fact:
     dotfiles_feature_execution_order:
-      - core_cli
+      - mise
       - jetbrains_mono_nerd_font
       - plasma_addons
       - desktop_base
       - shell
-      - starship_prompt
-      - npm_global_tools
-      - bitwarden_cli
       - ai_clis
-      - llmfit
       - docker_desktop
       - flatpak_apps
       - warp_terminal
@@ -44,16 +40,24 @@
     depth: 1
   register: dotfiles_feature_role_dirs
 
-- name: Record feature roles from filesystem
+- name: Find mise tool lists
+  find:
+    paths: "{{ chezmoi_dir }}/home/dot_config/mise/conf.d"
+    patterns: "*.toml"
+    file_type: file
+  register: dotfiles_mise_tool_list_files
+
+- name: Record feature implementations from the filesystem
   set_fact:
     dotfiles_known_feature_roles: "{{ dotfiles_feature_role_dirs.files | map(attribute='path') | map('basename') | list }}"
+    dotfiles_known_mise_tool_lists: "{{ dotfiles_mise_tool_list_files.files | map(attribute='path') | map('basename') | map('splitext') | map('first') | list }}"
 
 - name: Compute unknown selected features
   set_fact:
     dotfiles_unknown_features: >-
       {{
         features
-        | difference((platform_package_data.package_sets | default({})).keys() | list + dotfiles_known_feature_roles)
+        | difference((platform_package_data.package_sets | default({})).keys() | list + dotfiles_known_feature_roles + dotfiles_known_mise_tool_lists)
         | list
       }}
 

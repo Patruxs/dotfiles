@@ -6,6 +6,7 @@ supported_platforms:
   - arch
   - macos
 features:
+  - mise
   - core_cli
   - desktop_base
   - jetbrains_mono_nerd_font

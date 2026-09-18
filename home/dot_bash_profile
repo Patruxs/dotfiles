@@ -6,6 +6,3 @@ if [ -f "$HOME/.bashrc" ]; then
   . "$HOME/.bashrc"
 fi
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
-
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"

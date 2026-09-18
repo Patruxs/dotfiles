@@ -71,6 +71,18 @@
 {{-   $desktop = default "none" (output "bash" (joinPath .chezmoi.sourceDir ".." "scripts" "detect-desktop.sh") | trim) }}
 {{- end }}
 
+{{- if not (has "mise" $features) }}
+.config/mise
+.config/mise/**
+{{- else }}
+{{-   range (glob (joinPath .chezmoi.sourceDir "dot_config" "mise" "conf.d" "*.toml")) }}
+{{-     $feature := trimSuffix ".toml" (base .) }}
+{{-     if not (has $feature $features) }}
+.config/mise/conf.d/{{ $feature }}.toml
+{{-     end }}
+{{-   end }}
+{{- end }}
+
 {{- if or (ne .chezmoi.os "linux") (not (has "audio_auto_switch" $features)) }}
 .local/bin/auto-headphone-switch
 .config/systemd/user/auto-headphone-switch.service

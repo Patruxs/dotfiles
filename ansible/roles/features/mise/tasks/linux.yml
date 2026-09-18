@@ -1,0 +1,34 @@
+---
+- name: Install mise from the mise.run installer when absent or behind the published release
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dotfiles_mise_bin="$HOME/.local/bin/mise"
+    dotfiles_fingerprint() {
+      sha256sum "$dotfiles_mise_bin" 2>/dev/null || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
+    dotfiles_installed=""
+    if [ -x "$dotfiles_mise_bin" ]; then
+      dotfiles_installed="$("$dotfiles_mise_bin" --version 2>/dev/null | awk 'NR == 1 { print $1 }')"
+    fi
+    dotfiles_published="$(curl -fsSL --max-time 30 https://mise.jdx.dev/VERSION 2>/dev/null | tr -d '[:space:]' | sed -E 's/^v//' || true)"
+    if [ -z "$dotfiles_installed" ]; then
+      mkdir -p "$HOME/.local/bin"
+      curl -fsSL https://mise.run | sh
+    elif [ -z "$dotfiles_published" ]; then
+      echo "mise $dotfiles_installed is installed; could not read the published release, leaving it as is"
+    elif [ "$dotfiles_installed" != "$dotfiles_published" ]; then
+      curl -fsSL https://mise.run | sh
+    else
+      echo "mise $dotfiles_installed is the published release"
+    fi
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
+  args:
+    executable: /bin/bash
+  environment:
+    MISE_INSTALL_PATH: "{{ lookup('env', 'HOME') }}/.local/bin/mise"
+  register: dotfiles_mise_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_mise_install.stdout_lines"

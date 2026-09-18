@@ -20,10 +20,6 @@ package_sets:
       - btop
       - ripgrep
       - jq
-      - bat
-      - fd
-      - eza
-      - lazygit
       - github-cli
   desktop_base:
     pacman:
@@ -65,9 +61,9 @@ package_sets:
   jetbrains_mono_nerd_font:
     pacman:
       - ttf-jetbrains-mono-nerd
-  starship_prompt:
+  mise:
     pacman:
-      - starship
+      - mise
   terminal_toys:
     pacman:
       - cmatrix

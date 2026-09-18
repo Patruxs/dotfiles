@@ -1,0 +1,7 @@
+---
+- name: Install or update mise from the mise.run installer
+  include_tasks: linux.yml
+  when:
+    - dotfiles_platform.system == 'Linux'
+    - dotfiles_platform.name in ['ubuntu', 'fedora']
+    - not (dotfiles_ci | default(false))

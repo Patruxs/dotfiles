@@ -69,14 +69,6 @@
     dotfiles_setup_skipped: "{{ (dotfiles_bootstrap_skipped | default([])) + dotfiles_setup_skipped }}"
   when: dotfiles_bootstrap_outcomes | length > 0
 
-- name: Load devtools data for outcome verification
-  include_vars:
-    file: "{{ chezmoi_dir }}/home/.chezmoidata/devtools.yaml"
-    name: devtools_data
-  when:
-    - "'npm_global_tools' in (features | default([]))"
-    - devtools_data is not defined
-
 - name: Load AI CLI data for outcome verification
   include_vars:
     file: "{{ chezmoi_dir }}/home/.chezmoidata/ai-clis.yaml"
@@ -178,23 +170,62 @@
   failed_when: false
   when: dotfiles_package_plan.flatpak_apps | default([]) | length > 0
 
-- name: Verify selected npm global tools are present
+- name: List installed mise tools
   command:
     argv:
-      - npm
-      - list
-      - --global
-      - --depth=0
-      - "{{ item }}"
+      - mise
+      - ls
+      - --json
   environment:
-    NPM_CONFIG_PREFIX: "{{ lookup('env', 'HOME') }}/.local"
-  loop: "{{ (devtools_data | default({'devtools': {'npm_global_packages': []}})).devtools.npm_global_packages | default([]) }}"
-  register: dotfiles_verified_npm_global_tools
+    PATH: "{{ lookup('env', 'HOME') }}/.local/bin:{{ lookup('env', 'PATH') }}"
+  register: dotfiles_verified_mise_tools
   changed_when: false
   failed_when: false
   when:
-    - "'npm_global_tools' in (features | default([]))"
-    - devtools_data is defined
+    - "'mise' in (features | default([]))"
+    - not (dotfiles_ci | default(false))
+
+- name: List missing mise tools
+  command:
+    argv:
+      - mise
+      - ls
+      - --missing
+      - --json
+  environment:
+    PATH: "{{ lookup('env', 'HOME') }}/.local/bin:{{ lookup('env', 'PATH') }}"
+  register: dotfiles_missing_mise_tools
+  changed_when: false
+  failed_when: false
+  when:
+    - "'mise' in (features | default([]))"
+    - not (dotfiles_ci | default(false))
+
+- name: Summarize mise tool verification
+  set_fact:
+    dotfiles_verified_mise_tool_entries: >-
+      {{
+        ((dotfiles_verified_mise_tools.stdout | default('{}') | trim or '{}') | from_json | dict2items)
+        if (dotfiles_verified_mise_tools.rc | default(1)) == 0 else []
+      }}
+    dotfiles_missing_mise_tool_names: >-
+      {{
+        ((dotfiles_missing_mise_tools.stdout | default('{}') | trim or '{}') | from_json | list)
+        if (dotfiles_missing_mise_tools.rc | default(1)) == 0 else []
+      }}
+
+- name: Collect installed mise tool versions
+  vars:
+    dotfiles_mise_installed_versions: "{{ item.value | selectattr('installed', 'defined') | selectattr('installed') | map(attribute='version') | list }}"
+  set_fact:
+    dotfiles_verified_mise_tool_lines: >-
+      {{
+        (dotfiles_verified_mise_tool_lines | default([]))
+        + (['`' ~ item.key ~ '` ' ~ (dotfiles_mise_installed_versions | join(', '))] if dotfiles_mise_installed_versions | length > 0 else [])
+      }}
+  loop: "{{ dotfiles_verified_mise_tool_entries | default([]) }}"
+  loop_control:
+    label: "{{ item.key }}"
 
 - name: Verify selected AI CLI commands are present
   shell: "command -v {{ item.value.command | quote }}"
@@ -289,9 +320,9 @@
       {% set undetected.count = undetected.count + 1 %}
       - [flatpak] `{{ result.item }}` was selected but was not detected after setup.
       {% endfor %}
-      {% for result in dotfiles_verified_npm_global_tools.results | default([]) if result.rc is defined and result.rc != 0 %}
+      {% for tool in dotfiles_missing_mise_tool_names | default([]) %}
       {% set undetected.count = undetected.count + 1 %}
-      - [npm global] `{{ result.item }}` was selected but was not detected after setup.
+      - [mise] `{{ tool }}` was requested but is not installed after setup.
       {% endfor %}
       {% for result in dotfiles_verified_ai_clis.results | default([]) if result.rc is defined and result.rc != 0 %}
       {% set undetected.count = undetected.count + 1 %}
@@ -338,9 +369,9 @@
       {% set detected.count = detected.count + 1 %}
       - [flatpak] `{{ result.item }}`
       {% endfor %}
-      {% for result in dotfiles_verified_npm_global_tools.results | default([]) if result.rc is defined and result.rc == 0 %}
+      {% for line in dotfiles_verified_mise_tool_lines | default([]) %}
       {% set detected.count = detected.count + 1 %}
-      - [npm global] `{{ result.item }}`
+      - [mise] {{ line }}
       {% endfor %}
       {% for result in dotfiles_verified_ai_clis.results | default([]) if result.rc is defined and result.rc == 0 %}
       {% set detected.count = detected.count + 1 %}

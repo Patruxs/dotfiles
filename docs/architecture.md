@@ -38,13 +38,14 @@ Windows is deliberately outside this structure. It runs `bootstrap.ps1` with win
 
 ## How a feature gets installed
 
-Each feature is implemented in one of three ways on a given platform.
+Each feature is implemented in one of four ways on a given platform.
 
 | Implementation | Use it when | Example |
 | :--- | :--- | :--- |
 | **Package set only** | The package manager can install it directly | `devtools`, `terminal_toys` |
 | **Feature role only** | Installing needs steps, not just a name | `warp_terminal`, `jetbrains_toolbox` |
-| **Both** | Direct packages plus procedural setup | `core_cli`, `docker_desktop`, `desktop_base` |
+| **mise tool list** | A user-level CLI that is the same binary on every platform, needs no root and has no GUI | `core_cli`, `starship_prompt`, `ai_clis`, `npm_global_tools`, `bitwarden_cli`, `llmfit` |
+| **Both** | Direct packages plus procedural setup | `mise`, `docker_desktop`, `desktop_base` |
 
 **Package sets are data.** `ansible/vars/package_sets/ubuntu.yml` maps feature names to package entries grouped by installer type, and nothing else. No conditionals, no repositories, no scripts.
 
@@ -60,6 +61,15 @@ package_sets:
 Installer types are `apt`, `dnf`, `pacman`, `brew`, `cask`, and `flatpak`, depending on the platform.
 
 **Feature roles are behavior.** Anything procedural - adding an apt repository, importing a signing key, downloading a tarball, registering a Flathub remote, enabling a service - lives in `ansible/roles/features/<feature_name>/`. The directory name matches the feature name exactly, which is what lets the preflight check confirm a feature is implemented just by looking at the filesystem.
+
+**mise tool lists are data too.** `home/dot_config/mise/conf.d/<feature_name>.toml` names the user-level CLIs a feature wants, every one requested at `"latest"`, and [mise](https://mise.jdx.dev) installs them from their upstream releases on every platform, Windows included. The file name matches the feature name for the same reason a role directory does, and preflight lists that directory as a third source of implementations. `home/.chezmoiignore` applies a list only when the profile selects both `mise` and the feature, so the lists are chezmoi-managed files that only exist once `chezmoi apply` has run - which is why the `mise_tools` phase comes after it.
+
+```toml
+# home/dot_config/mise/conf.d/core_cli.toml
+[tools]
+lazygit = "latest"
+fd = "latest"
+```
 
 ## A run, start to finish
 
@@ -125,12 +135,15 @@ The order features appear in a profile file means nothing. `ansible/playbooks/ex
 1. low_memory            (Linux, when enabled)
 2. chezmoi_setup_data    generate profile/platform/features for templates
 3. package_installer     install direct package entries
-4. feature roles         in dotfiles_feature_execution_order
+4. feature roles         in dotfiles_feature_execution_order (mise first)
 5. chezmoi               chezmoi apply
-6. services              enable selected services
+6. mise_tools            mise install + mise upgrade for the applied conf.d lists
+7. services              enable selected services
 ```
 
 Feature roles run in the fixed sequence declared as `dotfiles_feature_execution_order` in `profile_preflight`, filtered to the features the profile selected. That list is what makes dependencies safe - `desktop_base` before the desktop apps that assume it.
+
+`mise_tools` is a pipeline role rather than a feature role: it runs when `mise` is selected, after `chezmoi apply` has written `~/.config/mise/conf.d/`, and records what `mise ls --missing` and `mise outdated` said before it ran `mise install` and `mise upgrade`, so its `changed` state reflects the tools rather than the commands. In best-effort mode it records one failure per tool still missing afterwards, plus the command error if `mise install` itself failed.
 
 `desktop_base` is also where desktop settings branch: it includes the `gnome` role when `dotfiles_desktop` is `gnome` (dconf preferences from `home/.chezmoidata/gnome_dconf.yaml` and the extension state under `desktop_environment/gnome/`, inside a running session) and the `kde` role when it is `kde` (the INI fragments under `desktop_environment/kde/settings/`, written with `kwriteconfig6`), and records a skipped entry for the report otherwise.
 
@@ -154,7 +167,7 @@ Templates should branch on platform, desktop, or features rather than on the pro
 | Errors | every failure that was skipped (or the one that aborted the run), each with the task name and the captured error output in a code block - bootstrap steps first, then playbook phases in the order they ran |
 | Not detected after setup | entries that were selected but a local check could not find afterwards |
 | Skipped intentionally | entries excluded on purpose, with the reason |
-| Installed or present after setup | verified entries grouped by installer |
+| Installed or present after setup | verified entries grouped by installer; mise-managed tools appear with a `[mise]` prefix and their installed versions, read from `mise ls --json` |
 | Completed steps | bootstrap steps and playbook phases that finished |
 | Next steps | how to re-run safely |
 
@@ -166,7 +179,7 @@ Two modes control what happens when an installer fails.
 
 | Mode | Behavior | Use for |
 | :--- | :--- | :--- |
-| `best_effort` (default) | Bootstrap prerequisite steps, package installs, feature roles, `chezmoi apply`, and services continue after a failure, which is skipped and collected into the final report | Real machines, where one broken upstream installer should not abandon the run |
+| `best_effort` (default) | Bootstrap prerequisite steps, package installs, feature roles, `chezmoi apply`, the mise tool lists, and services continue after a failure, which is skipped and collected into the final report | Real machines, where one broken upstream installer should not abandon the run |
 | `strict` | The first failure stops the run; the report still records where it stopped | Debugging and CI-style verification |
 
 In `best_effort` mode `chezmoi apply` also runs in isolated steps: each `before_` script, then all managed files, then every remaining script, each as its own `chezmoi` invocation. One `chezmoi apply` stops at the first failing `run_` script and leaves every later file unapplied; the split keeps the dotfiles applied, records the failing script, and since chezmoi only marks a `run_once_` script as run when it succeeds, the next apply retries it. Strict mode keeps the single apply.
@@ -206,6 +219,20 @@ A feature can be data, a role, or both, which avoids the alternative of creating
 `docker` sounds like one feature until you try to install it. Docker Engine and Docker Desktop install different things and conflict on Linux, so a profile has to say which one it means. The same logic gives `webserver_nginx` rather than `webserver` with an option, and separates `devtools`, `npm_global_tools`, and `ai_clis` so that a server does not quietly acquire a set of AI CLIs because they happened to be bundled with a compiler.
 
 The general rule: when a feature would need an option, make it two features. Names are cheap, and a name that appears in a profile is visible in a way a nested config value is not.
+
+### User-level CLIs come from one cross-platform list
+
+Before mise, the same handful of small command-line tools reached a machine through seven different mechanisms: apt, dnf, pacman and Homebrew packages with per-distro names (`fd-find` on Debian, `fd` elsewhere, then a symlink to fix the binary name), winget ids, a GitHub-release download role for lazygit with its own version marker, chezmoi `run_once` scripts piping upstream installers into `sh` for zoxide and superfile, Starship's installer on the one distro that packaged it too late, npm globals for Playwright and the Bitwarden CLI, and vendor `install.sh` scripts for llmfit and each AI CLI. Every mechanism had its own idea of idempotency, its own upgrade story (the run-once scripts had none: they skipped when the command existed and never upgraded it), and its own place in the report.
+
+So a feature's user-level CLIs are now one file, `home/dot_config/mise/conf.d/<feature>.toml`, and [mise](https://mise.jdx.dev) is the single installer for them:
+
+- the tool has the same name on every platform, so the list is shared by Linux, macOS and Windows instead of being spelled four times;
+- seven install mechanisms collapse into data, and the data is a chezmoi-managed file guarded like any other template - it only lands when the profile selects both `mise` and the feature;
+- `mise install` and `mise upgrade` are idempotent and run on every setup, so a second run changes nothing and a tool is never left at the version it happened to have on first install. Nothing is pinned and there is no lockfile: `"latest"` is the request, which is the same rule every other install path here follows;
+- the aqua backend mise resolves most tools to verifies checksums, cosign signatures and SLSA provenance where the publisher provides them, which is more than any of the replaced `curl | sh` paths did;
+- mise's shims directory is on `PATH` from `~/.profile` (and the user PATH on Windows), so the tools exist in non-interactive contexts too - KDE shortcuts, systemd user units, git credential helpers - not just in a shell that ran `mise activate`.
+
+The `mise` feature itself only makes the binary present (a package on Arch and macOS, winget on Windows; on Ubuntu and Fedora the `mise.run` installer into `~/.local/bin`, run only when the binary is absent or its version differs from `https://mise.jdx.dev/VERSION`, because the installer script re-downloads the whole binary every time it runs, and `mise self-update` is not used because it resolves the release through the GitHub API, whose unauthenticated rate limit a run that just installed the mise tools can exhaust) and runs first in the execution order. The tools are installed by a separate `mise_tools` phase that must run after `chezmoi apply`: the lists are chezmoi-managed files, so before apply there is nothing for mise to read. The phase captures `mise ls --missing` and `mise outdated` before acting and reports `changed` from those, never from the commands' own chatter, which is what keeps the CI idempotency run at `changed=0`. Anything that needs root, is a GUI application, or Ansible itself needs before the lists exist (git, curl, python3, flatpak, the desktop apps, Docker Desktop, the terminals and IDEs, fonts, Plasma add-ons) stays in the package sets; the language runtimes and the remaining distro-packaged CLIs stay there for now as well.
 
 ### Desktop settings follow the session, not the distro
 
@@ -260,7 +287,7 @@ Templates follow the same idea. `chezmoi init` reads the selected profile's `fea
 
 It is tempting to run CI with lightweight mode on, since it is fast and green. But it skips so much of the install flow that a pass stops meaning anything about a real machine.
 
-So CI runs the normal path and skips only the specific surfaces that cannot work in a hosted runner - Flatpak payloads in containers, upstream shell installers in automation. Everything else is exercised for both profiles across all five platforms, including a second run to prove the setup is idempotent. The second run must report `changed=0` and an empty `chezmoi diff`. For that to mean anything, installer tasks that run a shell script (Warp, Ghostty, VirtualBox, Kiro, Zed, Starship, JetBrains Toolbox, the AI CLIs) fingerprint what they manage before and after (package version, or a digest of the installed binary), print `DOTFILES_CHANGED` only when the fingerprint differs, and report `changed` from that marker; `chezmoi apply -v` reports `changed` when it printed any action. Only `changed_when: false` on read-only checks and on the npm and Homebrew modules, which report spurious changes, remains.
+So CI runs the normal path and skips only the specific surfaces that cannot work in a hosted runner - Flatpak payloads in containers, upstream shell installers in automation. Everything else is exercised for both profiles across all five platforms, including a second run to prove the setup is idempotent. The second run must report `changed=0` and an empty `chezmoi diff`. For that to mean anything, installer tasks that run a shell script (Warp, Ghostty, VirtualBox, Kiro, Zed, mise, JetBrains Toolbox, droid) fingerprint what they manage before and after (package version, or a digest of the installed binary), print `DOTFILES_CHANGED` only when the fingerprint differs, and report `changed` from that marker; `chezmoi apply -v` reports `changed` when it printed any action, and the `mise_tools` phase reports it from the missing and outdated lists it captured beforehand. Only `changed_when: false` on read-only checks and on the Homebrew modules, which report spurious changes, remains.
 
 ### Downloads are verified, and nothing that changes upstream is written down
 
@@ -294,6 +321,7 @@ ansible/roles/
   package_installer/                  direct package entries, one installer task file per package family
   chezmoi_setup_data/                 data handed to templates
   chezmoi/                            chezmoi apply (isolated per file set and script in best-effort mode)
+  mise_tools/                         mise install + mise upgrade for the applied conf.d tool lists
   services/                           user service enablement for features that ship one (audio_auto_switch)
   setup_outcome/                      verified end-of-run Markdown report
   low_memory/                         swap and installer throttling on small machines
@@ -314,6 +342,7 @@ desktop_environment/
   kde/panels.json                     captured KDE Plasma panels
   kde/plasmoids/                      Plasma widgets written for this setup, installed by the kde role before the panels are rebuilt
 home/                                 the Chezmoi source directory
+  dot_config/mise/conf.d/             one mise tool list per feature, every entry "latest"
 test/                                 harness and bootstrap regression checks
 ```
 
@@ -334,6 +363,7 @@ test/                                 harness and bootstrap regression checks
 - a failed bootstrap step is recorded and skipped in best-effort mode, stops the run in strict mode or when critical, and always reaches the Markdown report (`test/bootstrap_best_effort.sh`)
 - best-effort `chezmoi apply` isolates managed files from each `run_` script and records per-script failures
 - the Docker Desktop package for Linux is downloaded from the build directory the appcast names and checked against the SHA-256 Docker publishes in that build's `checksums.txt`, and the install is refused when no checksum can be read (`test/ci_bootstrap_regressions.sh`)
-- no install path hardcodes a tool version: download URLs must resolve the release at run time, `winget import` runs without `--no-upgrade` so installed packages are upgraded, Docker Desktop and VirtualBox resolve their current release from the vendor feed, Docker's Ubuntu release list is read from its apt repository at run time, and the upstream installers (zoxide and superfile in `home/.chezmoiscripts/`, llmfit in its feature role) are fetched unpinned and still resolve the latest release themselves (`test/upstream_installers_latest.sh`)
+- no install path hardcodes a tool version: download URLs must resolve the release at run time, `winget import` runs without `--no-upgrade` so installed packages are upgraded, Docker Desktop and VirtualBox resolve their current release from the vendor feed, Docker's Ubuntu release list is read from its apt repository at run time, and the remaining upstream installers (`mise.run` in the `mise` role, droid's vendor script) are fetched unpinned and still install the current release (`test/upstream_installers_latest.sh`)
+- every mise tool list in `home/dot_config/mise/conf.d/` is named after a feature a profile selects and requests only `"latest"`, and chezmoi manages a list only when both `mise` and its feature are selected (`test/mise_tool_lists.sh`)
 
-CI runs the full bootstrap in `strict` mode and an idempotency check for both profiles on Ubuntu, Fedora, Arch, macOS, and Windows. Strict mode makes a failed install fail the job instead of being rescued into the report, and after each run CI also reads `~/.dotfiles_setup_report.md` and requires `Result: Completed successfully.`. A separate job installs shellcheck, Ansible, and chezmoi and runs `test/test_harness.sh`, so the linting, regression tests, and chezmoi dry run do not depend on someone remembering to run them locally. It skips installer surfaces that are known to be unreliable in hosted runners - Flatpak app payloads in containers, upstream AI CLI shell installers - rather than switching on lightweight `DOTFILES_CI` mode, which would skip too much of the real path to be meaningful.
+CI runs the full bootstrap in `strict` mode and an idempotency check for both profiles on Ubuntu, Fedora, Arch, macOS, and Windows. Strict mode makes a failed install fail the job instead of being rescued into the report, and after each run CI also reads `~/.dotfiles_setup_report.md` and requires `Result: Completed successfully.`. A separate job installs shellcheck, Ansible, and chezmoi and runs `test/test_harness.sh`, so the linting, regression tests, and chezmoi dry run do not depend on someone remembering to run them locally. It skips installer surfaces that are known to be unreliable in hosted runners - Flatpak app payloads in containers, droid's upstream shell installer - rather than switching on lightweight `DOTFILES_CI` mode, which would skip too much of the real path to be meaningful. The mise tool lists are plain release downloads and run in CI like any other tool, with `GITHUB_TOKEN` passed through so the GitHub API rate limit does not decide the outcome.

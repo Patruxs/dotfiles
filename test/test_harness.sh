@@ -136,6 +136,13 @@ log_info "Running upstream installer latest-version checks..."
 }
 log_info "Upstream installer latest-version checks passed."
 
+log_info "Running mise tool list checks..."
+./test/mise_tool_lists.sh || {
+    log_err "mise tool list checks failed."
+    exit 1
+}
+log_info "mise tool list checks passed."
+
 log_info "Running Chezmoi Dry Run (verifies templates render without errors)..."
 tmpdir="$(mktemp -d)"
 cleanup_tmpdir() {

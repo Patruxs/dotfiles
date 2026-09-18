@@ -8,9 +8,9 @@ debian_packages_task="$repo_root/ansible/roles/package_installer/tasks/linux-deb
 fedora_packages_task="$repo_root/ansible/roles/package_installer/tasks/linux-fedora.yml"
 arch_packages_task="$repo_root/ansible/roles/package_installer/tasks/linux-arch.yml"
 macos_packages_task="$repo_root/ansible/roles/package_installer/tasks/macos.yml"
-lazygit_task="$repo_root/ansible/roles/features/core_cli/tasks/linux-lazygit.yml"
+mise_tools_task="$repo_root/ansible/roles/mise_tools/tasks/main.yml"
+mise_feature_task="$repo_root/ansible/roles/features/mise/tasks/linux.yml"
 windows_bootstrap="$repo_root/bootstrap.ps1"
-git_tools_task_main="$repo_root/ansible/roles/features/core_cli/tasks/main.yml"
 services_task_main="$repo_root/ansible/roles/services/tasks/main.yml"
 common_playbook="$repo_root/ansible/playbooks/common.yml"
 execution_playbook="$repo_root/ansible/playbooks/execution.yml"
@@ -26,8 +26,6 @@ flatpak_best_effort_task="$repo_root/ansible/roles/features/flatpak_apps/tasks/i
 ai_tools_task_main="$repo_root/ansible/roles/features/ai_clis/tasks/main.yml"
 ai_tools_unix_task="$repo_root/ansible/roles/features/ai_clis/tasks/unix.yml"
 ai_tools_unix_best_effort_task="$repo_root/ansible/roles/features/ai_clis/tasks/install_unix_cli_best_effort.yml"
-devtools_task_main="$repo_root/ansible/roles/features/npm_global_tools/tasks/main.yml"
-devtools_npm_best_effort_task="$repo_root/ansible/roles/features/npm_global_tools/tasks/install_npm_global_best_effort.yml"
 ai_clis_data="$repo_root/home/.chezmoidata/ai-clis.yaml"
 packages_data="$repo_root/home/.chezmoidata/packages.yaml"
 winget_manifest="$repo_root/packages/winget.json"
@@ -174,8 +172,8 @@ if ! search_file 'Refresh-Repo' "$windows_bootstrap"; then
   exit 1
 fi
 
-if ! search_file "not \\(dotfiles_ci \\| default\\(false\\)\\)" "$git_tools_task_main"; then
-  echo "expected lazygit role to skip upstream installs during CI"
+if ! search_file "not \\(dotfiles_ci \\| default\\(false\\)\\)" "$repo_root/ansible/roles/features/mise/tasks/main.yml"; then
+  echo "expected the mise feature role to skip the upstream installer during lightweight CI"
   exit 1
 fi
 
@@ -327,8 +325,8 @@ if ! search_file 'Assert-LastExitCode "winget install twpayne\.chezmoi" -AllowWi
   exit 1
 fi
 
-if ! search_file 'Invoke-BestEffort -Phase "npm_global"' "$windows_bootstrap"; then
-  echo "expected bootstrap.ps1 to record npm global install failures and continue in best-effort mode"
+if ! search_file_literal 'Invoke-BestEffort -Phase "mise" -Name "mise tool lists"' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to record mise tool install failures and continue in best-effort mode"
   exit 1
 fi
 
@@ -406,8 +404,8 @@ if search_file 'ignore_errors: yes' "$flatpak_task"; then
 fi
 
 if search_file 'ignore_errors: yes' "$flatpak_best_effort_task" ||
-  search_file 'ignore_errors: yes' "$devtools_npm_best_effort_task"; then
-  echo "expected Flatpak and npm best-effort installers to record failures without ignore_errors"
+  search_file 'ignore_errors: yes' "$mise_tools_task"; then
+  echo "expected Flatpak and mise best-effort installers to record failures without ignore_errors"
   exit 1
 fi
 
@@ -418,27 +416,6 @@ if ! search_file 'Install flatpak packages \(strict\)' "$flatpak_task" ||
   ! search_file 'phase.*flatpak_app' "$flatpak_best_effort_task" ||
   ! search_file 'dotfiles_setup_failures' "$flatpak_best_effort_task"; then
   echo "expected Flatpak installs to preserve strict mode and record per-app best-effort failures"
-  exit 1
-fi
-
-if ! search_file 'Install or update global npm development tools \(strict\)' "$devtools_task_main" ||
-  ! search_file 'Install or update global npm development tools \(best effort\)' "$devtools_task_main" ||
-  ! search_file 'dotfiles_setup_mode.*strict' "$devtools_task_main" ||
-  ! search_file 'dotfiles_setup_mode.*best_effort' "$devtools_task_main" ||
-  ! search_file 'phase.*npm_global' "$devtools_npm_best_effort_task" ||
-  ! search_file 'dotfiles_setup_failures' "$devtools_npm_best_effort_task" ||
-  ! search_file 'dotfiles_setup_skipped' "$devtools_task_main"; then
-  echo "expected npm globals to preserve strict mode, record per-package failures, and list skipped packages when npm is unavailable"
-  exit 1
-fi
-
-if ! search_file 'https://chatgpt\.com/codex/install\.sh' "$ai_clis_data"; then
-  echo "expected Codex Unix installer to use the current chatgpt.com installer URL"
-  exit 1
-fi
-
-if search_file 'github\.com/openai/codex/releases/latest/download/install\.sh' "$ai_clis_data"; then
-  echo "expected Codex Unix installer not to use the stale GitHub release installer URL"
   exit 1
 fi
 
@@ -636,25 +613,50 @@ if ! search_file_literal 'plan_step run "Upgrade Ansible" upgrade_ansible' "$rep
   exit 1
 fi
 
-if [ -e "$repo_root/home/.chezmoiscripts/run_once_install_llmfit.ps1.tmpl" ]; then
-  echo "expected the scoop-only llmfit run_once script to be gone; bootstrap.ps1 installs llmfit from GitHub"
+for gone in \
+  "$repo_root/home/.chezmoiscripts/run_once_install_llmfit.ps1.tmpl" \
+  "$repo_root/home/.chezmoiscripts/run_once_install_zoxide.sh.tmpl" \
+  "$repo_root/home/.chezmoiscripts/run_once_install_superfile.sh.tmpl" \
+  "$repo_root/home/.chezmoiscripts/run_once_install_superfile.ps1.tmpl" \
+  "$repo_root/home/.chezmoidata/devtools.yaml" \
+  "$repo_root/ansible/roles/features/core_cli" \
+  "$repo_root/ansible/roles/features/starship_prompt" \
+  "$repo_root/ansible/roles/features/npm_global_tools" \
+  "$repo_root/ansible/roles/features/bitwarden_cli" \
+  "$repo_root/ansible/roles/features/llmfit"; do
+  if [ -e "$gone" ]; then
+    echo "expected ${gone#"$repo_root"/} to be gone; those tools are installed from the mise tool lists in home/dot_config/mise/conf.d/"
+    exit 1
+  fi
+done
+
+if search_file_literal 'function Install-Llmfit' "$windows_bootstrap" ||
+  search_file_literal '@bitwarden/cli' "$windows_bootstrap" ||
+  search_file_literal 'npm_global_packages' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to leave llmfit, Bitwarden CLI and npm globals to the mise tool lists"
   exit 1
 fi
 
-if ! search_file_literal 'function Install-Llmfit' "$windows_bootstrap" ||
-  ! search_file_literal 'https://github.com/$repo/releases/latest' "$windows_bootstrap" ||
-  ! search_file_literal 'if (Test-Path -LiteralPath $managedExe)' "$windows_bootstrap" ||
-  [ "$(grep -n 'if (Test-Path -LiteralPath \$managedExe)' "$windows_bootstrap" | cut -d: -f1)" -gt "$(grep -n '\$response = \$request.GetResponse()' "$windows_bootstrap" | cut -d: -f1)" ] ||
-  ! search_file_literal 'keeping installed llmfit $installedVersion' "$windows_bootstrap" ||
+if ! search_file_literal 'function Install-Mise' "$windows_bootstrap" ||
+  ! search_file_literal 'winget install --id jdx.mise' "$windows_bootstrap" ||
+  ! search_file_literal 'Add-UserPathEntry -Directory (Join-Path $env:LOCALAPPDATA "mise\shims")' "$windows_bootstrap" ||
   ! search_file_literal 'RegistryValueKind]::ExpandString' "$windows_bootstrap" ||
-  ! search_file_literal 'Get-FileHash -Path $zipPath -Algorithm SHA256' "$windows_bootstrap" ||
-  ! search_file_literal 'Invoke-BestEffort -Phase "llmfit"' "$windows_bootstrap"; then
-  echo "expected bootstrap.ps1 to install llmfit from the latest GitHub release with checksum verification"
+  ! search_file_literal '$env:MISE_YES = "1"' "$windows_bootstrap" ||
+  ! search_file_literal 'mise install' "$windows_bootstrap" ||
+  ! search_file_literal 'mise upgrade' "$windows_bootstrap" ||
+  ! search_file_literal 'mise ls --missing' "$windows_bootstrap" ||
+  ! search_file_literal 'Invoke-BestEffort -Phase "mise" -Name "mise"' "$windows_bootstrap"; then
+  echo "expected bootstrap.ps1 to install mise with winget, put its shims on the user PATH, and install and upgrade the mise tool lists non-interactively"
   exit 1
 fi
 
-if ! search_file_literal 'Start-Progress -Total 9' "$windows_bootstrap" ||
-  [ "$(grep -c '^Complete-ProgressStep$' "$windows_bootstrap")" -ne 9 ]; then
+if [ "$(grep -n 'Invoke-BestEffort -Phase "windows_packages"' "$windows_bootstrap" | cut -d: -f1)" -gt "$(grep -n 'Invoke-BestEffort -Phase "mise" -Name "mise tool lists"' "$windows_bootstrap" | cut -d: -f1)" ]; then
+  echo "expected bootstrap.ps1 to install the mise tool lists after the winget import, so npm: entries find node on PATH"
+  exit 1
+fi
+
+if ! search_file_literal 'Start-Progress -Total 8' "$windows_bootstrap" ||
+  [ "$(grep -c '^Complete-ProgressStep$' "$windows_bootstrap")" -ne 8 ]; then
   echo "expected the Windows progress bar total to match the number of Complete-ProgressStep calls"
   exit 1
 fi
@@ -807,9 +809,9 @@ fi
 
 if ! search_file 'NODE_OPTIONS' "$ai_tools_unix_task" ||
   ! search_file 'NPM_CONFIG_JOBS' "$ai_tools_unix_task" ||
-  ! search_file 'NODE_OPTIONS' "$devtools_task_main" ||
-  ! search_file 'NPM_CONFIG_JOBS' "$devtools_task_main"; then
-  echo "expected npm and AI CLI installers to cap Node/npm work in low-memory mode"
+  ! search_file "'MISE_JOBS': '1'" "$mise_tools_task" ||
+  ! search_file 'dotfiles_low_memory_setup' "$mise_tools_task"; then
+  echo "expected the AI CLI installer and mise to do less work in parallel in low-memory mode"
   exit 1
 fi
 
@@ -836,7 +838,7 @@ if search_file_literal 'json_query' "$setup_outcome_task"; then
   exit 1
 fi
 
-for verifier in dpkg-query rpm pacman brew flatpak npm 'command -v'; do
+for verifier in dpkg-query rpm pacman brew flatpak 'mise' 'command -v'; do
   if ! search_file "$verifier" "$setup_outcome_task"; then
     echo "expected setup outcome role to verify selected package/app entries with $verifier"
     exit 1
@@ -966,38 +968,56 @@ if awk '
   exit 1
 fi
 
-if ! search_file 'lazygit_local_binary="\{\{ lookup\('\''env'\'', '\''HOME'\''\) \}\}/\.local/bin/lazygit"' "$lazygit_task"; then
-  echo "expected lazygit check to prefer the local installed binary"
+if ! search_file 'https://mise\.run' "$mise_feature_task" ||
+  ! search_file 'https://mise\.jdx\.dev/VERSION' "$mise_feature_task" ||
+  ! search_file 'DOTFILES_CHANGED' "$mise_feature_task" ||
+  search_file 'self-update' "$mise_feature_task" ||
+  search_file 'MISE_VERSION' "$mise_feature_task"; then
+  echo "expected the mise feature role to run the unpinned mise.run installer only when mise is absent or behind https://mise.jdx.dev/VERSION (not mise self-update, which needs the rate-limited GitHub API) and report changed from a fingerprint"
   exit 1
 fi
 
-if ! search_file 'lazygit_version_marker="\{\{ lookup\('\''env'\'', '\''HOME'\''\) \}\}/\.local/share/dotfiles/lazygit-version"' "$lazygit_task"; then
-  echo "expected lazygit check to use a managed version marker"
+if ! search_file 'mise ls --missing|- --missing' "$mise_tools_task" ||
+  ! search_file '- outdated' "$mise_tools_task" ||
+  ! search_file "'MISE_YES': '1'" "$mise_tools_task" ||
+  ! search_file 'GITHUB_TOKEN' "$mise_tools_task" ||
+  ! search_file 'dotfiles_mise_missing_tools_before \| length > 0' "$mise_tools_task" ||
+  ! search_file 'dotfiles_mise_outdated_tools_before \| length > 0' "$mise_tools_task" ||
+  ! search_file "'phase': 'mise'" "$mise_tools_task" ||
+  ! search_file 'Record each mise tool still missing after install' "$mise_tools_task"; then
+  echo "expected mise_tools to capture the missing and outdated tools before acting, derive changed from them, and record every tool still missing"
   exit 1
 fi
 
-if ! search_file 'lazygit --version' "$lazygit_task"; then
-  echo "expected lazygit check to fall back to PATH lookup"
-  exit 1
-fi
-
-if ! search_file 'Ensure local metadata directory exists' "$lazygit_task"; then
-  echo "expected lazygit install to create a metadata directory"
-  exit 1
-fi
-
-if ! search_file 'Record installed lazygit version' "$lazygit_task"; then
-  echo "expected lazygit install to record the installed version"
-  exit 1
-fi
-
-if ! awk '
-  /Create temporary directory for lazygit download/ { in_task = 1; next }
-  /^    - name:/ && in_task { in_task = 0 }
+if awk '
+  /^- name: (Install missing|Upgrade) mise tools/ { in_task = 1; next }
+  /^- name:/ { in_task = 0 }
   in_task && /changed_when: false/ { found = 1 }
   END { exit(found ? 0 : 1) }
-' "$lazygit_task"; then
-  echo "expected lazygit temporary download directory creation to be idempotency-neutral"
+' "$mise_tools_task"; then
+  echo "expected mise install and upgrade tasks to report changed from the captured tool state, never changed_when: false"
+  exit 1
+fi
+
+if [ "$(grep -n 'name: Apply Chezmoi (best effort)' "$execution_playbook" | cut -d: -f1)" -gt "$(grep -n 'name: Install mise tool lists (best effort)' "$execution_playbook" | cut -d: -f1)" ] ||
+  [ "$(grep -n 'name: Install mise tool lists (best effort)' "$execution_playbook" | cut -d: -f1)" -gt "$(grep -n 'name: Enable selected services (strict)' "$execution_playbook" | cut -d: -f1)" ]; then
+  echo "expected the mise_tools phase to run after chezmoi apply (which writes the conf.d lists) and before the services phase"
+  exit 1
+fi
+
+if ! search_file '"mise_tools : "' "$repo_root/bootstrap.sh"; then
+  echo "expected the bootstrap.sh progress bar to track the mise_tools phase"
+  exit 1
+fi
+
+if ! search_file 'dotfiles_known_mise_tool_lists' "$profile_preflight" ||
+  ! search_file 'home/dot_config/mise/conf.d' "$profile_preflight"; then
+  echo "expected preflight to accept a mise tool list in home/dot_config/mise/conf.d as a feature implementation"
+  exit 1
+fi
+
+if ! awk '/dotfiles_feature_execution_order:/ { getline; exit($0 ~ /^      - mise$/ ? 0 : 1) }' "$profile_preflight"; then
+  echo "expected mise to be the first feature role in dotfiles_feature_execution_order"
   exit 1
 fi
 

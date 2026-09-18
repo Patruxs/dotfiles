@@ -1,0 +1,8 @@
+[tools]
+lazygit = "latest"
+fd = "latest"
+bat = "latest"
+eza = "latest"
+zoxide = "latest"
+superfile = "latest"
+yazi = "latest"

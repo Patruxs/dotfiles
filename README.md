@@ -69,6 +69,8 @@ chezmoi add ~/.bashrc    # Manage a new file
 chezmoi update -v        # Pull and apply latest changes
 chezmoi diff             # See what will change
 chezmoi doctor           # Troubleshoot issues
+mise ls                  # Show the CLI tools mise manages and their versions
+mise upgrade             # Move every mise-managed tool to its latest release
 ```
 
 To run the bootstrap script manually with a specific profile:
@@ -177,13 +179,14 @@ The system is split into two primary profiles to keep work machines lean while f
 
 | Feature / App Category | OS | Personal Profile | Work Profile | Description / Apps Included |
 | :--- | :--- | :---: | :---: | :--- |
-| **Core CLI & Shell** | Linux, macOS, Windows | ✅ | ✅ | **Tools**: `git`, `curl`, `wget`, `unzip`, `gnupg`, `bash`, `neovim`, `ripgrep`, `jq`, `bat`, `fzf`, `zoxide`, `fd`, `eza`, `lazygit`, `gh`. `tmux` and `btop` on Linux/macOS only. On Ubuntu and Fedora `lazygit` comes from its upstream GitHub release; everywhere else from the package manager. <br> **Configs**: Multi-shell integrations (`bash`, `zsh`, `powershell`), aliases, `.gitconfig` with GitHub CLI credential helper. The `shell` feature sets bash as the login shell on Linux and macOS. The `starship_prompt` feature installs [Starship](https://starship.rs) and wires it into bash, zsh, and PowerShell with its default prompt (`~/.config/starship.toml`). |
-| **Dev Tools & SDKs** | Linux, macOS, Windows | ✅ | ✅ | **Languages**: `nodejs`, `python3`, `gcc`, `go` (plus POSIX UCRT on Windows). <br> **Package Mgrs**: `npm`, `python-pip` (Linux). <br> **Testing**: `playwright` (global npm package). |
-| **Security / Passwords** | Linux, macOS, Windows | ✅ | ❌ | Bitwarden CLI (`bw`) installed via npm globally. |
+| **Core CLI & Shell** | Linux, macOS, Windows | ✅ | ✅ | **System packages**: `git`, `curl`, `wget`, `unzip`, `gnupg`, `bash`, `neovim`, `ripgrep`, `jq`, `fzf`, `gh`. `tmux` and `btop` on Linux/macOS only. <br> **mise tool list** (`core_cli`): `lazygit`, `fd`, `bat`, `eza`, `zoxide`, `superfile`, `yazi`, installed and upgraded from their upstream releases by [mise](https://mise.jdx.dev) on every platform. <br> **Configs**: Multi-shell integrations (`bash`, `zsh`, `powershell`), aliases, `.gitconfig` with GitHub CLI credential helper. The `shell` feature sets bash as the login shell on Linux and macOS. The `starship_prompt` feature installs [Starship](https://starship.rs) through mise and wires it into bash, zsh, and PowerShell with its default prompt (`~/.config/starship.toml`). |
+| **CLI tool manager** | Linux, macOS, Windows | ✅ | ✅ | The `mise` feature installs [mise](https://mise.jdx.dev) (distro package on Arch, Homebrew on macOS, `mise.run` on Ubuntu and Fedora, winget on Windows). Every user-level CLI below is a line in `home/dot_config/mise/conf.d/<feature>.toml`, requested at `latest`; setup runs `mise install` and `mise upgrade` after the dotfiles are applied, and the shims directory is on `PATH` for non-interactive contexts. |
+| **Dev Tools & SDKs** | Linux, macOS, Windows | ✅ | ✅ | **Languages**: `nodejs`, `python3`, `gcc`, `go` (plus POSIX UCRT on Windows). <br> **Package Mgrs**: `npm`, `python-pip` (Linux). <br> **Testing**: `playwright` (the `npm_global_tools` mise tool list; needs the `node` this feature provides). |
+| **Security / Passwords** | Linux, macOS, Windows | ✅ | ❌ | Bitwarden CLI (`bw`), from the `bitwarden_cli` mise tool list. |
 | **Desktop Base** | Linux, macOS, Windows | ✅ | ✅ | **Editors**: VS Code, Zed, Obsidian. <br> **Utils**: GitButler, LocalSend, GParted (Linux), flatpak (Linux). |
 | **Modern Terminals** | Linux, macOS, Windows | ✅ | ✅ | Warp Terminal. Ghostty on Linux and macOS (no Windows build). |
 | **Docker Ecosystem** | Linux, macOS, Windows | ✅ | ✅ | Docker Desktop. A separate `docker_engine` feature exists for the native engine; no shipped profile selects it. |
-| **AI CLIs** | Linux, macOS, Windows | ✅ | ✅ | `codex`, `agy`, `droid`, `opencode`, `herdr`, `paseo`, `pi` (Plus `llmfit` through the `llmfit` feature). |
+| **AI CLIs** | Linux, macOS, Windows | ✅ | ✅ | `codex`, `agy`, `opencode`, `herdr`, `paseo`, `pi` from the `ai_clis` mise tool list; `droid` from its vendor installer (skipped in automation). Plus `llmfit` through the `llmfit` mise tool list. |
 | **System & Desktop Configs** | Linux, macOS, Windows | ✅ | ✅ | SSH host aliases. <br> **Linux-only**: GNOME `dconf` preferences and Shell extensions, or KDE Plasma settings, for whichever desktop is detected; `user-dirs.dirs` (XDG dirs), `auto-headphone-switch.service` (Systemd, the `audio_auto_switch` feature), swap/low-memory tuning. |
 | **Heavy IDEs** | Linux, macOS, Windows | ✅ | ❌ | JetBrains Toolbox, Kiro IDE. |
 | **Virtualization** | Linux, macOS, Windows | ✅ | ❌ | Oracle VirtualBox. |

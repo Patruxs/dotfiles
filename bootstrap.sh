@@ -495,6 +495,7 @@ progress_ansible_phases=(
   "package_installer : "
   "features/"
   "chezmoi : "
+  "mise_tools : "
   "services : "
   "setup_outcome : "
 )

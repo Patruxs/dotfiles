@@ -426,87 +426,30 @@ function Install-WingetPackages {
   }
 }
 
-function Install-Llmfit {
-  $repo = "AlexsJones/llmfit"
-  $installDir = Join-Path $env:LOCALAPPDATA "Programs\llmfit"
-  $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq [System.Runtime.InteropServices.Architecture]::Arm64) { "aarch64" } else { "x86_64" }
-
-  $managedExe = Join-Path $installDir "llmfit.exe"
-  $installedVersion = ""
-  if (Test-Path -LiteralPath $managedExe) {
-    $versionOutput = [string](& $managedExe --version 2>$null | Out-String)
-    if ($versionOutput -match '[0-9]+\.[0-9]+\.[0-9]+') {
-      $installedVersion = $Matches[0]
-    }
+function Install-Mise {
+  if (-not (Get-Command mise -ErrorAction SilentlyContinue)) {
+    Write-Host "Installing mise via winget..."
+    winget install --id jdx.mise -e --accept-source-agreements --accept-package-agreements --silent --disable-interactivity
+    Assert-LastExitCode "winget install jdx.mise" -AllowWingetNoApplicableUpgrade
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
   }
-
-  $releasesUrl = "https://github.com/$repo/releases/latest"
-  $location = ""
-  try {
-    $request = [System.Net.HttpWebRequest]::Create($releasesUrl)
-    $request.AllowAutoRedirect = $false
-    $request.UserAgent = "dotfiles-bootstrap"
-    $response = $request.GetResponse()
-    try {
-      $location = [string]$response.Headers["Location"]
-    } finally {
-      $response.Close()
-    }
-  } catch {
-    if (-not [string]::IsNullOrEmpty($installedVersion)) {
-      Write-Warning "Could not reach $releasesUrl to check for a newer llmfit ($($_.Exception.Message)); keeping installed llmfit $installedVersion."
-      return
-    }
-    throw
+  Add-UserPathEntry -Directory (Join-Path $env:LOCALAPPDATA "mise\shims")
+  if (-not (Get-Command mise -ErrorAction SilentlyContinue)) {
+    throw "mise was not found on PATH after installing jdx.mise."
   }
-  if ([string]::IsNullOrWhiteSpace($location) -or $location -notmatch '/tag/(v[0-9]+\.[0-9]+\.[0-9]+)$') {
-    throw "Could not resolve the latest llmfit release from $releasesUrl (got '$location')."
-  }
-  $tag = $Matches[1]
-  $latestVersion = $tag.TrimStart('v')
+}
 
-  if ($installedVersion -eq $latestVersion) {
-    Write-Host "llmfit $installedVersion is already the latest release."
-    return
-  }
-
-  $asset = "llmfit-$tag-$arch-pc-windows-msvc.zip"
-  $baseUrl = "https://github.com/$repo/releases/download/$tag"
-  $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("dotfiles-llmfit-{0}" -f ([System.Guid]::NewGuid().ToString()))
-  New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
-  try {
-    $zipPath = Join-Path $tempDir $asset
-    $checksumPath = "$zipPath.sha256"
-    Invoke-WebRequest -Uri "$baseUrl/$asset" -OutFile $zipPath -UseBasicParsing
-    Invoke-WebRequest -Uri "$baseUrl/$asset.sha256" -OutFile $checksumPath -UseBasicParsing
-    $checksumText = [string](Get-Content -Path $checksumPath -Raw)
-    if ($checksumText -notmatch '[0-9a-fA-F]{64}') {
-      throw "Could not read the llmfit checksum for $asset."
-    }
-    $expectedHash = $Matches[0].ToLowerInvariant()
-    $actualHash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
-    if ($actualHash -ne $expectedHash) {
-      throw "llmfit checksum mismatch for ${asset}: got $actualHash, expected $expectedHash."
-    }
-
-    $extractDir = Join-Path $tempDir "extract"
-    Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
-    $exe = Get-ChildItem -Path $extractDir -Filter "llmfit.exe" -Recurse -File | Select-Object -First 1
-    if ($null -eq $exe) {
-      throw "llmfit.exe was not found inside $asset."
-    }
-    New-Item -ItemType Directory -Path $installDir -Force | Out-Null
-    Copy-Item -Path $exe.FullName -Destination $managedExe -Force
-  } finally {
-    Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
-  }
-
-  Add-UserPathEntry -Directory $installDir
-  Write-Host "Installed llmfit $latestVersion to $installDir."
-
-  $onPath = Get-Command llmfit -ErrorAction SilentlyContinue
-  if ($null -ne $onPath -and $onPath.Source -ne $managedExe) {
-    Write-Warning "Another llmfit at $($onPath.Source) precedes $managedExe on PATH; remove it (for example 'scoop uninstall llmfit') so the latest release is the one that runs."
+function Install-MiseTools {
+  $env:MISE_YES = "1"
+  Write-Host "Installing tools requested in ~/.config/mise/conf.d..."
+  mise install
+  Assert-LastExitCode "mise install"
+  Write-Host "Upgrading mise tools to their latest release..."
+  mise upgrade
+  Assert-LastExitCode "mise upgrade"
+  $missing = [string](& mise ls --missing 2>$null | Out-String)
+  if (-not [string]::IsNullOrWhiteSpace($missing)) {
+    throw "mise still lists tools as missing after install:`n$missing"
   }
 }
 
@@ -565,7 +508,7 @@ $selectedProfile = Get-Profile
 Write-Host "Using profile: $selectedProfile"
 $env:DOTFILES_PROFILE = $selectedProfile
 
-Start-Progress -Total 9
+Start-Progress -Total 8
 
 Set-ProgressLabel "chezmoi init"
 if (Test-UsingCheckedOutSource) {
@@ -642,31 +585,16 @@ Complete-ProgressStep
 
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
-if ((-not (Test-IsCi)) -and $null -ne $data.devtools.npm_global_packages -and (Get-Command npm -ErrorAction SilentlyContinue)) {
-    Write-Host "Installing or updating global npm development tools..."
-    foreach ($pkg in $data.devtools.npm_global_packages) {
-        Invoke-BestEffort -Phase "npm_global" -Name $pkg -ScriptBlock {
-            Write-Host "Installing or updating npm package $pkg..."
-            npm install -g "$pkg@latest"
-            Assert-LastExitCode "npm install -g $pkg@latest"
-        }
+if (($profileFeatures -contains "mise") -and (-not (Test-IsCi))) {
+    Invoke-BestEffort -Phase "mise" -Name "mise" -ScriptBlock {
+        Install-Mise
     }
 }
 Complete-ProgressStep
 
-if (($profileFeatures -contains "bitwarden_cli") -and (-not (Test-IsCi)) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
-    Invoke-BestEffort -Phase "bitwarden_cli" -Name "Bitwarden CLI" -ScriptBlock {
-        Write-Host "Installing Bitwarden CLI via NPM..."
-        npm install -g "@bitwarden/cli@latest"
-        Assert-LastExitCode "npm install -g @bitwarden/cli@latest"
-    }
-}
-Complete-ProgressStep
-
-if (($profileFeatures -contains "llmfit") -and (-not (Test-IsCi))) {
-    Invoke-BestEffort -Phase "llmfit" -Name "llmfit" -ScriptBlock {
-        Write-Host "Installing or updating llmfit from its latest GitHub release..."
-        Install-Llmfit
+if (($profileFeatures -contains "mise") -and (-not (Test-IsCi))) {
+    Invoke-BestEffort -Phase "mise" -Name "mise tool lists" -ScriptBlock {
+        Install-MiseTools
     }
 }
 Complete-ProgressStep

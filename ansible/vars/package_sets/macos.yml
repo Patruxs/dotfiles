@@ -14,12 +14,8 @@ package_sets:
       - tmux
       - btop
       - ripgrep
-      - fd
       - fzf
       - jq
-      - bat
-      - eza
-      - lazygit
       - gh
   desktop_base:
     cask:
@@ -59,9 +55,9 @@ package_sets:
   jetbrains_mono_nerd_font:
     cask:
       - font-jetbrains-mono-nerd-font
-  starship_prompt:
+  mise:
     brew:
-      - starship
+      - mise
   terminal_toys:
     brew:
       - cmatrix

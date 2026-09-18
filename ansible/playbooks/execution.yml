@@ -200,6 +200,67 @@
             ]
           }}
 
+- name: Install mise tool lists (strict)
+  when:
+    - dotfiles_setup_mode == 'strict'
+    - "'mise' in (features | default([]))"
+    - not (dotfiles_ci | default(false))
+  block:
+    - name: Run the mise_tools role
+      ansible.builtin.include_role:
+        name: mise_tools
+
+    - name: Record mise tool list completion
+      set_fact:
+        dotfiles_setup_configured: >-
+          {{
+            dotfiles_setup_configured + [
+              {
+                'phase': 'mise',
+                'name': 'mise tool lists',
+                'detail': 'Tools requested in ~/.config/mise/conf.d were installed and upgraded to their latest release.'
+              }
+            ]
+          }}
+
+- name: Install mise tool lists (best effort)
+  when:
+    - dotfiles_setup_mode == 'best_effort'
+    - "'mise' in (features | default([]))"
+    - not (dotfiles_ci | default(false))
+  block:
+    - name: Run the mise_tools role
+      ansible.builtin.include_role:
+        name: mise_tools
+
+    - name: Record mise tool list completion
+      set_fact:
+        dotfiles_setup_configured: >-
+          {{
+            dotfiles_setup_configured + [
+              {
+                'phase': 'mise',
+                'name': 'mise tool lists',
+                'detail': 'Tools requested in ~/.config/mise/conf.d were installed and upgraded to their latest release; tools still missing are listed under Errors.'
+              }
+            ]
+          }}
+  rescue:
+    - name: Record mise tool list failure
+      set_fact:
+        dotfiles_setup_failures: >-
+          {{
+            dotfiles_setup_failures + [
+              {
+                'phase': 'mise',
+                'name': 'Install mise tool lists',
+                'task': ansible_failed_task.name | default('unknown task'),
+                'error': (ansible_failed_result.stderr | default('') | string) if (ansible_failed_result.stderr | default('') | string | length > 0) else (ansible_failed_result.msg
+          | default(ansible_failed_result | to_json))
+              }
+            ]
+          }}
+
 - name: Enable selected services (strict)
   when: dotfiles_setup_mode == 'strict'
   block:

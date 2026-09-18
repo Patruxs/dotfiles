@@ -1,8 +1,0 @@
-{{- if ne .chezmoi.os "windows" -}}
-#!/bin/bash
-set -euo pipefail
-if command -v spf >/dev/null 2>&1; then
-    exit 0
-fi
-curl -fsSL https://superfile.dev/install.sh | bash
-{{- end }}

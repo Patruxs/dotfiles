@@ -1,0 +1,166 @@
+---
+- name: Derive the mise environment
+  set_fact:
+    dotfiles_mise_environment: >-
+      {{
+        {
+          'MISE_YES': '1',
+          'PATH': lookup('env', 'HOME') ~ '/.local/bin:' ~ lookup('env', 'PATH')
+        }
+        | combine({'GITHUB_TOKEN': lookup('env', 'GITHUB_TOKEN')} if (lookup('env', 'GITHUB_TOKEN') | default('', true) | length > 0) else {})
+        | combine({'MISE_JOBS': '1'} if (dotfiles_low_memory_setup | default(false) | bool) else {})
+      }}
+
+- name: Check that mise is available
+  command:
+    argv:
+      - sh
+      - -c
+      - command -v mise
+  environment: "{{ dotfiles_mise_environment }}"
+  register: dotfiles_mise_binary
+  changed_when: false
+  failed_when: false
+
+- name: Fail when mise is not installed
+  fail:
+    msg: "mise was not found on PATH; the mise feature installs it before the tool lists are applied."
+  when: dotfiles_mise_binary.rc != 0
+
+- name: List mise tools missing before install
+  command:
+    argv:
+      - mise
+      - ls
+      - --missing
+      - --json
+  environment: "{{ dotfiles_mise_environment }}"
+  register: dotfiles_mise_missing_before
+  changed_when: false
+  failed_when: false
+
+- name: List outdated mise tools before upgrade
+  command:
+    argv:
+      - mise
+      - outdated
+      - --json
+  environment: "{{ dotfiles_mise_environment }}"
+  register: dotfiles_mise_outdated_before
+  changed_when: false
+  failed_when: false
+
+- name: Record the mise tool state before acting
+  set_fact:
+    dotfiles_mise_missing_tools_before: "{{ (dotfiles_mise_missing_before.stdout | default('{}') | trim or '{}') | from_json | list }}"
+    dotfiles_mise_outdated_tools_before: "{{ (dotfiles_mise_outdated_before.stdout | default('{}') | trim or '{}') | from_json | list }}"
+
+- name: Install missing mise tools (strict)
+  command:
+    argv:
+      - mise
+      - install
+  environment: "{{ dotfiles_mise_environment }}"
+  register: dotfiles_mise_install_strict
+  changed_when: dotfiles_mise_missing_tools_before | length > 0
+  when: dotfiles_setup_mode | default('best_effort') == 'strict'
+
+- name: Upgrade mise tools (strict)
+  command:
+    argv:
+      - mise
+      - upgrade
+  environment: "{{ dotfiles_mise_environment }}"
+  register: dotfiles_mise_upgrade_strict
+  changed_when: dotfiles_mise_outdated_tools_before | length > 0
+  when: dotfiles_setup_mode | default('best_effort') == 'strict'
+
+- name: Install missing mise tools (best effort)
+  command:
+    argv:
+      - mise
+      - install
+  environment: "{{ dotfiles_mise_environment }}"
+  register: dotfiles_mise_install_result
+  changed_when: >-
+    dotfiles_mise_install_result.rc == 0
+    and dotfiles_mise_missing_tools_before | length > 0
+  failed_when: false
+  when: dotfiles_setup_mode | default('best_effort') == 'best_effort'
+
+- name: Record the mise install failure
+  set_fact:
+    dotfiles_setup_failures: >-
+      {{
+        (dotfiles_setup_failures | default([])) + [
+          {
+            'phase': 'mise',
+            'name': 'mise install',
+            'task': 'Install missing mise tools (best effort)',
+            'error': (dotfiles_mise_install_result.stderr | default('') | string) if (dotfiles_mise_install_result.stderr | default('') | string | length > 0)
+      else (dotfiles_mise_install_result.stdout | default('') | string)
+          }
+        ]
+      }}
+  when:
+    - dotfiles_mise_install_result is not skipped
+    - dotfiles_mise_install_result.rc != 0
+
+- name: Upgrade mise tools (best effort)
+  command:
+    argv:
+      - mise
+      - upgrade
+  environment: "{{ dotfiles_mise_environment }}"
+  register: dotfiles_mise_upgrade_result
+  changed_when: >-
+    dotfiles_mise_upgrade_result.rc == 0
+    and dotfiles_mise_outdated_tools_before | length > 0
+  failed_when: false
+  when: dotfiles_setup_mode | default('best_effort') == 'best_effort'
+
+- name: Record the mise upgrade failure
+  set_fact:
+    dotfiles_setup_failures: >-
+      {{
+        (dotfiles_setup_failures | default([])) + [
+          {
+            'phase': 'mise',
+            'name': 'mise upgrade',
+            'task': 'Upgrade mise tools (best effort)',
+            'error': (dotfiles_mise_upgrade_result.stderr | default('') | string) if (dotfiles_mise_upgrade_result.stderr | default('') | string | length > 0)
+      else (dotfiles_mise_upgrade_result.stdout | default('') | string)
+          }
+        ]
+      }}
+  when:
+    - dotfiles_mise_upgrade_result is not skipped
+    - dotfiles_mise_upgrade_result.rc != 0
+
+- name: List mise tools still missing after install
+  command:
+    argv:
+      - mise
+      - ls
+      - --missing
+      - --json
+  environment: "{{ dotfiles_mise_environment }}"
+  register: dotfiles_mise_missing_after
+  changed_when: false
+  failed_when: false
+  when: dotfiles_setup_mode | default('best_effort') == 'best_effort'
+
+- name: Record each mise tool still missing after install
+  set_fact:
+    dotfiles_setup_failures: >-
+      {{
+        (dotfiles_setup_failures | default([])) + [
+          {
+            'phase': 'mise',
+            'name': item,
+            'task': 'Install missing mise tools (best effort)',
+            'error': 'mise still lists ' ~ item ~ ' as missing after `mise install`; run `mise install ' ~ item ~ '` to see why it failed.'
+          }
+        ]
+      }}
+  loop: "{{ ((dotfiles_mise_missing_after.stdout | default('{}') | trim or '{}') | from_json | list) if dotfiles_mise_missing_after is not skipped else [] }}"
