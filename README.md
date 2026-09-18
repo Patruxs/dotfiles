@@ -183,14 +183,16 @@ The system is split into two primary profiles to keep work machines lean while f
 | **CLI tool manager** | Linux, macOS, Windows | ✅ | ✅ | The `mise` feature installs [mise](https://mise.jdx.dev) (distro package on Arch, Homebrew on macOS, `mise.run` on Ubuntu and Fedora, winget on Windows). Every user-level CLI below is a line in `home/dot_config/mise/conf.d/<feature>.toml`, requested at `latest`; setup runs `mise install` and `mise upgrade` after the dotfiles are applied, and the shims directory is on `PATH` for non-interactive contexts. |
 | **Dev Tools & SDKs** | Linux, macOS, Windows | ✅ | ✅ | **Languages**: `nodejs`, `python3`, `gcc`, `go` (plus POSIX UCRT on Windows). <br> **Package Mgrs**: `npm`, `python-pip` (Linux). <br> **Testing**: `playwright` (the `npm_global_tools` mise tool list; needs the `node` this feature provides). |
 | **Security / Passwords** | Linux, macOS, Windows | ✅ | ❌ | Bitwarden CLI (`bw`), from the `bitwarden_cli` mise tool list. |
-| **Desktop Base** | Linux, macOS, Windows | ✅ | ✅ | **Editors**: VS Code, Zed, Obsidian. <br> **Utils**: GitButler, LocalSend, GParted (Linux), flatpak (Linux). |
+| **Desktop Base** | Linux, macOS, Windows | ✅ | ✅ | **Editors**: VS Code, Obsidian (Zed is its own `zed_editor` feature, in both profiles). <br> **Utils**: GitButler, LocalSend, GParted (Linux), TreeSize (Windows), rofi and flatpak (Linux). |
 | **Modern Terminals** | Linux, macOS, Windows | ✅ | ✅ | Warp Terminal. Ghostty on Linux and macOS (no Windows build). |
 | **Docker Ecosystem** | Linux, macOS, Windows | ✅ | ✅ | Docker Desktop. A separate `docker_engine` feature exists for the native engine; no shipped profile selects it. |
-| **AI CLIs** | Linux, macOS, Windows | ✅ | ✅ | `codex`, `agy`, `opencode`, `herdr`, `paseo`, `pi` from the `ai_clis` mise tool list; `droid` from its vendor installer (skipped in automation). Plus `llmfit` through the `llmfit` mise tool list. |
-| **System & Desktop Configs** | Linux, macOS, Windows | ✅ | ✅ | SSH host aliases. <br> **Linux-only**: GNOME `dconf` preferences and Shell extensions, or KDE Plasma settings, for whichever desktop is detected; `user-dirs.dirs` (XDG dirs), `auto-headphone-switch.service` (Systemd, the `audio_auto_switch` feature), swap/low-memory tuning. |
+| **AI CLIs** | Linux, macOS, Windows | ✅ | ✅ | `claude`, `codex`, `agy`, `opencode`, `herdr`, `paseo`, `pi` from the `ai_clis` mise tool list; `droid` from its vendor installer (skipped in automation). The personal profile adds `llmfit` through the `llmfit` mise tool list. |
+| **System & Desktop Configs** | Linux, macOS, Windows | ✅ | ✅ | SSH host aliases. <br> **Linux-only**: GNOME `dconf` preferences and Shell extensions, or KDE Plasma settings, for whichever desktop is detected; `user-dirs.dirs` (XDG dirs), `auto-headphone-switch.service` (Systemd, the `audio_auto_switch` feature, personal profile only), swap/low-memory tuning. |
+| **Fonts & Plasma add-ons** | Linux, macOS | ✅ | ✅ | JetBrainsMono Nerd Font (`jetbrains_mono_nerd_font`). On KDE Plasma, the `plasma_addons` feature installs Krohnkite, the geometry change effect, the Active Accent Frame decoration and the KDE Control Station widget from upstream. |
 | **Heavy IDEs** | Linux, macOS, Windows | ✅ | ❌ | JetBrains Toolbox, Kiro IDE. |
 | **Virtualization** | Linux, macOS, Windows | ✅ | ❌ | Oracle VirtualBox. |
-| **Desktop Apps** | Linux, macOS, Windows | ✅ | ❌ | **Comm/Media**: Telegram, Zoom, Spotify, OBS Studio. <br> **Work/Utils**: Postman, ONLYOFFICE, Edge, Anki, Termius, Bazaar (Linux). <br> **System**: `nvtop` (Linux), TreeSize (Win), RevoUninstaller (Win). |
+| **Desktop Apps** | Linux, macOS, Windows | ✅ | ❌ | **Comm/Media**: Telegram, Zoom, Spotify, OBS Studio. <br> **Work/Utils**: Postman, ONLYOFFICE, Edge, Anki, Termius, Bazaar (Linux). <br> **System**: `nvtop` (Linux), RevoUninstaller (Win). |
+| **Terminal toys** | Linux, macOS | ✅ | ❌ | `cmatrix` (`terminal_toys`). |
 
 </details>
 

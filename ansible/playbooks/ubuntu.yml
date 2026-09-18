@@ -19,6 +19,9 @@
       architecture: "{{ ansible_facts['architecture'] | default('') }}"
       distro_key: debian
       ubuntu_codename: "{{ ansible_facts['distribution_release'] | default('') }}"
+      package_install_command: [apt-get, install, -y]
+      package_install_serial_command: [apt-get, -o, Acquire::Queue-Mode=access, -o, 'Acquire::http::Pipeline-Depth=0', -o, 'Acquire::Retries=3', install, -y]
+      package_install_noop_marker: "0 upgraded, 0 newly installed"
 
   pre_tasks:
     - name: Load Ubuntu package set

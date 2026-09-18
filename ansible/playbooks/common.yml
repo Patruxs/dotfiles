@@ -165,6 +165,31 @@
         else [dotfiles_platform.ubuntu_codename]
       }}
 
+- name: Read the Fedora releases Docker's rpm repository currently serves
+  ansible.builtin.uri:
+    url: https://download.docker.com/linux/fedora/
+    return_content: true
+  register: dotfiles_docker_desktop_fedora_index
+  failed_when: false
+  when:
+    - dotfiles_platform.name == 'fedora'
+    - "'docker_desktop' in (features | default([]))"
+
+- name: Define Fedora releases supported by Docker Desktop
+  vars:
+    docker_fedora_releases: >-
+      {{
+        dotfiles_docker_desktop_fedora_index.content | default('')
+        | regex_findall('href="([0-9]+)/"') | map('int') | sort | list
+      }}
+  ansible.builtin.set_fact:
+    dotfiles_docker_desktop_fedora_releases: >-
+      {{
+        docker_fedora_releases[-2:]
+        if (dotfiles_docker_desktop_fedora_index.status | default(0)) == 200 and docker_fedora_releases | length > 0
+        else [dotfiles_platform.distribution_major_version | int]
+      }}
+
 - name: Initialize best-effort setup failure summary
   set_fact:
     dotfiles_setup_failures: []
@@ -182,20 +207,12 @@
       ansible.builtin.include_tasks: execution.yml
   rescue:
     - name: Record the failure that aborted setup
-      set_fact:
-        dotfiles_setup_aborted: true
-        dotfiles_setup_failures: >-
-          {{
-            dotfiles_setup_failures + [
-              {
-                'phase': 'aborted',
-                'name': ansible_failed_task.name | default('unknown task'),
-                'task': ansible_failed_task.name | default('unknown task'),
-                'error': (ansible_failed_result.stderr | default('') | string) if (ansible_failed_result.stderr | default('') | string | length > 0) else (ansible_failed_result.msg
-          | default(ansible_failed_result | to_json))
-              }
-            ]
-          }}
+      ansible.builtin.include_role:
+        name: record_failure
+      vars:
+        failure_phase: aborted
+        failure_name: "{{ ansible_failed_task.name | default('unknown task', true) }}"
+        failure_is_fatal: true
   always:
     - name: Show setup outcome summary
       include_role:

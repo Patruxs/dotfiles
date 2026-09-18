@@ -45,6 +45,21 @@ NightTemperature=4700
 padding=4
 tiles={"layoutDirection":"horizontal","tiles":[{"width":0.25}]}
 EOF
+cat >"$XDG_CONFIG_HOME/kcminputrc" <<'EOF'
+[Libinput][10182][3396][VEN_27C6:00 27C6:0D44 Touchpad]
+NaturalScroll=true
+
+[Mouse]
+X11LibInputXAccelProfileFlat=true
+EOF
+cat >"$XDG_CONFIG_HOME/kscreenlockerrc" <<'EOF'
+[Daemon]
+Timeout=10
+
+[Greeter][Wallpaper][org.kde.image][General]
+Image=file:///mnt/Personal/wallpaper.png
+PreviewImage=file:///mnt/Personal/wallpaper.png
+EOF
 cat >"$XDG_CONFIG_HOME/kglobalshortcutsrc" <<'EOF'
 [ActivityManager]
 switch-to-activity-0d1f8a0e=none,none,Switch to activity "Default"
@@ -124,6 +139,13 @@ fi
 grep -q '^\[Tiling' "$stored/kwinrc" && fail "capture kept a kwinrc Tiling group"
 grep -q '^\[[$]Version\]' "$stored/kwinrc" && fail "capture kept the [\$Version] group"
 grep -q '^Id_1=' "$stored/kwinrc" && fail "capture kept a virtual desktop UUID"
+
+if [ "$(stored_entries kcminputrc | tr '\n' ' ')" != "X11LibInputXAccelProfileFlat=true " ]; then
+  fail "kcminputrc capture kept a per-device group keyed by hardware IDs: $(cat "$stored/kcminputrc")"
+fi
+if [ "$(stored_entries kscreenlockerrc | tr '\n' ' ')" != "Timeout=10 " ]; then
+  fail "kscreenlockerrc capture kept a wallpaper path from this machine: $(cat "$stored/kscreenlockerrc")"
+fi
 
 if [ "$(stored_entries kglobalshortcutsrc | tr '\n' ' ')" != "Window Close=Meta+Q,Alt+F4,Close Window _launch=Ctrl+Alt+T " ]; then
   fail "shortcut capture should keep only non-default shortcuts: $(stored_entries kglobalshortcutsrc | tr '\n' ' ')"

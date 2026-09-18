@@ -50,12 +50,8 @@ resolve_distro_family() {
   local like
 
   case "$DISTRO" in
-    ubuntu|debian|fedora|arch)
+    ubuntu|fedora|arch)
       printf '%s\n' "$DISTRO"
-      return
-      ;;
-    manjaro)
-      printf '%s\n' "arch"
       return
       ;;
   esac
@@ -158,7 +154,7 @@ require_tty_device() {
   fi
 
   echo "An interactive terminal is required for this setup." >&2
-  exit 1
+  return 1
 }
 
 cleanup_sensitive_state() {
@@ -173,7 +169,9 @@ cleanup_sensitive_state() {
 prompt_sudo_password() {
   local tty_device
 
-  tty_device="$(require_tty_device)"
+  if ! tty_device="$(require_tty_device)"; then
+    abort "An interactive terminal is required to ask for the sudo password. Set DOTFILES_SUDO_PASSWORD_FILE or configure passwordless sudo."
+  fi
   printf "Sudo password: " >"$tty_device"
   IFS= read -r -s sudo_password <"$tty_device"
   printf "\n" >"$tty_device"
@@ -722,10 +720,10 @@ install_packages() {
       fedora)
         run_privileged dnf install -y "$@"
         ;;
-      debian|ubuntu)
+      ubuntu)
         run_privileged env DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
         ;;
-      arch|manjaro)
+      arch)
         run_privileged pacman -S --noconfirm --needed "$@"
         ;;
       *)
@@ -775,13 +773,13 @@ update_system() {
         run_privileged dnf upgrade --refresh -y
       fi
       ;;
-    debian|ubuntu)
+    ubuntu)
       repair_broken_docker_desktop
       run_privileged env DEBIAN_FRONTEND=noninteractive apt-get update
       run_privileged env DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
         -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold
       ;;
-    arch|manjaro)
+    arch)
       run_privileged pacman -Syu --noconfirm
       ;;
     *)
@@ -817,11 +815,11 @@ curl_is_snap() {
 
 fetch_to_stdout() {
   if have curl && ! curl_is_snap; then
-    curl -fsSL "$1"
+    curl -fsSL --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 2 "$1"
   elif have wget; then
-    wget -qO- "$1"
+    wget -q --timeout=30 --tries=3 -O- "$1"
   elif have curl; then
-    curl -fsSL "$1"
+    curl -fsSL --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 2 "$1"
   else
     echo "Neither curl nor wget is available." >&2
     return 1
@@ -830,11 +828,11 @@ fetch_to_stdout() {
 
 fetch_to_file() {
   if have curl && ! curl_is_snap; then
-    curl -fsSL -o "$2" "$1"
+    curl -fsSL --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 2 -o "$2" "$1"
   elif have wget; then
-    wget -qO "$2" "$1"
+    wget -q --timeout=30 --tries=3 -O "$2" "$1"
   elif have curl; then
-    curl -fsSL -o "$2" "$1"
+    curl -fsSL --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 2 -o "$2" "$1"
   else
     echo "Neither curl nor wget is available." >&2
     return 1
@@ -931,7 +929,7 @@ install_chezmoi_from_package_manager() {
   fi
 
   case "$DISTRO_FAMILY" in
-    fedora|arch|manjaro)
+    fedora|arch)
       install_packages chezmoi
       ;;
     *)
@@ -996,7 +994,7 @@ detect_platform() {
         fedora)
           printf '%s\n' "fedora"
           ;;
-        arch|manjaro)
+        arch)
           printf '%s\n' "arch"
           ;;
         *)
@@ -1013,9 +1011,15 @@ detect_platform() {
 }
 
 resolve_platform() {
-  local detected_platform
+  local detected_platform detection_error
 
-  detected_platform="$(detect_platform)" || exit 1
+  detection_error="$(mktemp)"
+  if ! detected_platform="$(detect_platform 2>"$detection_error")"; then
+    detected_platform="$(cat "$detection_error")"
+    rm -f "$detection_error"
+    abort "${detected_platform:-Platform detection failed.}"
+  fi
+  rm -f "$detection_error"
 
   if [ -z "$platform" ]; then
     platform="$detected_platform"
@@ -1023,16 +1027,14 @@ resolve_platform() {
   fi
 
   if ! is_ci; then
-    echo "--platform is only supported when DOTFILES_CI=1."
-    exit 1
+    abort "--platform is only supported when DOTFILES_CI=1."
   fi
 
   case "$platform" in
     ubuntu|fedora|arch|macos)
       ;;
     *)
-      echo "Unsupported platform override: $platform"
-      exit 1
+      abort "Unsupported platform override: $platform"
       ;;
   esac
 }
@@ -1083,23 +1085,51 @@ validate_desktop_override() {
     ""|gnome|kde|none)
       ;;
     *)
-      echo "Invalid desktop: ${DOTFILES_DESKTOP}"
-      echo "Use --desktop gnome, --desktop kde, --desktop none, or leave it unset to detect the running desktop."
-      exit 1
+      abort "Invalid desktop: ${DOTFILES_DESKTOP}. Use --desktop gnome, --desktop kde, --desktop none, or leave it unset to detect the running desktop."
       ;;
   esac
 }
 
+required_ansible_collections() {
+  awk '
+    /^[[:space:]]*-[[:space:]]*name:/ {
+      if (name != "") print name, minimum
+      name = $NF
+      minimum = "0"
+      next
+    }
+    /^[[:space:]]*version:/ {
+      value = $0
+      sub(/^[[:space:]]*version:[[:space:]]*/, "", value)
+      gsub(/["\047[:space:]]/, "", value)
+      sub(/^>=/, "", value)
+      if (value ~ /^[0-9][0-9A-Za-z.+-]*$/) minimum = value
+    }
+    END { if (name != "") print name, minimum }
+  ' "$1"
+}
+
+version_at_least() {
+  [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -n 1)" = "$2" ]
+}
+
 required_ansible_collections_present() {
-  local requirements_file collection_name
+  local requirements_file collection_name minimum installed missing=0
 
   requirements_file="$1"
 
-  while IFS= read -r collection_name; do
-    if ! ansible-galaxy collection list "$collection_name" 2>/dev/null | grep -q "$collection_name"; then
-      return 1
+  while read -r collection_name minimum; do
+    installed="$(ansible-galaxy collection list "$collection_name" 2>/dev/null | awk -v name="$collection_name" '$1 == name { print $2; exit }')"
+    if [ -z "$installed" ]; then
+      echo "Required Ansible collection $collection_name is not installed."
+      missing=1
+    elif ! version_at_least "$installed" "$minimum"; then
+      echo "Ansible collection $collection_name $installed is older than the required $minimum."
+      missing=1
     fi
-  done < <(sed -n 's/^[[:space:]]*-[[:space:]]*name:[[:space:]]*//p' "$requirements_file")
+  done < <(required_ansible_collections "$requirements_file")
+
+  [ "$missing" -eq 0 ]
 }
 
 ansible_collections_requirements_file() {
@@ -1143,7 +1173,7 @@ verify_ansible_collections() {
     return
   fi
 
-  echo "Could not reach Ansible Galaxy and a required collection is missing. Check network access to galaxy.ansible.com and re-run bootstrap.sh."
+  echo "Could not reach Ansible Galaxy and a required collection is missing or too old. Check network access to galaxy.ansible.com and re-run bootstrap.sh."
   exit 1
 }
 
@@ -1156,12 +1186,8 @@ choose_profile() {
     return
   fi
 
-  if has_interactive_tty; then
-    tty_device="$(require_tty_device)"
-  else
-    echo "No interactive terminal found."
-    echo "Run again with --profile personal, --profile work, or DOTFILES_PROFILE=personal."
-    exit 1
+  if ! has_interactive_tty || ! tty_device="$(require_tty_device)"; then
+    abort "No interactive terminal found. Run again with --profile personal, --profile work, or DOTFILES_PROFILE=personal."
   fi
 
   while true; do
@@ -1192,94 +1218,6 @@ choose_profile() {
 }
 
 profile=""
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    --profile)
-      if [[ $# -lt 2 ]]; then
-        echo "--profile requires a value."
-        exit 1
-      fi
-      profile="$2"
-      shift 2
-      ;;
-    --platform)
-      if [[ $# -lt 2 ]]; then
-        echo "--platform requires a value."
-        exit 1
-      fi
-      platform="$2"
-      shift 2
-      ;;
-    --desktop)
-      if [[ $# -lt 2 ]]; then
-        echo "--desktop requires a value."
-        exit 1
-      fi
-      export DOTFILES_DESKTOP="$2"
-      shift 2
-      ;;
-    --strict)
-      setup_mode="strict"
-      shift
-      ;;
-    --best-effort)
-      setup_mode="best_effort"
-      shift
-      ;;
-    --no-system-upgrade)
-      system_upgrade="0"
-      shift
-      ;;
-    --help|-h)
-      echo "Usage: $0 [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--desktop gnome|kde|none] [--best-effort|--strict] [--no-system-upgrade]"
-      exit 0
-      ;;
-    *)
-      echo "Unknown argument: $1"
-      echo "Usage: $0 [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--desktop gnome|kde|none] [--best-effort|--strict] [--no-system-upgrade]"
-      exit 1
-      ;;
-  esac
-done
-
-validate_desktop_override
-show_welcome_screen
-resolve_chezmoi_dir
-resolve_platform
-
-if [ -z "$profile" ]; then
-  choose_profile
-fi
-
-case "$profile" in
-  personal|work)
-    ;;
-  *)
-    echo "Invalid profile: $profile"
-    echo "Use --profile personal or --profile work."
-    exit 1
-    ;;
-esac
-
-export DOTFILES_PROFILE="$profile"
-
-case "$setup_mode" in
-  best_effort|strict)
-    ;;
-  *)
-    echo "Invalid setup mode: $setup_mode"
-    echo "Use --best-effort, --strict, or DOTFILES_SETUP_MODE=best_effort|strict."
-    exit 1
-    ;;
-esac
-
-trap on_exit EXIT
-
-ensure_sudo_access
-
-export PATH="$HOME/.local/bin:$PATH"
-hash -r
-
 planned_step_mode=()
 planned_step_name=()
 planned_step_action=()
@@ -1292,111 +1230,199 @@ plan_step() {
   planned_step_detail+=("${4:-}")
 }
 
-if [ "$OS" = "Linux" ]; then
-  if is_ci; then
-    plan_step skip "System package refresh" "Skipping system package refresh in lightweight CI mode." "Skipped in lightweight CI mode."
-  elif [ "$system_upgrade" = "0" ]; then
-    plan_step skip "System package refresh" "Skipping system package refresh (--no-system-upgrade)." "Skipped by --no-system-upgrade."
-  else
-    plan_step run "System package refresh" update_system
+main() {
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --profile)
+        if [[ $# -lt 2 ]]; then
+          echo "--profile requires a value."
+          exit 1
+        fi
+        profile="$2"
+        shift 2
+        ;;
+      --platform)
+        if [[ $# -lt 2 ]]; then
+          echo "--platform requires a value."
+          exit 1
+        fi
+        platform="$2"
+        shift 2
+        ;;
+      --desktop)
+        if [[ $# -lt 2 ]]; then
+          echo "--desktop requires a value."
+          exit 1
+        fi
+        export DOTFILES_DESKTOP="$2"
+        shift 2
+        ;;
+      --strict)
+        setup_mode="strict"
+        shift
+        ;;
+      --best-effort)
+        setup_mode="best_effort"
+        shift
+        ;;
+      --no-system-upgrade)
+        system_upgrade="0"
+        shift
+        ;;
+      --help|-h)
+        echo "Usage: $0 [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--desktop gnome|kde|none] [--best-effort|--strict] [--no-system-upgrade]"
+        exit 0
+        ;;
+      *)
+        echo "Unknown argument: $1"
+        echo "Usage: $0 [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--desktop gnome|kde|none] [--best-effort|--strict] [--no-system-upgrade]"
+        exit 1
+        ;;
+    esac
+  done
+
+  trap on_exit EXIT
+
+  validate_desktop_override
+  show_welcome_screen
+  resolve_chezmoi_dir
+  resolve_platform
+
+  if [ -z "$profile" ]; then
+    choose_profile
   fi
-fi
 
-plan_step run "Download tool (curl or wget)" ensure_download_tool
-plan_step run "Git" ensure_git
-
-if ! have chezmoi; then
-  plan_step critical "Install chezmoi" install_chezmoi
-elif is_ci; then
-  plan_step skip "Upgrade chezmoi" "Skipping chezmoi self-upgrade in lightweight CI mode." "Skipped in lightweight CI mode."
-else
-  plan_step run "Upgrade chezmoi" upgrade_chezmoi
-fi
-
-if using_checked_out_source; then
-  plan_step run "Initialize chezmoi from the checked-out source" init_chezmoi_from_source
-elif [ ! -d "$chezmoi_dir/.git" ]; then
-  if [ -z "$repo" ]; then
-    abort "DOTFILES_REPO is required when installing from a downloaded bootstrap script. Set it to your repository URL, for example: https://github.com/USER/dotfiles.git"
-  fi
-  plan_step critical "Clone the dotfiles repository with chezmoi init" init_chezmoi_from_repo
-else
-  plan_step run "Refresh the dotfiles repository" refresh_repo
-fi
-
-if ! have ansible-playbook; then
-  plan_step critical "Install Ansible" install_ansible
-elif [ "$OS" = "Darwin" ] && ! is_ci && brew list --formula --versions ansible >/dev/null 2>&1; then
-  plan_step run "Upgrade Ansible" upgrade_ansible
-fi
-plan_step run "Refresh Ansible collections from Galaxy" refresh_ansible_collections
-plan_step critical "Required Ansible collections" verify_ansible_collections
-
-progress_bootstrap_total="${#planned_step_name[@]}"
-progress_start "$((progress_bootstrap_total + ${#progress_ansible_phases[@]}))"
-
-for step_index in "${!planned_step_name[@]}"; do
-  case "${planned_step_mode[$step_index]}" in
-    run)
-      run_step "${planned_step_name[$step_index]}" "${planned_step_action[$step_index]}"
+  case "$profile" in
+    personal|work)
       ;;
-    critical)
-      run_step --critical "${planned_step_name[$step_index]}" "${planned_step_action[$step_index]}"
-      ;;
-    skip)
-      echo "${planned_step_action[$step_index]}"
-      record_outcome skipped "${planned_step_name[$step_index]}" "${planned_step_detail[$step_index]}"
-      progress_advance
+    *)
+      abort "Invalid profile: $profile. Use --profile personal or --profile work."
       ;;
   esac
-done
 
-cd "$chezmoi_dir"
-export DOTFILES_CHEZMOI_DIR="$chezmoi_dir"
-resolve_desktop
-ansible_playbook="ansible/playbooks/$platform.yml"
-if [ ! -f "$ansible_playbook" ]; then
-  abort "No Ansible playbook exists for platform: $platform"
-fi
+  export DOTFILES_PROFILE="$profile"
 
-ansible_args=(-i "localhost," "$ansible_playbook")
-if [ -n "$profile" ]; then
-  ansible_args+=(-e "profile=$profile")
-fi
-ansible_args+=(-e "dotfiles_setup_mode=$setup_mode")
+  case "$setup_mode" in
+    best_effort|strict)
+      ;;
+    *)
+      abort "Invalid setup mode: $setup_mode. Use --best-effort, --strict, or DOTFILES_SETUP_MODE=best_effort|strict."
+      ;;
+  esac
 
-if [ -n "$become_password_file" ]; then
-  export DOTFILES_SUDO_PASSWORD_FILE="$become_password_file"
-  ansible_args=(--become-password-file "$become_password_file" "${ansible_args[@]}")
-fi
+  ensure_sudo_access
 
-write_bootstrap_outcomes_file
-export DOTFILES_BOOTSTRAP_OUTCOMES_FILE="$bootstrap_outcomes_file"
+  export PATH="$HOME/.local/bin:$PATH"
+  hash -r
 
-report_stamp_file="$(mktemp)"
-ansible_log="$(mktemp)"
-if [ -t 1 ]; then
-  export ANSIBLE_FORCE_COLOR=1
-fi
+  if [ "$OS" = "Linux" ]; then
+    if is_ci; then
+      plan_step skip "System package refresh" "Skipping system package refresh in lightweight CI mode." "Skipped in lightweight CI mode."
+    elif [ "$system_upgrade" = "0" ]; then
+      plan_step skip "System package refresh" "Skipping system package refresh (--no-system-upgrade)." "Skipped by --no-system-upgrade."
+    else
+      plan_step run "System package refresh" update_system
+    fi
+  fi
 
-ansible_started=1
-set +e
-if [ "$progress_enabled" -eq 1 ]; then
-  progress_fifo_dir="$(mktemp -d)"
-  mkfifo "$progress_fifo_dir/ansible"
-  progress_watch_ansible <"$progress_fifo_dir/ansible" &
-  progress_watcher_pid=$!
-  ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook "${ansible_args[@]}" 2>&1 | tee "$ansible_log" "$progress_fifo_dir/ansible"
-  ansible_exit_code="${PIPESTATUS[0]}"
-  progress_stop_ansible_watcher
-else
-  ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook "${ansible_args[@]}" 2>&1 | tee "$ansible_log"
-  ansible_exit_code="${PIPESTATUS[0]}"
-fi
-set -e
+  plan_step run "Download tool (curl or wget)" ensure_download_tool
+  plan_step run "Git" ensure_git
 
-if [ -f "$report_file" ] && [ "$report_file" -nt "$report_stamp_file" ]; then
-  report_written_by_ansible=1
-fi
+  if ! have chezmoi; then
+    plan_step critical "Install chezmoi" install_chezmoi
+  elif is_ci; then
+    plan_step skip "Upgrade chezmoi" "Skipping chezmoi self-upgrade in lightweight CI mode." "Skipped in lightweight CI mode."
+  else
+    plan_step run "Upgrade chezmoi" upgrade_chezmoi
+  fi
 
-exit "$ansible_exit_code"
+  if using_checked_out_source; then
+    plan_step run "Initialize chezmoi from the checked-out source" init_chezmoi_from_source
+  elif [ ! -d "$chezmoi_dir/.git" ]; then
+    if [ -z "$repo" ]; then
+      abort "DOTFILES_REPO is required when installing from a downloaded bootstrap script. Set it to your repository URL, for example: https://github.com/USER/dotfiles.git"
+    fi
+    plan_step critical "Clone the dotfiles repository with chezmoi init" init_chezmoi_from_repo
+  else
+    plan_step run "Refresh the dotfiles repository" refresh_repo
+  fi
+
+  if ! have ansible-playbook; then
+    plan_step critical "Install Ansible" install_ansible
+  elif [ "$OS" = "Darwin" ] && ! is_ci && brew list --formula --versions ansible >/dev/null 2>&1; then
+    plan_step run "Upgrade Ansible" upgrade_ansible
+  fi
+  plan_step run "Refresh Ansible collections from Galaxy" refresh_ansible_collections
+  plan_step critical "Required Ansible collections" verify_ansible_collections
+
+  progress_bootstrap_total="${#planned_step_name[@]}"
+  progress_start "$((progress_bootstrap_total + ${#progress_ansible_phases[@]}))"
+
+  for step_index in "${!planned_step_name[@]}"; do
+    case "${planned_step_mode[$step_index]}" in
+      run)
+        run_step "${planned_step_name[$step_index]}" "${planned_step_action[$step_index]}"
+        ;;
+      critical)
+        run_step --critical "${planned_step_name[$step_index]}" "${planned_step_action[$step_index]}"
+        ;;
+      skip)
+        echo "${planned_step_action[$step_index]}"
+        record_outcome skipped "${planned_step_name[$step_index]}" "${planned_step_detail[$step_index]}"
+        progress_advance
+        ;;
+    esac
+  done
+
+  cd "$chezmoi_dir"
+  export DOTFILES_CHEZMOI_DIR="$chezmoi_dir"
+  resolve_desktop
+  ansible_playbook="ansible/playbooks/$platform.yml"
+  if [ ! -f "$ansible_playbook" ]; then
+    abort "No Ansible playbook exists for platform: $platform"
+  fi
+
+  ansible_args=(-i "localhost," "$ansible_playbook")
+  if [ -n "$profile" ]; then
+    ansible_args+=(-e "profile=$profile")
+  fi
+  ansible_args+=(-e "dotfiles_setup_mode=$setup_mode")
+
+  if [ -n "$become_password_file" ]; then
+    export DOTFILES_SUDO_PASSWORD_FILE="$become_password_file"
+    ansible_args=(--become-password-file "$become_password_file" "${ansible_args[@]}")
+  fi
+
+  write_bootstrap_outcomes_file
+  export DOTFILES_BOOTSTRAP_OUTCOMES_FILE="$bootstrap_outcomes_file"
+
+  report_stamp_file="$(mktemp)"
+  ansible_log="$(mktemp)"
+  if [ -t 1 ]; then
+    export ANSIBLE_FORCE_COLOR=1
+  fi
+
+  ansible_started=1
+  set +e
+  if [ "$progress_enabled" -eq 1 ]; then
+    progress_fifo_dir="$(mktemp -d)"
+    mkfifo "$progress_fifo_dir/ansible"
+    progress_watch_ansible <"$progress_fifo_dir/ansible" &
+    progress_watcher_pid=$!
+    ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook "${ansible_args[@]}" 2>&1 | tee "$ansible_log" "$progress_fifo_dir/ansible"
+    ansible_exit_code="${PIPESTATUS[0]}"
+    progress_stop_ansible_watcher
+  else
+    ANSIBLE_CONFIG="$chezmoi_dir/ansible.cfg" ansible-playbook "${ansible_args[@]}" 2>&1 | tee "$ansible_log"
+    ansible_exit_code="${PIPESTATUS[0]}"
+  fi
+  set -e
+
+  if [ -f "$report_file" ] && [ "$report_file" -nt "$report_stamp_file" ]; then
+    report_written_by_ansible=1
+  fi
+
+  exit "$ansible_exit_code"
+}
+
+main "$@"

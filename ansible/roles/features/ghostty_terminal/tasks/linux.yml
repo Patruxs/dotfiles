@@ -7,15 +7,24 @@
     }
     dotfiles_before="$(dotfiles_fingerprint)"
 
-    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
-      sudo -S -p '' /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)" < {{ dotfiles_sudo_password_file | quote }}
-    else
-      sudo -n /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)"
+    installer="$(mktemp)"
+    trap 'rm -f "$installer"' EXIT
+    curl -fsSL --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 2 -o "$installer" https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh
+    if ! head -n 1 "$installer" | grep -q '^#!'; then
+      echo "The Ghostty installer download is empty or is not a script." >&2
+      exit 1
+    fi
+
+    /bin/bash "$installer"
+    if ! dpkg-query -W -f='${db:Status-Status}' ghostty 2>/dev/null | grep -qx installed; then
+      echo "The Ghostty installer finished but the ghostty package is not installed." >&2
+      exit 1
     fi
     dotfiles_after="$(dotfiles_fingerprint)"
     if [ "$dotfiles_before" != "$dotfiles_after" ]; then
       echo DOTFILES_CHANGED
     fi
+  become: true
   args:
     executable: /bin/bash
   register: dotfiles_ghostty_debian_install
@@ -33,25 +42,15 @@
       rpm -q ghostty 2>/dev/null || true
     }
     dotfiles_before="$(dotfiles_fingerprint)"
-    root_script="$(mktemp)"
-    trap 'rm -f "$root_script"' EXIT
-    cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
-    set -euo pipefail
     if ! rpm -q ghostty >/dev/null 2>&1 && ! dnf -q list --available ghostty >/dev/null 2>&1; then
       dnf -y copr enable scottames/ghostty
     fi
     dnf install -y ghostty
-    DOTFILES_ROOT_SCRIPT
-
-    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
-      sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
-    else
-      sudo -n /bin/bash "$root_script"
-    fi
     dotfiles_after="$(dotfiles_fingerprint)"
     if [ "$dotfiles_before" != "$dotfiles_after" ]; then
       echo DOTFILES_CHANGED
     fi
+  become: true
   args:
     executable: /bin/bash
   register: dotfiles_ghostty_fedora_install
@@ -67,15 +66,12 @@
     }
     dotfiles_before="$(dotfiles_fingerprint)"
 
-    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
-      sudo -S -p '' pacman -S --noconfirm --needed ghostty < {{ dotfiles_sudo_password_file | quote }}
-    else
-      sudo -n pacman -S --noconfirm --needed ghostty
-    fi
+    pacman -S --noconfirm --needed ghostty
     dotfiles_after="$(dotfiles_fingerprint)"
     if [ "$dotfiles_before" != "$dotfiles_after" ]; then
       echo DOTFILES_CHANGED
     fi
+  become: true
   args:
     executable: /bin/bash
   register: dotfiles_ghostty_arch_install

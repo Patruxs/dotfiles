@@ -37,7 +37,7 @@
     - not (dotfiles_ci | default(false))
 
 - name: Enable and start managed user systemd services
-  ansible.builtin.systemd_service:
+  ansible.builtin.systemd:
     name: "{{ managed_user_systemd_service }}"
     scope: user
     daemon_reload: true
@@ -53,4 +53,3 @@
     - managed_user_systemd_service_stat.stat.exists
     - managed_user_runtime_dir_stat.stat.exists
     - managed_user_systemd_bus_stat.stat.exists
-  changed_when: false

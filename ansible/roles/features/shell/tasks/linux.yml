@@ -9,14 +9,10 @@
   ansible.builtin.shell: |
     set -euo pipefail
 
-    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
-      sudo -S -p '' chsh -s /bin/bash {{ ansible_facts['user_id'] | quote }} < {{ dotfiles_sudo_password_file | quote }}
-    else
-      sudo -n chsh -s /bin/bash {{ ansible_facts['user_id'] | quote }}
-    fi
+    chsh -s /bin/bash {{ ansible_facts['user_id'] | quote }}
+  become: true
   args:
     executable: /bin/bash
   when:
     - shell_passwd_entry.rc == 0
     - not shell_passwd_entry.stdout.endswith('/bin/bash')
-  ignore_errors: true

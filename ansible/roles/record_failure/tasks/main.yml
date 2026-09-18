@@ -1,0 +1,26 @@
+---
+- name: Record the failure of {{ failure_name }}
+  vars:
+    failure_source: "{{ failure_result | default(ansible_failed_result | default({})) }}"
+    failure_stderr: "{{ failure_source.stderr | default('') | string }}"
+  ansible.builtin.set_fact:
+    dotfiles_setup_aborted: "{{ failure_is_fatal | default(dotfiles_setup_mode == 'strict') }}"
+    dotfiles_setup_failures: >-
+      {{
+        dotfiles_setup_failures + [
+          {
+            'phase': failure_phase,
+            'name': failure_name,
+            'task': failure_task | default(ansible_failed_task.name | default('unknown task', true)),
+            'error': failure_stderr if failure_stderr | length > 0 else (failure_source.msg | default(failure_source.stdout | default(failure_source | to_json)))
+          }
+        ]
+      }}
+  when: not (dotfiles_setup_aborted | bool)
+
+- name: Stop at the first failure in strict mode
+  ansible.builtin.fail:
+    msg: "{{ failure_name }} failed and strict mode stops at the first failure."
+  when:
+    - dotfiles_setup_mode == 'strict'
+    - not (failure_is_fatal | default(false))

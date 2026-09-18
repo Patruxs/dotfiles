@@ -20,7 +20,9 @@ package_sets:
       - tmux
       - btop
       - ripgrep
+      - fzf
       - jq
+      - gh
   desktop_base:
     apt:
       - flatpak
@@ -54,8 +56,6 @@ package_sets:
       - python3-pip
       - gcc
       - golang-go
-      - gh
-      - fzf
   docker_engine:
     apt:
       - docker.io

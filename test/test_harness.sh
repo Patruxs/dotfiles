@@ -143,6 +143,34 @@ log_info "Running mise tool list checks..."
 }
 log_info "mise tool list checks passed."
 
+log_info "Running feature data checks..."
+./test/feature_data.sh || {
+    log_err "feature data checks failed."
+    exit 1
+}
+log_info "feature data checks passed."
+
+log_info "Running setup mode phase checks..."
+./test/setup_mode_phases.sh || {
+    log_err "setup mode phase checks failed."
+    exit 1
+}
+log_info "setup mode phase checks passed."
+
+log_info "Running GNOME extensions sync regression test..."
+./test/gnome_extensions_sync.sh || {
+    log_err "GNOME extensions sync regression test failed."
+    exit 1
+}
+log_info "GNOME extensions sync regression test passed."
+
+log_info "Running desktop launcher checks..."
+./test/desktop_launchers.sh || {
+    log_err "desktop launcher checks failed."
+    exit 1
+}
+log_info "desktop launcher checks passed."
+
 log_info "Running Chezmoi Dry Run (verifies templates render without errors)..."
 tmpdir="$(mktemp -d)"
 cleanup_tmpdir() {

@@ -19,6 +19,9 @@
       architecture: "{{ ansible_facts['architecture'] | default('') }}"
       distro_key: fedora
       ubuntu_codename: ""
+      package_install_command: [dnf, install, -y]
+      package_install_serial_command: [dnf, --setopt=max_parallel_downloads=1, install, -y]
+      package_install_noop_marker: "Nothing to do"
 
   pre_tasks:
     - name: Load Fedora package set

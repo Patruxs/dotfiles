@@ -63,6 +63,7 @@ runtime_groups=(
   'kwinrc:SubSession*'
   'baloofilerc:General'             # database version and first-run flag
   'plasmanotifyrc:DoNotDisturb'     # the "until" timestamp of the current do-not-disturb
+  'kcminputrc:Libinput]*'           # per-device groups keyed by hardware vendor and product IDs
 )
 runtime_keys=(
   '*:MainWindow/State'              # window geometry and toolbar state; MenuBar and
@@ -78,6 +79,8 @@ runtime_keys=(
   'kdeglobals:General/ColorSchemeHash'
   'kwinrc:Desktops/Id_*'            # virtual desktop UUIDs
   'kwinrc:Xwayland/Scale'           # derived from the display configuration
+  'kscreenlockerrc:*/Image'         # wallpaper paths on this machine's disks
+  'kscreenlockerrc:*/PreviewImage'
   'kglobalshortcutsrc:ActivityManager/switch-to-activity-*'
   'kglobalshortcutsrc:*/_k_friendly_name'   # component labels kglobalaccel registers itself
   'plasmarc:Wallpapers/usersWallpapers'

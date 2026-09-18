@@ -9,7 +9,7 @@
 # chezmoi-provisioned GitHub keys when manage_ssh_keys is enabled.
 .ssh/id_*
 .ssh/*.pub
-{{ if default false (get . "manage_ssh_keys") }}
+{{ if and (default false (get . "manage_ssh_keys")) (lookPath "bw") (env "BW_SESSION") }}
 !.ssh/id_ed25519_github
 !.ssh/id_ed25519_github.pub
 !.ssh/id_ed25519_github_personal
@@ -27,6 +27,7 @@
 .config/Code/User/History/**
 .config/Code/User/logs/**
 .config/warp-terminal/user_preferences.json
+.config/nvim/lazy-lock.json
 .config/opencode/node_modules/**
 .config/opencode/**/auth*
 .config/opencode/**/session*
@@ -95,6 +96,19 @@
 .local/bin/omarchy-pin-window
 .local/bin/omarchy-show-battery
 .local/bin/omarchy-show-time
+{{- end }}
+
+{{- if eq $desktop "kde" }}
+{{-   if not (and (has "mise" $features) (has "ai_clis" $features) (has "ghostty_terminal" $features)) }}
+.local/share/applications/omarchy-ai-agent.desktop
+{{-   end }}
+{{-   if not (has "desktop_apps" $features) }}
+{{-     range (glob (joinPath $.chezmoi.sourceDir "dot_local" "share" "applications" "omarchy-*.desktop*")) }}
+{{-       if regexMatch "com\\.microsoft\\.Edge|org\\.telegram\\.desktop|bin/spotify" (include .) }}
+.local/share/applications/{{ trimSuffix ".tmpl" (base .) }}
+{{-       end }}
+{{-     end }}
+{{-   end }}
 {{- end }}
 
 {{- if ne .chezmoi.os "linux" }}

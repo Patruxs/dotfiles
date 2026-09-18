@@ -30,7 +30,7 @@
     label: "{{ item }}"
   register: dotfiles_homebrew_brew_install_results
   changed_when: false
-  failed_when: false
+  ignore_errors: true
   when:
     - homebrew_brews | length > 0
     - dotfiles_setup_mode | default('best_effort') == 'best_effort'
@@ -67,7 +67,7 @@
     label: "{{ item }}"
   register: dotfiles_homebrew_cask_install_results
   changed_when: false
-  failed_when: false
+  ignore_errors: true
   when:
     - homebrew_casks | length > 0
     - dotfiles_setup_mode | default('best_effort') == 'best_effort'

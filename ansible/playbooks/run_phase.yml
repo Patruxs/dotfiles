@@ -1,0 +1,27 @@
+---
+- name: Run phase {{ phase.name }}
+  block:
+    - name: Run the role for {{ phase.name }}
+      ansible.builtin.include_role:
+        name: "{{ phase.role }}"
+
+    - name: Record the completion of {{ phase.name }}
+      ansible.builtin.set_fact:
+        dotfiles_setup_configured: >-
+          {{
+            dotfiles_setup_configured + [
+              {
+                'phase': phase.key,
+                'name': phase.name,
+                'detail': phase.detail
+              }
+            ]
+          }}
+      when: phase.recorded | default(true) | bool
+  rescue:
+    - name: Record the failure of {{ phase.name }}
+      ansible.builtin.include_role:
+        name: record_failure
+      vars:
+        failure_phase: "{{ phase.key }}"
+        failure_name: "{{ phase.name }}"

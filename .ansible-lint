@@ -4,12 +4,11 @@ profile: moderate
 kinds:
   - tasks: "ansible/playbooks/common.yml"
   - tasks: "ansible/playbooks/execution.yml"
-  - tasks: "ansible/playbooks/feature_best_effort.yml"
+  - tasks: "ansible/playbooks/run_phase.yml"
 
 exclude_paths:
   - home/
   - desktop_environment/
-  - packages/
   - test/
 
 skip_list:

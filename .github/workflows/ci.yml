@@ -10,6 +10,9 @@ on:
   schedule:
   - cron: "0 6 * * 1"
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -25,8 +28,9 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y shellcheck ansible pipx
-        pipx install yamllint
-        pipx install ansible-lint
+        while IFS= read -r requirement; do
+          pipx install "$requirement"
+        done < test/requirements-lint.txt
     - name: Install chezmoi
       run: |
         mkdir -p "$HOME/.local/bin"
@@ -36,52 +40,33 @@ jobs:
         export PATH="$HOME/.local/bin:$PATH"
         ./test/test_harness.sh
 
-  ubuntu-latest:
-    name: Ubuntu (${{ matrix.profile }})
-    runs-on: ubuntu-latest
+  unix:
+    name: ${{ matrix.label }} (${{ matrix.profile }})
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
+        platform: [ubuntu, macos, fedora, arch]
         profile: [personal, work]
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
-
-    steps:
-    - uses: actions/checkout@v5
-
-    - name: Run Bootstrap
-      run: ./bootstrap.sh --profile ${{ matrix.profile }} --strict
-    - name: Check Setup Report
-      run: ./test/ci_setup_report_check.sh
-    - name: Check Idempotency
-      run: |
-        set -o pipefail
-        export PATH="$HOME/.local/bin:$PATH"
-        output_log="$(mktemp)"
-        chezmoi_diff="$(mktemp)"
-        ./bootstrap.sh --profile ${{ matrix.profile }} --strict | tee "$output_log"
-        if grep -qE "changed=[1-9]" "$output_log"; then
-          echo "Idempotency test failed, changes were made on the second run"
-          exit 1
-        fi
-        chezmoi diff --source "$PWD" > "$chezmoi_diff"
-        if [ -s "$chezmoi_diff" ]; then
-          cat "$chezmoi_diff"
-          echo "Idempotency test failed, chezmoi diff reported changes after the second run"
-          exit 1
-        fi
-    - name: Check Setup Report After Second Run
-      run: ./test/ci_setup_report_check.sh
-
-  macos-latest:
-    name: macOS (${{ matrix.profile }})
-    runs-on: macos-latest
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        profile: [personal, work]
+        include:
+        - platform: ubuntu
+          label: Ubuntu
+          runner: ubuntu-latest
+        - platform: macos
+          label: macOS
+          runner: macos-latest
+        - platform: fedora
+          label: Fedora
+          runner: ubuntu-latest
+          container: fedora:latest
+          prepare: dnf install -y git sudo curl
+        - platform: arch
+          label: Arch
+          runner: ubuntu-latest
+          container: archlinux:latest
+          prepare: pacman -Syu --noconfirm git sudo curl
     env:
       GITHUB_TOKEN: ${{ github.token }}
       HOMEBREW_NO_AUTO_UPDATE: "1"
@@ -89,30 +74,16 @@ jobs:
       HOMEBREW_NO_INSTALL_CLEANUP: "1"
       HOMEBREW_NO_REQUIRE_TAP_TRUST: "1"
     steps:
+    - name: Install dependencies
+      if: matrix.prepare
+      run: ${{ matrix.prepare }}
     - uses: actions/checkout@v5
     - name: Run Bootstrap
       run: ./bootstrap.sh --profile ${{ matrix.profile }} --strict
     - name: Check Setup Report
       run: ./test/ci_setup_report_check.sh
     - name: Check Idempotency
-      run: |
-        set -o pipefail
-        export PATH="$HOME/.local/bin:$PATH"
-        output_log="$(mktemp)"
-        chezmoi_diff="$(mktemp)"
-        ./bootstrap.sh --profile ${{ matrix.profile }} --strict | tee "$output_log"
-        if grep -qE "changed=[1-9]" "$output_log"; then
-          echo "Idempotency test failed, changes were made on the second run"
-          exit 1
-        fi
-        chezmoi diff --source "$PWD" > "$chezmoi_diff"
-        if [ -s "$chezmoi_diff" ]; then
-          cat "$chezmoi_diff"
-          echo "Idempotency test failed, chezmoi diff reported changes after the second run"
-          exit 1
-        fi
-    - name: Check Setup Report After Second Run
-      run: ./test/ci_setup_report_check.sh
+      run: ./test/ci_idempotency_check.sh ${{ matrix.profile }}
 
   windows-latest:
     name: Windows (${{ matrix.profile }})
@@ -167,83 +138,3 @@ jobs:
     - name: Run CI Bootstrap Regression Checks
       shell: bash
       run: ./test/ci_bootstrap_regressions.sh
-
-  fedora-latest:
-    name: Fedora (${{ matrix.profile }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        profile: [personal, work]
-    container:
-      image: fedora:latest
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
-    steps:
-    - name: Install dependencies
-      run: dnf install -y git sudo curl
-    - uses: actions/checkout@v5
-    - name: Run Bootstrap (Fedora)
-      run: ./bootstrap.sh --profile ${{ matrix.profile }} --strict
-    - name: Check Setup Report
-      run: ./test/ci_setup_report_check.sh
-    - name: Check Idempotency (Fedora)
-      run: |
-        set -o pipefail
-        export PATH="$HOME/.local/bin:$PATH"
-        output_log="$(mktemp)"
-        chezmoi_diff="$(mktemp)"
-        ./bootstrap.sh --profile ${{ matrix.profile }} --strict | tee "$output_log"
-        if grep -qE "changed=[1-9]" "$output_log"; then
-          echo "Idempotency test failed, changes were made on the second run"
-          exit 1
-        fi
-        chezmoi diff --source "$PWD" > "$chezmoi_diff"
-        if [ -s "$chezmoi_diff" ]; then
-          cat "$chezmoi_diff"
-          echo "Idempotency test failed, chezmoi diff reported changes after the second run"
-          exit 1
-        fi
-    - name: Check Setup Report After Second Run
-      run: ./test/ci_setup_report_check.sh
-
-  arch-latest:
-    name: Arch (${{ matrix.profile }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        profile: [personal, work]
-    container:
-      image: archlinux:latest
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
-    steps:
-    - name: Install dependencies
-      run: pacman -Syu --noconfirm git sudo curl
-    - uses: actions/checkout@v5
-    - name: Run Bootstrap (Arch)
-      run: ./bootstrap.sh --profile ${{ matrix.profile }} --strict
-    - name: Check Setup Report
-      run: ./test/ci_setup_report_check.sh
-    - name: Check Idempotency (Arch)
-      run: |
-        set -o pipefail
-        export PATH="$HOME/.local/bin:$PATH"
-        output_log="$(mktemp)"
-        chezmoi_diff="$(mktemp)"
-        ./bootstrap.sh --profile ${{ matrix.profile }} --strict | tee "$output_log"
-        if grep -qE "changed=[1-9]" "$output_log"; then
-          echo "Idempotency test failed, changes were made on the second run"
-          exit 1
-        fi
-        chezmoi diff --source "$PWD" > "$chezmoi_diff"
-        if [ -s "$chezmoi_diff" ]; then
-          cat "$chezmoi_diff"
-          echo "Idempotency test failed, chezmoi diff reported changes after the second run"
-          exit 1
-        fi
-    - name: Check Setup Report After Second Run
-      run: ./test/ci_setup_report_check.sh

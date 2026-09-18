@@ -1,44 +1,53 @@
-packages:
-  common:
-    windows:
-      packages:
-        - Git.Git
-        - OpenJS.NodeJS.LTS
-        - GoLang.Go
-        # Major line only: bootstrap.ps1 resolves the newest Python.Python.3.x
-        # id winget publishes at run time.
-        - Python.Python.3
-        - Neovim.Neovim
-        - BrechtSanders.WinLibs.POSIX.UCRT
-        - BurntSushi.ripgrep.MSVC
-        - junegunn.fzf
-        - jqlang.jq
-        - GitHub.cli
-        - Warp.Warp
-        - Microsoft.VisualStudioCode
-        - ZedIndustries.Zed
-        - GitButler.GitButler
-        - Docker.DockerDesktop
-        - Obsidian.Obsidian
-        - LocalSend.LocalSend
-  personal:
-    windows:
-      packages:
-        - JAMSoftware.TreeSize.Free
-        - RevoUninstaller.RevoUninstaller
-        - Oracle.VirtualBox
-        - JetBrains.Toolbox
-        - Zoom.Zoom
-        - Telegram.TelegramDesktop
-        - Spotify.Spotify
-        - Postman.Postman
-        - ONLYOFFICE.DesktopEditors
-        - OBSProject.OBSStudio
-        - Microsoft.Edge
-        - Anki.Anki
-        - Termius.Termius
-        - Amazon.Kiro
-  work:
-    windows:
-      packages:
-        - JAMSoftware.TreeSize.Free
+windows_package_sets:
+  core_cli:
+    winget:
+      - Git.Git
+      - Microsoft.PowerShell
+      - Neovim.Neovim
+      - BurntSushi.ripgrep.MSVC
+      - junegunn.fzf
+      - jqlang.jq
+      - GitHub.cli
+  devtools:
+    winget:
+      - OpenJS.NodeJS.LTS
+      - GoLang.Go
+      - Python.Python.3
+      - BrechtSanders.WinLibs.POSIX.UCRT
+  desktop_base:
+    winget:
+      - Microsoft.VisualStudioCode
+      - GitButler.GitButler
+      - Obsidian.Obsidian
+      - LocalSend.LocalSend
+      - JAMSoftware.TreeSize.Free
+  desktop_apps:
+    winget:
+      - RevoUninstaller.RevoUninstaller
+      - Zoom.Zoom
+      - Telegram.TelegramDesktop
+      - Spotify.Spotify
+      - Postman.Postman
+      - ONLYOFFICE.DesktopEditors
+      - OBSProject.OBSStudio
+      - Microsoft.Edge
+      - Anki.Anki
+      - Termius.Termius
+  docker_desktop:
+    winget:
+      - Docker.DockerDesktop
+  jetbrains_toolbox:
+    winget:
+      - JetBrains.Toolbox
+  kiro_ide:
+    winget:
+      - Amazon.Kiro
+  virtualbox:
+    winget:
+      - Oracle.VirtualBox
+  warp_terminal:
+    winget:
+      - Warp.Warp
+  zed_editor:
+    winget:
+      - ZedIndustries.Zed

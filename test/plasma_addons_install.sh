@@ -281,11 +281,16 @@ rm -f "${FAKE_KWIN_LOG%.log}.software"
 touch "${FAKE_KWIN_LOG%.log}.llvmpipe"
 env_file="$HOME/.config/environment.d/50-kwin-force-animations.conf"
 [ ! -e "$env_file" ] || fail "the force-animations override must not exist before the software renderer is seen"
-"$install" check >"$work/check9.out" 2>&1 || true
+if "$install" check >"$work/check9.out" 2>&1; then
+  fail "check must report pending work while the force-animations override is missing: $(cat "$work/check9.out")"
+fi
 grep -q "refuses to load animated effects on the software renderer 'llvmpipe" "$work/check9.out" || fail "check must recognise llvmpipe as a software renderer: $(cat "$work/check9.out")"
-grep -q "wrote KWIN_EFFECTS_FORCE_ANIMATIONS=1 to ~/.config/environment.d/50-kwin-force-animations.conf; log out and back in" "$work/check9.out" || fail "the override must be written and a relogin requested: $(cat "$work/check9.out")"
+grep -q "KWIN_EFFECTS_FORCE_ANIMATIONS=1 is not set in ~/.config/environment.d/50-kwin-force-animations.conf" "$work/check9.out" || fail "check must say the override is missing: $(cat "$work/check9.out")"
+[ ! -e "$env_file" ] || fail "check must not write the force-animations override"
+"$install" install >"$work/install9.out" 2>&1 || fail "install must succeed on a software renderer: $(cat "$work/install9.out")"
+grep -q "wrote KWIN_EFFECTS_FORCE_ANIMATIONS=1 to ~/.config/environment.d/50-kwin-force-animations.conf; log out and back in" "$work/install9.out" || fail "the override must be written by install and a relogin requested: $(cat "$work/install9.out")"
 [ "$(cat "$env_file")" = "KWIN_EFFECTS_FORCE_ANIMATIONS=1" ] || fail "the override file has the wrong content: $(cat "$env_file")"
-"$install" check >"$work/check10.out" 2>&1 || true
+"$install" check >"$work/check10.out" 2>&1 || fail "check must pass once the override is written: $(cat "$work/check10.out")"
 grep -q "is already set in ~/.config/environment.d/50-kwin-force-animations.conf" "$work/check10.out" || fail "a second run must not rewrite the override: $(cat "$work/check10.out")"
 rm -f "${FAKE_KWIN_LOG%.log}.llvmpipe" "$env_file"
 

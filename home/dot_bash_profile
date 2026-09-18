@@ -1,8 +1,5 @@
-if [ -f "$HOME/.profile" ]; then
-  . "$HOME/.profile"
-fi
-
 if [ -f "$HOME/.bashrc" ]; then
   . "$HOME/.bashrc"
+elif [ -f "$HOME/.profile" ]; then
+  . "$HOME/.profile"
 fi
-[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"

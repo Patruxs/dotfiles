@@ -19,7 +19,9 @@ package_sets:
       - tmux
       - btop
       - ripgrep
+      - fzf
       - jq
+      - gh
   desktop_base:
     dnf:
       - flatpak
@@ -53,8 +55,6 @@ package_sets:
       - python3-pip
       - gcc
       - go
-      - gh
-      - fzf
   docker_engine:
     dnf:
       - moby-engine

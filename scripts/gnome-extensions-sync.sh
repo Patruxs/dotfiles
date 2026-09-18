@@ -330,7 +330,9 @@ cmd_check() {
   while IFS= read -r uuid; do
     extension_origin "$uuid" >/dev/null && enable+=("$uuid")
   done < <(yaml_list enabled)
-  [ "$(gsettings get org.gnome.shell enabled-extensions)" = "$(gvariant_array "${enable[@]:-}")" ]
+  local live_enabled
+  live_enabled="$(gsettings get org.gnome.shell enabled-extensions)"
+  [ "${live_enabled#@as }" = "$(gvariant_array "${enable[@]:-}")" ]
 }
 
 usage() {

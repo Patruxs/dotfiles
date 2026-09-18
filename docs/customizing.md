@@ -42,7 +42,7 @@ Three lists sit outside that split:
 
 - `home/dot_config/mise/conf.d/<feature>.toml` - the user-level CLI tools a feature wants, shared across every platform and installed by [mise](https://mise.jdx.dev). One file per feature (`core_cli.toml`, `ai_clis.toml`, `npm_global_tools.toml`, ...), every entry `= "latest"`. Add a tool by adding a line (`mise registry` lists the short names; `"npm:<package>"`, `"github:<owner>/<repo>"` and the other backends work as well); remove one by deleting its line. The file is only applied when the profile selects both `mise` and that feature.
 - `home/.chezmoidata/ai-clis.yaml` - AI command-line tools that only ship a vendor installer (`droid`), shared across platforms
-- `home/.chezmoidata/packages.yaml` - the Windows package list only, read by `bootstrap.ps1` through `chezmoi data`
+- `home/.chezmoidata/packages.yaml` - the Windows package sets, keyed by feature like the Ansible package sets (`windows_package_sets.<feature>.winget`); `bootstrap.ps1` reads them through `chezmoi data` and installs the ones whose feature the profile selects
 
 Remove anything you do not want before the first run.
 
@@ -53,7 +53,7 @@ Edit the shell, Git, tmux, Neovim, PowerShell, and terminal files under `home/` 
 Review these machine-specific areas carefully:
 
 - `home/private_dot_ssh/private_config` contains example GitHub host aliases. Replace or remove them. Fresh installations ignore this file unless you opt in at the first-run prompt.
-- `home/private_dot_ssh/` contains the original owner's public keys and Bitwarden templates. Remove the directory or replace it with your own setup. Never commit private keys. Fresh installations skip these keys unless you opt in at the first-run prompt (the keys are then rendered from Bitwarden, so `bw` must be installed and unlocked when you apply).
+- `home/private_dot_ssh/` contains the original owner's public keys and Bitwarden templates. Remove the directory or replace it with your own setup. Never commit private keys. Fresh installations skip these keys unless you opt in at the first-run prompt (the keys are rendered from Bitwarden only when `bw` is on `PATH` and `BW_SESSION` holds an unlocked session; otherwise they stay ignored so the rest of the dotfiles still apply. On a new machine the first run installs `bw` through mise after `chezmoi apply`, so once setup has finished run `bw login`, export `BW_SESSION` from `bw unlock --raw`, and run `chezmoi apply` again).
 - Desktop settings apply only for the desktop setup detects (`./scripts/detect-desktop.sh --explain` shows which); a GNOME machine never receives the KDE files and vice versa.
 - `home/.chezmoidata/gnome_dconf.yaml` contains GNOME desktop preferences, including a keyboard input source with the Vietnamese ibus-bamboo IME. Replace that entry with your own layout (the IME engine itself is not installed by setup).
 - `desktop_environment/gnome/extensions.dconf` and `desktop_environment/gnome/extensions.yaml` are the original owner's captured GNOME Shell extension set. Inside a GNOME session the Ansible `gnome` role installs and applies them automatically. Delete `desktop_environment/gnome/extensions.dconf` or re-capture with `./scripts/gnome-extensions-sync.sh capture` before your first run.

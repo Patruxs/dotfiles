@@ -94,6 +94,8 @@ Place it after anything it depends on. Package-set-only features do not go in th
 
 If the feature is unavailable on some version or architecture, say so in the unsupported-feature checks in `profile_preflight`, next to the existing `docker_desktop` and `kiro_ide` entries. Preflight then fails with a clear message before anything is installed, which is the behavior this project wants - an unsupported selection is an error, not a silent skip.
 
+If the feature should also install something on Windows, add its winget ids under `windows_package_sets.<feature_name>.winget` in `home/.chezmoidata/packages.yaml`. The key is the same feature name; `bootstrap.ps1` installs a set only when the profile lists that feature, and `test/feature_data.sh` rejects a key that is a profile name or a feature no other platform knows.
+
 ### Step 6: Select it in a profile
 
 Features are opt-in. Nothing installs until a profile lists it.

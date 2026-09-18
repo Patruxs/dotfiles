@@ -7,11 +7,27 @@ for candidate in "$repo_root"/home/.chezmoiscripts/*.tmpl "$repo_root"/ansible/r
   [ -f "$candidate" ] && installer_files+=("$candidate")
 done
 
+install_path_files=("$repo_root/bootstrap.sh" "$repo_root/bootstrap.ps1")
+while IFS= read -r candidate; do
+  install_path_files+=("$candidate")
+done < <(find "$repo_root/ansible/roles" "$repo_root/ansible/playbooks" "$repo_root/scripts" "$repo_root/home/.chezmoiscripts" "$repo_root/home/.chezmoidata" -type f \( -name '*.yml' -o -name '*.yaml' -o -name '*.sh' -o -name '*.tmpl' \) 2>/dev/null | sort)
+
 failures=0
 fail() {
   echo "FAIL: $*" >&2
   failures=$((failures + 1))
 }
+
+if grep -nE 'https://[^ "'"'"']*(/v?[0-9]+\.[0-9]+(\.[0-9]+)?[/-]|[-_]v?[0-9]+\.[0-9]+\.[0-9]+[-_.])|releases/download/v?[0-9]' "${install_path_files[@]}"; then
+  fail "a download URL above spells out a version; resolve the current release at run time instead"
+fi
+if grep -nE '(^|[^0-9a-f])[0-9a-f]{64}([^0-9a-f]|$)' "${install_path_files[@]}"; then
+  fail "a literal SHA-256 above pins one upstream build; read the published checksum at run time instead"
+fi
+if grep -nE '(apt-get|dnf|pacman|brew|winget|flatpak|npm|pipx?|mise) +(install|use|-S)[^|;&]*[A-Za-z0-9_.+-]+(=|==|@)v?[0-9]+(\.[0-9]+)+' "${install_path_files[@]}"; then
+  fail "a package install above pins a version"
+fi
+echo "ok: no install path under bootstrap, ansible/, scripts/ or the chezmoi scripts spells out a version (${#install_path_files[@]} files)"
 
 if [ "${#installer_files[@]}" -eq 0 ]; then
   echo "No upstream installer files found; nothing to check."

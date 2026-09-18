@@ -4,3 +4,4 @@
   when:
     - dotfiles_platform.system == 'Linux'
     - dotfiles_desktop | default('none') == 'gnome'
+    - not (dotfiles_ci | default(false))

@@ -1,27 +1,49 @@
 ---
 - name: Install or update JetBrains Toolbox (Linux)
-  shell: |
-    dotfiles_fingerprint() {
-      sha256sum ~/.local/share/JetBrains/Toolbox/bin/jetbrains-toolbox 2>/dev/null || true
-    }
-    dotfiles_before="$(dotfiles_fingerprint)"
-    URL=$(curl -s 'https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release' | grep -oP '"linux":\{.*?"link":"\K[^"]+')
-    if [ -z "$URL" ]; then
+  ansible.builtin.shell: |
+    set -euo pipefail
+
+    case "$(uname -m)" in
+      x86_64|amd64) release_key=linux ;;
+      aarch64|arm64) release_key=linuxARM64 ;;
+      *)
+        echo "JetBrains publishes no Toolbox build for $(uname -m)." >&2
+        exit 1
+        ;;
+    esac
+
+    toolbox_dir="$HOME/.local/share/JetBrains/Toolbox"
+    bin_dir="$toolbox_dir/bin"
+    marker="$toolbox_dir/.dotfiles-installed-build"
+
+    releases="$(curl -fsSL --connect-timeout 30 --max-time 60 --retry 3 --retry-delay 2 'https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release')"
+    url="$(printf '%s' "$releases" | grep -oP "\"$release_key\":\\{.*?\"link\":\"\\K[^\"]+" | head -n 1 || true)"
+    build="$(printf '%s' "$releases" | grep -oP '"build":"\K[^"]+' | head -n 1 || true)"
+    if [ -z "$url" ] || [ -z "$build" ]; then
+      echo "Could not resolve the latest JetBrains Toolbox release for $release_key." >&2
       exit 1
     fi
-    mkdir -p ~/.local/share/JetBrains/Toolbox/bin
-    cd /tmp
-    rm -f jetbrains-toolbox-*.tar.gz
-    rm -rf jetbrains-toolbox-*
-    curl -fsSLO "$URL"
-    tar -xzf jetbrains-toolbox-*.tar.gz
-    mv jetbrains-toolbox-*/jetbrains-toolbox ~/.local/share/JetBrains/Toolbox/bin/
-    rm -f jetbrains-toolbox-*.tar.gz
-    rm -rf jetbrains-toolbox-*
-    dotfiles_after="$(dotfiles_fingerprint)"
-    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
-      echo DOTFILES_CHANGED
+
+    if [ -x "$bin_dir/jetbrains-toolbox" ] && [ "$(cat "$marker" 2>/dev/null || true)" = "$build" ]; then
+      exit 0
     fi
+
+    workdir="$(mktemp -d)"
+    trap 'rm -rf "$workdir"' EXIT
+    curl -fsSL --connect-timeout 30 --max-time 900 --retry 3 --retry-delay 2 -o "$workdir/toolbox.tar.gz" "$url"
+    mkdir -p "$workdir/unpacked"
+    tar -xzf "$workdir/toolbox.tar.gz" -C "$workdir/unpacked"
+    binary="$(find "$workdir/unpacked" -type f -name jetbrains-toolbox -print -quit)"
+    if [ -z "$binary" ]; then
+      echo "The JetBrains Toolbox archive has no jetbrains-toolbox binary." >&2
+      exit 1
+    fi
+
+    mkdir -p "$bin_dir"
+    cp -a "$(dirname "$binary")/." "$bin_dir/"
+    chmod 0755 "$bin_dir/jetbrains-toolbox"
+    printf '%s\n' "$build" >"$marker"
+    echo DOTFILES_CHANGED
   args:
     executable: /bin/bash
   register: dotfiles_jetbrains_toolbox_install

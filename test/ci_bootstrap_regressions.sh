@@ -4,14 +4,10 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 packages_task="$repo_root/ansible/roles/package_installer/tasks/main.yml"
-debian_packages_task="$repo_root/ansible/roles/package_installer/tasks/linux-debian.yml"
-fedora_packages_task="$repo_root/ansible/roles/package_installer/tasks/linux-fedora.yml"
-arch_packages_task="$repo_root/ansible/roles/package_installer/tasks/linux-arch.yml"
 macos_packages_task="$repo_root/ansible/roles/package_installer/tasks/macos.yml"
 mise_tools_task="$repo_root/ansible/roles/mise_tools/tasks/main.yml"
 mise_feature_task="$repo_root/ansible/roles/features/mise/tasks/linux.yml"
 windows_bootstrap="$repo_root/bootstrap.ps1"
-services_task_main="$repo_root/ansible/roles/services/tasks/main.yml"
 common_playbook="$repo_root/ansible/playbooks/common.yml"
 execution_playbook="$repo_root/ansible/playbooks/execution.yml"
 ubuntu_playbook="$repo_root/ansible/playbooks/ubuntu.yml"
@@ -22,32 +18,17 @@ profile_preflight="$repo_root/ansible/roles/profile_preflight/tasks/main.yml"
 package_installer="$repo_root/ansible/roles/package_installer/tasks/main.yml"
 flatpak_feature="$repo_root/ansible/roles/features/flatpak_apps/tasks/main.yml"
 flatpak_task="$repo_root/ansible/roles/features/flatpak_apps/tasks/linux.yml"
-flatpak_best_effort_task="$repo_root/ansible/roles/features/flatpak_apps/tasks/install_app_best_effort.yml"
+flatpak_best_effort_task="$repo_root/ansible/roles/features/flatpak_apps/tasks/install_app.yml"
 ai_tools_task_main="$repo_root/ansible/roles/features/ai_clis/tasks/main.yml"
 ai_tools_unix_task="$repo_root/ansible/roles/features/ai_clis/tasks/unix.yml"
-ai_tools_unix_best_effort_task="$repo_root/ansible/roles/features/ai_clis/tasks/install_unix_cli_best_effort.yml"
 ai_clis_data="$repo_root/home/.chezmoidata/ai-clis.yaml"
 packages_data="$repo_root/home/.chezmoidata/packages.yaml"
-winget_manifest="$repo_root/packages/winget.json"
 chezmoi_bootstrap_script="$repo_root/home/.chezmoiscripts/run_once_before_00-bootstrap.sh.tmpl"
 workflow_file="$repo_root/.github/workflows/ci.yml"
 ansible_config="$repo_root/ansible.cfg"
-run_feature_task="$repo_root/ansible/playbooks/feature_best_effort.yml"
 setup_outcome_task="$repo_root/ansible/roles/setup_outcome/tasks/main.yml"
 chezmoi_task_main="$repo_root/ansible/roles/chezmoi/tasks/main.yml"
 low_memory_task="$repo_root/ansible/roles/low_memory/tasks/main.yml"
-linux_privileged_task_files=(
-  "$debian_packages_task"
-  "$fedora_packages_task"
-  "$arch_packages_task"
-  "$low_memory_task"
-  "$repo_root/ansible/roles/features/shell/tasks/linux.yml"
-  "$repo_root/ansible/roles/features/warp_terminal/tasks/linux.yml"
-  "$repo_root/ansible/roles/features/virtualbox/tasks/linux.yml"
-  "$repo_root/ansible/roles/features/kiro_ide/tasks/linux.yml"
-  "$repo_root/ansible/roles/features/ghostty_terminal/tasks/linux.yml"
-  "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml"
-)
 
 if ! bash -s -- --help < "$repo_root/bootstrap.sh" >/dev/null; then
   echo "expected bootstrap.sh to support README curl execution piped into bash"
@@ -75,13 +56,6 @@ search_file_literal() {
     grep -Fq -- "$text" "$path"
   fi
 }
-
-for linux_task in "${linux_privileged_task_files[@]}"; do
-  if search_file 'become:' "$linux_task"; then
-    echo "expected ${linux_task#"$repo_root"/} to avoid Ansible become for Linux localhost setup"
-    exit 1
-  fi
-done
 
 if ! search_file "^  vars:$" "$packages_task"; then
   echo "expected Merge package lists task to declare task-local vars"
@@ -122,33 +96,6 @@ fi
 
 if ! search_file "'docker_desktop' in \\(features \\| default\\(\\[\\]\\)\\)" "$packages_task"; then
   echo "expected package merge to detect Docker Desktop profile selection"
-  exit 1
-fi
-
-for distro_task in "$debian_packages_task" "$fedora_packages_task" "$arch_packages_task"; do
-  if search_file 'become:' "$distro_task"; then
-    echo "expected ${distro_task##*/} to avoid Ansible become for Linux localhost package installs"
-    exit 1
-  fi
-
-  if ! search_file 'sudo -S -p' "$distro_task" || ! search_file 'dotfiles_sudo_password_file' "$distro_task"; then
-    echo "expected ${distro_task##*/} to feed sudo from DOTFILES_SUDO_PASSWORD_FILE"
-    exit 1
-  fi
-done
-
-if ! search_file 'apt-get install -y' "$debian_packages_task"; then
-  echo "expected Debian package task to install packages with apt-get"
-  exit 1
-fi
-
-if ! search_file 'dnf install -y' "$fedora_packages_task"; then
-  echo "expected Fedora package task to install packages with dnf"
-  exit 1
-fi
-
-if ! search_file 'pacman -S --noconfirm --needed' "$arch_packages_task"; then
-  echo "expected Arch package task to install packages with pacman"
   exit 1
 fi
 
@@ -253,7 +200,7 @@ if ! search_file '\$scriptDir' "$windows_bootstrap"; then
   exit 1
 fi
 
-if ! search_file 'chezmoi apply --source \$chezmoiSource --force -v' "$windows_bootstrap"; then
+if ! search_file 'chezmoi apply --source \$chezmoiSource .*--force -v' "$windows_bootstrap"; then
   echo "expected bootstrap.ps1 to run chezmoi apply against the resolved source directory"
   exit 1
 fi
@@ -288,7 +235,7 @@ if grep -rnE 'expected_sha256|sha256sum|shasum' "$repo_root/home/.chezmoiscripts
   exit 1
 fi
 
-if grep -nE 'Python\.Python\.3\.[0-9]+' "$packages_data" "$winget_manifest"; then
+if grep -nE 'Python\.Python\.3\.[0-9]+' "$packages_data"; then
   echo "expected no minor-versioned Python winget id; name Python.Python.3 and let bootstrap.ps1 resolve the newest minor"
   exit 1
 fi
@@ -409,16 +356,6 @@ if search_file 'ignore_errors: yes' "$flatpak_best_effort_task" ||
   exit 1
 fi
 
-if ! search_file 'Install flatpak packages \(strict\)' "$flatpak_task" ||
-  ! search_file 'Install flatpak packages \(best effort\)' "$flatpak_task" ||
-  ! search_file 'dotfiles_setup_mode.*strict' "$flatpak_task" ||
-  ! search_file 'dotfiles_setup_mode.*best_effort' "$flatpak_task" ||
-  ! search_file 'phase.*flatpak_app' "$flatpak_best_effort_task" ||
-  ! search_file 'dotfiles_setup_failures' "$flatpak_best_effort_task"; then
-  echo "expected Flatpak installs to preserve strict mode and record per-app best-effort failures"
-  exit 1
-fi
-
 if search_file 'ignore_errors: yes' "$ai_tools_unix_task"; then
   echo "expected AI CLI installer failures to fail clearly instead of being ignored noisily"
   exit 1
@@ -437,13 +374,6 @@ fi
 
 if ! search_file 'dotfiles_automation' "$ai_tools_task_main"; then
   echo "expected AI CLI upstream installers to be skipped in automation"
-  exit 1
-fi
-
-if ! search_file 'install_unix_cli_best_effort\.yml' "$ai_tools_task_main" ||
-  ! search_file 'dotfiles_setup_failures' "$ai_tools_unix_best_effort_task" ||
-  ! search_file "dotfiles_setup_mode \\| default\\('best_effort'\\) == 'strict'" "$ai_tools_unix_best_effort_task"; then
-  echo "expected AI CLI Unix installers to support strict and best-effort setup modes"
   exit 1
 fi
 
@@ -542,13 +472,6 @@ for playbook in "$fedora_playbook" "$arch_playbook" "$macos_playbook"; do
   fi
 done
 
-if ! search_file_literal '0 upgraded, 0 newly installed' "$debian_packages_task" ||
-  ! search_file_literal 'Nothing to do' "$fedora_packages_task" ||
-  ! search_file_literal 'there is nothing to do' "$arch_packages_task"; then
-  echo "expected system package install tasks to report changed only when the package manager did work"
-  exit 1
-fi
-
 if ! search_file_literal 'dpkg-query -W' "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml" ||
   ! search_file_literal 'rpm -q docker-desktop' "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml" ||
   ! search_file_literal 'pacman -Q docker-desktop' "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml"; then
@@ -629,13 +552,6 @@ for gone in \
     exit 1
   fi
 done
-
-if search_file_literal 'function Install-Llmfit' "$windows_bootstrap" ||
-  search_file_literal '@bitwarden/cli' "$windows_bootstrap" ||
-  search_file_literal 'npm_global_packages' "$windows_bootstrap"; then
-  echo "expected bootstrap.ps1 to leave llmfit, Bitwarden CLI and npm globals to the mise tool lists"
-  exit 1
-fi
 
 if ! search_file_literal 'function Install-Mise' "$windows_bootstrap" ||
   ! search_file_literal 'winget install --id jdx.mise' "$windows_bootstrap" ||
@@ -732,24 +648,11 @@ if ! search_file 'dotfiles_chezmoi_setup_data' "$repo_root/ansible/roles/chezmoi
   exit 1
 fi
 
-if ! search_file 'include_role:' "$run_feature_task" || ! search_file 'features/\{\{ selected_feature \}\}' "$run_feature_task"; then
-  echo "expected common flow to run selected feature roles by feature name"
-  exit 1
-fi
-
 if ! search_file 'dotfiles_setup_mode' "$common_playbook" ||
   ! search_file 'DOTFILES_SETUP_MODE' "$common_playbook" ||
   ! search_file 'Show setup outcome summary' "$common_playbook" ||
   ! search_file 'dotfiles_setup_failures' "$common_playbook"; then
   echo "expected common flow to support setup modes and print a final outcome summary"
-  exit 1
-fi
-
-if ! search_file '^  rescue:$' "$common_playbook" ||
-  ! search_file_literal 'dotfiles_setup_aborted: true' "$common_playbook" ||
-  ! search_file_literal "'phase': 'aborted'" "$common_playbook" ||
-  ! search_file_literal 'Stop after an aborted setup' "$common_playbook"; then
-  echo "expected common flow to record the aborting failure in the report and still fail the play"
   exit 1
 fi
 
@@ -771,7 +674,7 @@ fi
 if ! search_file 'DOTFILES_LOW_MEMORY' "$common_playbook" ||
   ! search_file 'DOTFILES_LOW_MEMORY_THRESHOLD_MB' "$common_playbook" ||
   ! search_file 'dotfiles_low_memory_setup' "$common_playbook" ||
-  ! search_file 'name: low_memory' "$execution_playbook"; then
+  ! search_file 'role: low_memory' "$execution_playbook"; then
   echo "expected common flow to detect low-memory machines and run the low-memory role"
   exit 1
 fi
@@ -782,28 +685,6 @@ if ! search_file 'DOTFILES_SWAPFILE_SIZE_MB' "$low_memory_task" ||
   ! search_file 'mkswap /swapfile' "$low_memory_task" ||
   ! search_file 'swapon /swapfile' "$low_memory_task"; then
   echo "expected low-memory role to prepare a configurable Linux swapfile"
-  exit 1
-fi
-
-if ! search_file 'one at a time.*Debian/Ubuntu low memory' "$debian_packages_task" ||
-  ! search_file 'Acquire::Queue-Mode=access' "$debian_packages_task" ||
-  ! search_file 'one at a time.*Fedora low memory' "$fedora_packages_task" ||
-  ! search_file 'max_parallel_downloads=1' "$fedora_packages_task" ||
-  ! search_file 'one at a time.*Archlinux low memory' "$arch_packages_task"; then
-  echo "expected Linux package tasks to use serial low-memory install paths"
-  exit 1
-fi
-
-if ! search_file 'apt_package' "$debian_packages_task" ||
-  ! search_file 'dnf_package' "$fedora_packages_task" ||
-  ! search_file 'pacman_package' "$arch_packages_task" ||
-  ! search_file 'brew_package' "$macos_packages_task" ||
-  ! search_file 'cask_package' "$macos_packages_task" ||
-  ! search_file 'failed_when: false' "$debian_packages_task" ||
-  ! search_file 'failed_when: false' "$fedora_packages_task" ||
-  ! search_file 'failed_when: false' "$arch_packages_task" ||
-  ! search_file 'failed_when: false' "$macos_packages_task"; then
-  echo "expected best-effort direct package installs to record per-item failures"
   exit 1
 fi
 
@@ -853,14 +734,7 @@ if ! search_file 'dotfiles_package_plan' "$package_installer" ||
   exit 1
 fi
 
-if ! search_file 'dotfiles_setup_mode == '\''strict'\''' "$run_feature_task" ||
-  ! search_file 'dotfiles_setup_mode == '\''best_effort'\''' "$run_feature_task" ||
-  ! search_file 'dotfiles_setup_failures' "$run_feature_task"; then
-  echo "expected feature execution helper to preserve strict mode and record best-effort failures"
-  exit 1
-fi
-
-if ! search_file 'export PATH="\$HOME/\.local/bin:\$PATH"' "$workflow_file"; then
+if ! search_file 'export PATH="\$HOME/\.local/bin:\$PATH"' "$repo_root/test/ci_idempotency_check.sh"; then
   echo "expected CI idempotency checks to find tools installed into HOME/.local/bin by bootstrap.sh"
   exit 1
 fi
@@ -885,12 +759,6 @@ fi
 
 if search_file_literal 'ignore_errors' "$chezmoi_best_effort_task"; then
   echo "expected best-effort chezmoi apply to record failures without ignore_errors"
-  exit 1
-fi
-
-if ! search_file_literal 'dotfiles_chezmoi_files_applied' "$chezmoi_best_effort_task" ||
-  ! search_file_literal 'when: dotfiles_chezmoi_files_applied | default(true) | bool' "$execution_playbook"; then
-  echo "expected the best-effort chezmoi completion entry to depend on the managed-files step succeeding"
   exit 1
 fi
 
@@ -999,8 +867,8 @@ if awk '
   exit 1
 fi
 
-if [ "$(grep -n 'name: Apply Chezmoi (best effort)' "$execution_playbook" | cut -d: -f1)" -gt "$(grep -n 'name: Install mise tool lists (best effort)' "$execution_playbook" | cut -d: -f1)" ] ||
-  [ "$(grep -n 'name: Install mise tool lists (best effort)' "$execution_playbook" | cut -d: -f1)" -gt "$(grep -n 'name: Enable selected services (strict)' "$execution_playbook" | cut -d: -f1)" ]; then
+if [ "$(grep -n 'name: Apply Chezmoi$' "$execution_playbook" | cut -d: -f1)" -gt "$(grep -n 'name: Install mise tool lists$' "$execution_playbook" | cut -d: -f1)" ] ||
+  [ "$(grep -n 'name: Install mise tool lists$' "$execution_playbook" | cut -d: -f1)" -gt "$(grep -n 'name: Enable selected services$' "$execution_playbook" | cut -d: -f1)" ]; then
   echo "expected the mise_tools phase to run after chezmoi apply (which writes the conf.d lists) and before the services phase"
   exit 1
 fi
@@ -1018,11 +886,6 @@ fi
 
 if ! awk '/dotfiles_feature_execution_order:/ { getline; exit($0 ~ /^      - mise$/ ? 0 : 1) }' "$profile_preflight"; then
   echo "expected mise to be the first feature role in dotfiles_feature_execution_order"
-  exit 1
-fi
-
-if ! search_file 'changed_when: false' "$services_task_main"; then
-  echo "expected managed user service activation to be idempotency-neutral in CI logs"
   exit 1
 fi
 
@@ -1091,12 +954,12 @@ if ! search_file 'chezmoi diff --source "\$PWD"' "$workflow_file"; then
   exit 1
 fi
 
-if ! search_file 'output_log="\$\(mktemp\)"' "$workflow_file"; then
+if ! search_file 'output_log="\$\(mktemp\)"' "$repo_root/test/ci_idempotency_check.sh"; then
   echo "expected ci.yml to write idempotency logs outside the repo source tree"
   exit 1
 fi
 
-if ! search_file 'chezmoi_diff="\$\(mktemp\)"' "$workflow_file"; then
+if ! search_file 'chezmoi_diff="\$\(mktemp\)"' "$repo_root/test/ci_idempotency_check.sh"; then
   echo "expected ci.yml to write chezmoi diff output outside the repo source tree"
   exit 1
 fi

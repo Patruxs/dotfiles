@@ -1,0 +1,37 @@
+---
+- name: Install system packages
+  ansible.builtin.command:
+    argv: "{{ dotfiles_platform.package_install_command + system_packages }}"
+  become: true
+  register: dotfiles_system_packages_install
+  changed_when: dotfiles_platform.package_install_noop_marker not in dotfiles_system_packages_install.stdout
+  when:
+    - dotfiles_setup_mode == 'strict'
+    - not (dotfiles_low_memory_setup | default(false) | bool)
+
+- name: Install system packages one at a time
+  ansible.builtin.command:
+    argv: "{{ dotfiles_platform.package_install_serial_command + [item] }}"
+  become: true
+  loop: "{{ system_packages }}"
+  register: dotfiles_system_package_installs
+  changed_when:
+    - dotfiles_system_package_installs.rc == 0
+    - dotfiles_platform.package_install_noop_marker not in dotfiles_system_package_installs.stdout
+  failed_when:
+    - dotfiles_setup_mode == 'strict'
+    - dotfiles_system_package_installs.rc != 0
+  when: dotfiles_setup_mode == 'best_effort' or (dotfiles_low_memory_setup | default(false) | bool)
+
+- name: Record system package installation failures
+  ansible.builtin.include_role:
+    name: record_failure
+  vars:
+    failure_phase: "{{ dotfiles_platform.package_family }}_package"
+    failure_name: "{{ failed_install.item }}"
+    failure_task: Install system packages one at a time
+    failure_result: "{{ failed_install }}"
+  loop: "{{ dotfiles_system_package_installs.results | default([]) | selectattr('rc', 'defined') | rejectattr('rc', 'equalto', 0) | list }}"
+  loop_control:
+    loop_var: failed_install
+    label: "{{ failed_install.item }}"

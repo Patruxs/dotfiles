@@ -245,9 +245,17 @@ force_animations_enabled() {
   [ -f "$force_animations_file" ] && grep -qx 'KWIN_EFFECTS_FORCE_ANIMATIONS=1' "$force_animations_file"
 }
 
+read_only=0
+pending_changes=0
+
 enable_force_animations() {
   if force_animations_enabled; then
     log "KWIN_EFFECTS_FORCE_ANIMATIONS=1 is already set in $(pretty_path "$force_animations_file"); log out and back in for KWin to pick it up"
+    return 0
+  fi
+  if [ "$read_only" -eq 1 ]; then
+    pending_changes=$((pending_changes + 1))
+    log "KWIN_EFFECTS_FORCE_ANIMATIONS=1 is not set in $(pretty_path "$force_animations_file"); 'install' writes it so KWin loads animated effects on this software renderer"
     return 0
   fi
   mkdir -p "$(dirname "$force_animations_file")"
@@ -304,6 +312,7 @@ status_line() {
 
 run_check() {
   local addon installed latest outdated=0
+  read_only=1
   for addon in "${addons[@]}"; do
     installed="$("${addon}_installed" || true)"
     latest="$("${addon}_latest" 2>/dev/null || true)"
@@ -323,7 +332,7 @@ run_check() {
       explain_effect_not_loaded kwin4_effect_geometry_change
     fi
   fi
-  [ "$outdated" -eq 0 ]
+  [ "$outdated" -eq 0 ] && [ "$pending_changes" -eq 0 ]
 }
 
 run_install_one() {

@@ -19,6 +19,9 @@
       architecture: "{{ ansible_facts['architecture'] | default('') }}"
       distro_key: arch
       ubuntu_codename: ""
+      package_install_command: [pacman, -S, --noconfirm, --needed]
+      package_install_serial_command: [pacman, -S, --noconfirm, --needed]
+      package_install_noop_marker: "there is nothing to do"
 
   pre_tasks:
     - name: Load Arch package set

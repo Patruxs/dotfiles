@@ -37,7 +37,7 @@ On Nobara, the system package refresh runs `nobara-sync cli` (Nobara's own updat
 
 Windows uses winget and PowerShell rather than Ansible. It shares the profile and setup-mode vocabulary but not the playbook structure. `winget` must be available (it ships with App Installer); the script fails early without it. The chosen profile is cached in `~/.dotfiles_profile` and offered as the default on later runs.
 
-Packages are installed with one `winget import --ignore-versions`, which installs whatever is missing at its latest version and converts already-installed packages to an upgrade (winget only leaves them alone when `--no-upgrade` is passed), so every re-run keeps the managed packages current. When the profile selects `mise`, bootstrap then installs `jdx.mise` with winget, adds `%LOCALAPPDATA%\mise\shims` to the user `PATH`, and runs `mise install` and `mise upgrade` for the tool lists chezmoi applied; in best-effort mode a failure there is recorded and the run continues.
+The package list is the union of `windows_package_sets.<feature>.winget` in `home/.chezmoidata/packages.yaml` over the features the profile selects, so dropping a feature from a profile drops its Windows packages too. Packages are installed with one `winget import --ignore-versions` (the import manifest is built at run time), which installs whatever is missing at its latest version and converts already-installed packages to an upgrade (winget only leaves them alone when `--no-upgrade` is passed), so every re-run keeps the managed packages current. When the profile selects `mise`, bootstrap then installs `jdx.mise` with winget, adds `%LOCALAPPDATA%\mise\shims` to the user `PATH`, and runs `mise install` and `mise upgrade` for the tool lists chezmoi applied; in best-effort mode a failure there is recorded and the run continues.
 
 ## Environment variables
 
@@ -52,14 +52,15 @@ Packages are installed with one `winget import --ignore-versions`, which install
 | `DOTFILES_DESKTOP` | detected | `gnome`, `kde`, or `none`; equivalent to `--desktop`. Read by `scripts/detect-desktop.sh`, which both `bootstrap.sh` and the playbook run in the same environment, so the two agree whether the value was set or detected. |
 | `DOTFILES_CHEZMOI_DIR` | `~/.local/share/chezmoi` | Chezmoi source directory. Exported by bootstrap for the playbooks. |
 | `DOTFILES_PROGRESS` | `1` | Set to `0` to turn off the progress bar that `bootstrap.sh` and `bootstrap.ps1` keep on the last terminal row. It is already off when output is not a terminal (or, on Windows, the host has no VT support) or in lightweight CI mode. |
-| `DOTFILES_CI` | unset | Lightweight CI mode. Enables `--platform`, skips chezmoi self-upgrade, makes `chezmoi init` non-interactive, and skips unstable upstream installers. |
+| `DOTFILES_CI` | unset | Lightweight CI mode. Enables `--platform`, skips chezmoi self-upgrade, makes `chezmoi init` non-interactive, skips unstable upstream installers and the mise tool lists, and leaves this machine's desktop settings, panels and swap untouched (the report lists them under skipped). |
+| `CHEZMOI_GPG_RECIPIENT` | none | GPG recipient for encrypted chezmoi files. Read by `home/.chezmoi.toml.tmpl`; when set, the first-run prompt for it is skipped. |
 | `DOTFILES_BOOTSTRAP_OUTCOMES_FILE` | set by bootstrap | Internal. Path of the JSON-lines file in which `bootstrap.sh` records the outcome of each prerequisite step; `setup_outcome` merges it into the report. |
 
 ### Privileged setup (Linux and macOS)
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `DOTFILES_SUDO_PASSWORD_FILE` | none | File holding the sudo password for non-interactive runs; `bootstrap.sh` validates it and passes it to the playbook. Without it, and without passwordless sudo, `bootstrap.sh` prompts once on Linux and macOS. On Linux a missing or rejected password stops the run, and preflight fails with an explicit message rather than hanging. On macOS only the `shell` feature needs sudo (to register the Homebrew bash in `/etc/shells` and change the login shell): a non-administrator account, a run without a terminal, or CI without passwordless sudo continues with a warning and that feature is reported as failed. |
+| `DOTFILES_SUDO_PASSWORD_FILE` | none | File holding the sudo password for non-interactive runs; `bootstrap.sh` validates it and passes it to the playbook as `--become-password-file`; privileged tasks use Ansible `become`, so a playbook run by hand needs that flag (or passwordless sudo) as well. Without it, and without passwordless sudo, `bootstrap.sh` prompts once on Linux and macOS. On Linux a missing or rejected password stops the run, and preflight fails with an explicit message rather than hanging. On macOS only the `shell` feature needs sudo (to register the Homebrew bash in `/etc/shells` and change the login shell): a non-administrator account, a run without a terminal, or CI without passwordless sudo continues with a warning and that feature is reported as failed. |
 
 ### Low-memory machines
 
@@ -71,6 +72,17 @@ Low-memory setup turns on automatically on Linux at or below the memory threshol
 | `DOTFILES_LOW_MEMORY_THRESHOLD_MB` | `4096` | RAM at or below which `auto` turns low-memory setup on. |
 | `DOTFILES_SWAPFILE_SIZE_MB` | 4096 at 2 GB RAM or less, otherwise 2048 | Size of the swapfile to create. |
 | `DOTFILES_MIN_SWAP_MB` | same default as above | Swap total considered sufficient, below which a swapfile is created. |
+
+### Upstream endpoints (tests only)
+
+The install scripts read their upstream base URLs from the environment so the regression tests can point them at a local fixture. Leave them unset on a real machine.
+
+| Variable | Default | Read by |
+| :--- | :--- | :--- |
+| `DOTFILES_GITHUB_API` | `https://api.github.com` | `scripts/nerd-font-install.sh`, `scripts/plasma-addons-install.sh` |
+| `DOTFILES_GITHUB_WEB` | `https://github.com` | `scripts/plasma-addons-install.sh` |
+| `DOTFILES_GITHUB_RAW` | `https://raw.githubusercontent.com` | `scripts/plasma-addons-install.sh` |
+| `DOTFILES_KDE_STORE_API` | `https://api.kde-look.org/ocs/v1` | `scripts/plasma-addons-install.sh` |
 
 CI detection is also read from `GITHUB_ACTIONS` and `CI`, which mark the run as an automation environment (setup mode comes only from the flags and `DOTFILES_SETUP_MODE`).
 
@@ -197,7 +209,7 @@ Every install path resolves the latest release at run time; no installer pins a 
 | Surface | How the latest version is chosen |
 | :--- | :--- |
 | System packages (`apt`, `dnf`, `pacman`), Homebrew, Flatpak | Package manager `latest` state, so re-running bootstrap upgrades what is already installed. |
-| mise tool lists (`home/dot_config/mise/conf.d/*.toml`: lazygit, fd, bat, eza, zoxide, superfile, yazi, Starship, Playwright, the Bitwarden CLI, llmfit, codex, opencode, pi, herdr, agy, paseo) | Every entry is requested as `"latest"` and there is no lockfile. `mise install` fetches the newest release of a missing tool and `mise upgrade` moves installed ones forward, both on every run, on every platform (`mise_tools` on Linux and macOS, `bootstrap.ps1` on Windows). Most names resolve to the aqua registry, which verifies checksums, cosign signatures and SLSA provenance where the publisher provides them; `npm:` entries need `node` on `PATH` (the `devtools` feature). mise itself comes from the Arch package, Homebrew, winget, or, on Ubuntu and Fedora, the `mise.run` installer (regenerated by upstream per release), which is run only when `~/.local/bin/mise` is absent or its version differs from the one upstream publishes at `https://mise.jdx.dev/VERSION`; the step is reported as changed only when the binary's digest changed. |
+| mise tool lists (`home/dot_config/mise/conf.d/*.toml`: lazygit, fd, bat, eza, zoxide, superfile, yazi, Starship, Playwright, the Bitwarden CLI, llmfit, claude, codex, opencode, pi, herdr, agy, paseo) | Every entry is requested as `"latest"` and there is no lockfile. `mise install` fetches the newest release of a missing tool and `mise upgrade` moves installed ones forward, both on every run, on every platform (`mise_tools` on Linux and macOS, `bootstrap.ps1` on Windows). Most names resolve to the aqua registry, which verifies checksums, cosign signatures and SLSA provenance where the publisher provides them; `npm:` entries need `node` on `PATH` (the `devtools` feature). mise itself comes from the Arch package, Homebrew, winget, or, on Ubuntu and Fedora, the `mise.run` installer (regenerated by upstream per release), which is run only when `~/.local/bin/mise` is absent or its version differs from the one upstream publishes at `https://mise.jdx.dev/VERSION`; the step is reported as changed only when the binary's digest changed. |
 | winget (Windows) | `winget import --ignore-versions`, which installs missing packages and upgrades installed ones. Node is installed from the `OpenJS.NodeJS.LTS` channel on purpose (newest LTS rather than Node current). winget publishes Python as one package id per minor version (`Python.Python.3.x`); the package data names `Python.Python.3` and `bootstrap.ps1` resolves it to the newest minor id winget offers at run time (`Resolve-WingetPackageIds`), so no Python version is spelled out anywhere. |
 | Kiro, Docker Desktop (Linux) | The installed version is compared with the upstream release feed (GitHub API, Kiro's metadata, Docker's appcast) on every run and the package is downloaded again only when it differs. Docker Desktop for Linux has no in-app updater, so this is the only thing that keeps it current. The appcast also names the build number; the package is downloaded from that build's directory and checked against the SHA-256 in the `checksums.txt` Docker publishes next to it, and the install is refused when the checksum cannot be read. Docker's apt repository is asked at run time (`dists/` on `download.docker.com`) which Ubuntu releases it serves. |
 | JetBrains Toolbox, chezmoi | Downloaded from the vendor's permanent "latest" URL on every run. |
@@ -220,7 +232,7 @@ Every install path resolves the latest release at run time; no installer pins a 
 ## Testing
 
 ```sh
-./test/test_harness.sh          # shellcheck, yamllint, ansible-lint, Ansible syntax checks, bootstrap, desktop detection, KDE settings, upstream installer and mise tool list checks, chezmoi dry run
+./test/test_harness.sh          # shellcheck, yamllint, ansible-lint, Ansible syntax checks, bootstrap, desktop detection, KDE and GNOME sync, setup mode phases, feature data, launchers, upstream installer and mise tool list checks, chezmoi dry run
 ./bootstrap.sh --profile personal --strict
 ```
 

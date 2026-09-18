@@ -20,25 +20,8 @@
   ansible.builtin.shell: |
     set -euo pipefail
 
-    password_file={{ dotfiles_sudo_password_file | quote }}
     swapfile_size_mb={{ dotfiles_low_memory_swapfile_size_mb | int }}
     min_swap_mb={{ dotfiles_low_memory_min_swap_mb | int }}
-
-    run_sudo() {
-      if [ -n "$password_file" ]; then
-        sudo -S -p '' "$@" < "$password_file"
-      else
-        sudo -n "$@"
-      fi
-    }
-
-    run_root_shell() {
-      if [ -n "$password_file" ]; then
-        sudo -S -p '' /bin/sh -c "$1" < "$password_file"
-      else
-        sudo -n /bin/sh -c "$1"
-      fi
-    }
 
     current_swap_mb() {
       awk '/^SwapTotal:/ { print int($2 / 1024) }' /proc/meminfo
@@ -51,11 +34,11 @@
 
     if [ -e /swapfile ]; then
       if ! swapon --show=NAME --noheadings | grep -qx '/swapfile'; then
-        run_sudo swapon /swapfile || true
+        swapon /swapfile || true
       fi
 
       if [ "$(current_swap_mb)" -ge "$min_swap_mb" ]; then
-        run_root_shell "grep -qE '^[^#][[:space:]]*/swapfile[[:space:]]+none[[:space:]]+swap[[:space:]]' /etc/fstab || printf '%s\n' '/swapfile none swap sw 0 0' >> /etc/fstab"
+        /bin/sh -c "grep -qE '^[^#][[:space:]]*/swapfile[[:space:]]+none[[:space:]]+swap[[:space:]]' /etc/fstab || printf '%s\n' '/swapfile none swap sw 0 0' >> /etc/fstab"
         echo "DOTFILES_LOW_MEMORY_SWAP=activated_existing"
         exit 0
       fi
@@ -65,12 +48,29 @@
       exit 0
     fi
 
-    run_root_shell "fallocate -l ${swapfile_size_mb}M /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=${swapfile_size_mb} status=progress"
-    run_sudo chmod 600 /swapfile
-    run_sudo mkswap /swapfile
-    run_sudo swapon /swapfile
-    run_root_shell "grep -qE '^[^#][[:space:]]*/swapfile[[:space:]]+none[[:space:]]+swap[[:space:]]' /etc/fstab || printf '%s\n' '/swapfile none swap sw 0 0' >> /etc/fstab"
+    allocate_swapfile() {
+      if [ "$(stat -f -c %T / 2>/dev/null || true)" = "btrfs" ]; then
+        /bin/sh -c "truncate -s 0 /swapfile && chattr +C /swapfile && dd if=/dev/zero of=/swapfile bs=1M count=${swapfile_size_mb} status=none"
+      else
+        /bin/sh -c "fallocate -l ${swapfile_size_mb}M /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=${swapfile_size_mb} status=none"
+      fi
+    }
+
+    create_swapfile() {
+      allocate_swapfile &&
+        chmod 600 /swapfile &&
+        mkswap /swapfile &&
+        swapon /swapfile
+    }
+
+    if ! create_swapfile; then
+      rm -f /swapfile || true
+      echo "Could not create and activate /swapfile; the partial file was removed." >&2
+      exit 1
+    fi
+    /bin/sh -c "grep -qE '^[^#][[:space:]]*/swapfile[[:space:]]+none[[:space:]]+swap[[:space:]]' /etc/fstab || printf '%s\n' '/swapfile none swap sw 0 0' >> /etc/fstab"
     echo "DOTFILES_LOW_MEMORY_SWAP=created_${swapfile_size_mb}mb"
+  become: true
   args:
     executable: /bin/bash
   register: dotfiles_low_memory_swap_result

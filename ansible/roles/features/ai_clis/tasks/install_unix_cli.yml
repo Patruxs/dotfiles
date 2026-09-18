@@ -1,0 +1,12 @@
+---
+- name: Install AI CLI {{ ai_cli.key }}
+  block:
+    - name: Run the AI CLI installer {{ ai_cli.key }}
+      ansible.builtin.include_tasks: unix.yml
+  rescue:
+    - name: Record AI CLI installer failure
+      ansible.builtin.include_role:
+        name: record_failure
+      vars:
+        failure_phase: ai_cli
+        failure_name: "{{ ai_cli.key }}"

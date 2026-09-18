@@ -19,6 +19,7 @@ package_sets:
       - tmux
       - btop
       - ripgrep
+      - fzf
       - jq
       - github-cli
   desktop_base:
@@ -54,7 +55,6 @@ package_sets:
       - python-pip
       - gcc
       - go
-      - fzf
   docker_engine:
     pacman:
       - docker

@@ -6,10 +6,6 @@
       dpkg-query -W -f='${Package} ${db:Status-Status} ${Version}\n' 'virtualbox*' 2>/dev/null || true
     }
     dotfiles_before="$(dotfiles_fingerprint)"
-    root_script="$(mktemp)"
-    trap 'rm -f "$root_script"' EXIT
-    cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
-    set -euo pipefail
     codename="{{ dotfiles_platform.ubuntu_codename }}"
     oracle_repo="https://download.virtualbox.org/virtualbox/debian"
     oracle_list="/etc/apt/sources.list.d/virtualbox.list"
@@ -55,17 +51,11 @@
       apt-get update
       apt-get install -y virtualbox virtualbox-dkms virtualbox-qt
     fi
-    DOTFILES_ROOT_SCRIPT
-
-    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
-      sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
-    else
-      sudo -n /bin/bash "$root_script"
-    fi
     dotfiles_after="$(dotfiles_fingerprint)"
     if [ "$dotfiles_before" != "$dotfiles_after" ]; then
       echo DOTFILES_CHANGED
     fi
+  become: true
   args:
     executable: /bin/bash
   register: dotfiles_virtualbox_debian_install
@@ -85,25 +75,15 @@
       rpm -q VirtualBox akmod-VirtualBox 2>/dev/null || true
     }
     dotfiles_before="$(dotfiles_fingerprint)"
-    root_script="$(mktemp)"
-    trap 'rm -f "$root_script"' EXIT
-    cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
-    set -euo pipefail
     if ! rpm -q VirtualBox >/dev/null 2>&1 && ! dnf -q list --available VirtualBox >/dev/null 2>&1; then
       dnf install -y "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
     fi
     dnf install -y VirtualBox akmod-VirtualBox
-    DOTFILES_ROOT_SCRIPT
-
-    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
-      sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
-    else
-      sudo -n /bin/bash "$root_script"
-    fi
     dotfiles_after="$(dotfiles_fingerprint)"
     if [ "$dotfiles_before" != "$dotfiles_after" ]; then
       echo DOTFILES_CHANGED
     fi
+  become: true
   args:
     executable: /bin/bash
   register: dotfiles_virtualbox_fedora_install
@@ -119,15 +99,12 @@
     }
     dotfiles_before="$(dotfiles_fingerprint)"
 
-    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
-      sudo -S -p '' pacman -S --noconfirm --needed virtualbox virtualbox-host-modules-arch < {{ dotfiles_sudo_password_file | quote }}
-    else
-      sudo -n pacman -S --noconfirm --needed virtualbox virtualbox-host-modules-arch
-    fi
+    pacman -S --noconfirm --needed virtualbox virtualbox-host-modules-arch
     dotfiles_after="$(dotfiles_fingerprint)"
     if [ "$dotfiles_before" != "$dotfiles_after" ]; then
       echo DOTFILES_CHANGED
     fi
+  become: true
   args:
     executable: /bin/bash
   register: dotfiles_virtualbox_arch_install

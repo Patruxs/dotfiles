@@ -20,25 +20,28 @@ $setupFailures = @()
 $setupSuccesses = @()
 $setupAbortReason = $null
 $selectedProfile = $null
+$overrideDataFile = $null
 
 function Test-IsCi {
   $ciValue = $env:DOTFILES_CI
   return $ciValue -match "^(1|true|yes)$"
 }
 
+function Test-IsAutomation {
+  return (Test-IsCi) -or ($env:GITHUB_ACTIONS -match "^(1|true|yes)$") -or ($env:CI -match "^(1|true|yes)$")
+}
+
 function Test-UsingCheckedOutSource {
   return (
     $null -ne $scriptDir -and
     (Test-Path (Join-Path $scriptDir ".git")) -and
-    (Test-Path (Join-Path $scriptDir "packages/winget.json"))
+    (Test-Path (Join-Path $scriptDir ".chezmoiroot"))
   )
 }
 
 if (Test-UsingCheckedOutSource) {
   $chezmoiSource = $scriptDir
 }
-
-$wingetTemplateFile = Join-Path $chezmoiSource "packages/winget.json"
 
 function Assert-LastExitCode {
   param(
@@ -375,46 +378,33 @@ function Resolve-WingetPackageIds {
 
 function Install-WingetPackages {
   param(
-    [string[]]$PackageIds,
-    [string]$TemplatePath
+    [string[]]$PackageIds
   )
 
   if ($PackageIds.Count -eq 0) {
     return
   }
 
-  if (-not (Test-Path $TemplatePath)) {
-    Write-Warning "Winget import template not found at $TemplatePath. Falling back to sequential installs."
-    foreach ($pkg in $PackageIds) {
-      Invoke-BestEffort -Phase "windows_package" -Name $pkg -ScriptBlock {
-        Write-Host "Installing or updating $pkg via winget..."
-        winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent --disable-interactivity
-        Assert-LastExitCode "winget install $pkg"
+  $manifest = [ordered]@{
+    '$schema' = "https://aka.ms/winget-packages.schema.2.0.json"
+    Sources = @(
+      [ordered]@{
+        SourceDetails = [ordered]@{
+          Argument = "https://cdn.winget.microsoft.com/cache"
+          Identifier = "Microsoft.Winget.Source_8wekyb3d8bbwe"
+          Name = "winget"
+          Type = "Microsoft.PreIndexed.Package"
+        }
+        Packages = @(
+          $PackageIds | ForEach-Object {
+            [ordered]@{
+              PackageIdentifier = $_
+            }
+          }
+        )
       }
-    }
-    return
+    )
   }
-
-  $manifest = Get-Content $TemplatePath -Raw | ConvertFrom-Json
-  if ($null -eq $manifest.Sources -or $manifest.Sources.Count -eq 0) {
-    Write-Warning "Winget import template at $TemplatePath is missing Sources data. Falling back to sequential installs."
-    foreach ($pkg in $PackageIds) {
-      Invoke-BestEffort -Phase "windows_package" -Name $pkg -ScriptBlock {
-        Write-Host "Installing or updating $pkg via winget..."
-        winget install --id $pkg -e --accept-source-agreements --accept-package-agreements --silent --disable-interactivity
-        Assert-LastExitCode "winget install $pkg"
-      }
-    }
-    return
-  }
-
-  $manifest.Sources[0].Packages = @(
-    $PackageIds | ForEach-Object {
-      [pscustomobject]@{
-        PackageIdentifier = $_
-      }
-    }
-  )
 
   $tempWingetManifest = Join-Path ([System.IO.Path]::GetTempPath()) ("dotfiles-winget-{0}.json" -f ([System.Guid]::NewGuid().ToString()))
   try {
@@ -424,6 +414,30 @@ function Install-WingetPackages {
   } finally {
     Remove-Item $tempWingetManifest -ErrorAction SilentlyContinue
   }
+}
+
+function New-ChezmoiOverrideDataFile {
+  param(
+    [string]$SelectedProfile
+  )
+
+  $featuresTemplate = '{{ (include (joinPath .chezmoi.sourceDir ".." "ansible" "vars" "profiles" (printf "%s.yml" (env "DOTFILES_PROFILE"))) | fromYaml).features | toJson }}'
+  $featuresJson = [string]($featuresTemplate | chezmoi execute-template --source $chezmoiSource | Out-String)
+  Assert-LastExitCode "chezmoi execute-template (profile features)"
+  $features = @($featuresJson | ConvertFrom-Json)
+  if ($features.Count -eq 0) {
+    throw "Profile '$SelectedProfile' lists no features in ansible/vars/profiles/$SelectedProfile.yml."
+  }
+
+  $overrideData = [ordered]@{
+    dotfiles_profile = $SelectedProfile
+    dotfiles_platform = "windows"
+    dotfiles_desktop = "none"
+    dotfiles_features = $features
+  }
+  $path = Join-Path ([System.IO.Path]::GetTempPath()) ("dotfiles-chezmoi-data-{0}.json" -f ([System.Guid]::NewGuid().ToString()))
+  [System.IO.File]::WriteAllText($path, ($overrideData | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding($false)))
+  return $path
 }
 
 function Install-Mise {
@@ -523,6 +537,8 @@ if (Test-UsingCheckedOutSource) {
   Assert-LastExitCode "chezmoi init"
 } else {
   Refresh-Repo
+  chezmoi init
+  Assert-LastExitCode "chezmoi init existing checkout"
 }
 Complete-ProgressStep
 
@@ -545,14 +561,16 @@ if (-not $symlinkOk) {
 }
 Complete-ProgressStep
 
+$overrideDataFile = New-ChezmoiOverrideDataFile -SelectedProfile $selectedProfile
+
 Invoke-BestEffort -Phase "chezmoi" -Name "chezmoi apply" -ScriptBlock {
-  chezmoi apply --source $chezmoiSource --force -v
+  chezmoi apply --source $chezmoiSource --override-data-file $overrideDataFile --force -v
   Assert-LastExitCode "chezmoi apply"
 }
 Complete-ProgressStep
 
 Set-ProgressLabel "chezmoi data"
-$dataJson = chezmoi data --source $chezmoiSource
+$dataJson = chezmoi data --source $chezmoiSource --override-data-file $overrideDataFile
 Assert-LastExitCode "chezmoi data"
 $data = $dataJson | ConvertFrom-Json
 $profileFeatures = @()
@@ -562,11 +580,11 @@ if ($null -ne $data.dotfiles_features) {
 Complete-ProgressStep
 
 $pkgs = @()
-if ($null -ne $data.packages.common.windows.packages) {
-    $pkgs += $data.packages.common.windows.packages
-}
-if ($null -ne $data.packages.$selectedProfile.windows.packages) {
-    $pkgs += $data.packages.$selectedProfile.windows.packages
+foreach ($feature in $profileFeatures) {
+    $featurePackages = $data.windows_package_sets.$feature.winget
+    if ($null -ne $featurePackages) {
+        $pkgs += $featurePackages
+    }
 }
 $pkgs = @($pkgs | Select-Object -Unique)
 if (-not (Test-IsCi)) {
@@ -578,7 +596,7 @@ if (Test-IsCi) {
 } else {
     Write-Host "Installing packages for $selectedProfile profile..."
     Invoke-BestEffort -Phase "windows_packages" -Name "winget import" -ScriptBlock {
-      Install-WingetPackages -PackageIds $pkgs -TemplatePath $wingetTemplateFile
+      Install-WingetPackages -PackageIds $pkgs
     }
 }
 Complete-ProgressStep
@@ -599,7 +617,7 @@ if (($profileFeatures -contains "mise") -and (-not (Test-IsCi))) {
 }
 Complete-ProgressStep
 
-if ((-not (Test-IsCi)) -and $null -ne $data.ai_clis.clis) {
+if ((-not (Test-IsAutomation)) -and $null -ne $data.ai_clis.clis) {
     Write-Host "Installing AI CLIs..."
     foreach ($cli in $data.ai_clis.clis.PSObject.Properties) {
         $cmd = $cli.Value.install.windows
@@ -619,6 +637,9 @@ Complete-ProgressStep
   Add-SetupFailure -Phase "aborted" -Name "bootstrap" -ErrorRecord $_
   throw
 } finally {
+  if ($overrideDataFile) {
+    Remove-Item $overrideDataFile -ErrorAction SilentlyContinue
+  }
   Stop-Progress
   Write-SetupReport
 }

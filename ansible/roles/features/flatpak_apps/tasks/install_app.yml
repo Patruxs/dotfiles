@@ -1,0 +1,16 @@
+---
+- name: Install flatpak app {{ flatpak_app }}
+  block:
+    - name: Install or update flatpak app {{ flatpak_app }}
+      community.general.flatpak:
+        name: "{{ flatpak_app }}"
+        method: user
+        remote: flathub
+        state: latest
+  rescue:
+    - name: Record flatpak app installer failure
+      ansible.builtin.include_role:
+        name: record_failure
+      vars:
+        failure_phase: flatpak_app
+        failure_name: "{{ flatpak_app }}"
