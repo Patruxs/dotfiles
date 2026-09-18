@@ -11,7 +11,8 @@
 
 - name: Fail when Plasma add-ons cannot be installed on this machine
   fail:
-    msg: "plasma_addons is selected but neither kpackagetool6 nor kpackagetool5 is installed; install the KDE package tools (kpackage) or drop plasma_addons from the profile."
+    msg: "plasma_addons is selected but neither kpackagetool6 nor kpackagetool5 is installed; install the KDE package tools (kpackage) or drop plasma_addons from
+      the profile."
   when: plasma_addons_package_tool.rc != 0
 
 - name: Check whether the Plasma add-ons already match upstream

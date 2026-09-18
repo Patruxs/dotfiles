@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Omarchy: Tmux terminal
-Exec=/usr/bin/ghostty -e tmux new-session -A -s main
+Exec=ghostty -e tmux new-session -A -s main
 Icon=com.mitchellh.ghostty
 NoDisplay=true
 Terminal=false

@@ -1,9 +1,0 @@
----
-- name: Base role placeholder
-  debug:
-    msg: >-
-      bootstrap.sh already primes sudo for interactive setup runs. Re-validating
-      sudo from inside an Ansible module can fail on Ubuntu because sudo tickets
-      are scoped to the interactive tty.
-    verbosity: 1
-  when: ansible_facts["system"] != "Windows"

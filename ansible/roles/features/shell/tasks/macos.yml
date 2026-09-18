@@ -1,0 +1,28 @@
+---
+- name: Check for the Homebrew bash (macOS)
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /opt/homebrew/bin/bash
+    - /usr/local/bin/bash
+  register: shell_brew_bash
+
+- name: Choose the login shell (macOS)
+  set_fact:
+    shell_macos_login_shell: >-
+      {{
+        (shell_brew_bash.results | selectattr('stat.exists') | map(attribute='item') | list + ['/bin/bash']) | first
+      }}
+
+- name: Allow the Homebrew bash as a login shell (macOS)
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/shells
+    line: "{{ shell_macos_login_shell }}"
+  when: shell_macos_login_shell != '/bin/bash'
+
+- name: Set bash as default shell (macOS)
+  become: true
+  user:
+    name: "{{ ansible_facts['user_id'] }}"
+    shell: "{{ shell_macos_login_shell }}"

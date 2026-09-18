@@ -31,7 +31,7 @@
         (ci_excluded_system_packages if dotfiles_ci | default(false) else []) +
         (
           docker_desktop_conflicting_system_packages
-          if 'docker-desktop' in (linux_native_apps | default([]))
+          if 'docker_desktop' in (features | default([]))
           else []
         )
       }}
@@ -118,13 +118,13 @@
       }}
 
 - name: Install Linux system packages
-  include_tasks: "{{ chezmoi_dir }}/ansible/roles/packages/tasks/linux-{{ dotfiles_platform.distro_key }}.yml"
+  include_tasks: "linux-{{ dotfiles_platform.distro_key }}.yml"
   when:
     - dotfiles_platform.system == 'Linux'
     - dotfiles_platform.distro_key != ''
     - system_packages | length > 0
 
 - name: Install Homebrew packages
-  include_tasks: "{{ chezmoi_dir }}/ansible/roles/packages/tasks/macos.yml"
+  include_tasks: macos.yml
   when:
     - dotfiles_platform.os_family == 'Darwin'

@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Omarchy: File manager (Dolphin)
-Exec=/usr/bin/dolphin
+Exec=dolphin
 Icon=system-file-manager
 NoDisplay=true
 Terminal=false

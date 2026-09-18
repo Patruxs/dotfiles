@@ -78,7 +78,7 @@ package_dir_of() {
   rm -rf "$unpacked"
   mkdir -p "$unpacked"
   unzip -q -o "$source" -d "$unpacked"
-  find "$unpacked" -name metadata.json -print -quit | xargs -r dirname
+  find "$unpacked" -name metadata.json -print0 -quit | xargs -0 -r dirname
 }
 
 kpackage_install() {
@@ -123,7 +123,7 @@ geometry_change_install() {
   download_release_asset peterfajdiga/kwin4_effect_geometry_change "v$tag" "kwin4_effect_geometry_change_${tag//./_}.tar.gz" "$tmp/effect.tar.gz" '\.tar\.gz$'
   mkdir -p "$tmp/unpacked"
   extract "$tmp/effect.tar.gz" "$tmp/unpacked"
-  package="$(find "$tmp/unpacked" -name metadata.json -print -quit | xargs -r dirname)"
+  package="$(find "$tmp/unpacked" -name metadata.json -print0 -quit | xargs -0 -r dirname)"
   [ -n "$package" ] || die "the kwin4_effect_geometry_change archive has no metadata.json"
   kpackage_install KWin/Effect "$geometry_change_dir" "$package"
 }
@@ -162,7 +162,7 @@ kde_control_station_install() {
   mkdir -p "$tmp/unpacked"
   fetch "$url" -o "$tmp/KdeControlStation.tar.xz"
   extract "$tmp/KdeControlStation.tar.xz" "$tmp/unpacked"
-  package="$(find "$tmp/unpacked" -name metadata.json -print -quit | xargs -r dirname)"
+  package="$(find "$tmp/unpacked" -name metadata.json -print0 -quit | xargs -0 -r dirname)"
   [ -n "$package" ] || die "the KDE Control Station archive has no metadata.json"
   kpackage_install Plasma/Applet "$kde_control_station_dir" "$package"
   printf '%s\n' "$version" >"$kde_control_station_marker"

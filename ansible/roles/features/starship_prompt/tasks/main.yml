@@ -2,11 +2,20 @@
 - name: Install or update Starship on Ubuntu from the upstream installer
   ansible.builtin.shell: |
     set -euo pipefail
+    dotfiles_fingerprint() {
+      sha256sum "$HOME/.local/bin/starship" 2>/dev/null || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
     mkdir -p "$HOME/.local/bin"
     curl -fsSL https://starship.rs/install.sh | sh -s -- --yes --bin-dir "$HOME/.local/bin"
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
   args:
     executable: /bin/bash
-  changed_when: false
+  register: dotfiles_starship_ubuntu_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_starship_ubuntu_install.stdout_lines"
   when:
     - dotfiles_platform.name == 'ubuntu'
     - not (dotfiles_ci | default(false))
@@ -14,6 +23,11 @@
 - name: Install or update Starship on Fedora from a repo that carries it or the upstream installer
   ansible.builtin.shell: |
     set -euo pipefail
+    dotfiles_fingerprint() {
+      rpm -q starship 2>/dev/null || true
+      sha256sum "$HOME/.local/bin/starship" 2>/dev/null || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
     if rpm -q starship >/dev/null 2>&1 || dnf -q list --available starship >/dev/null 2>&1; then
       if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
         sudo -S -p '' dnf install -y starship < {{ dotfiles_sudo_password_file | quote }}
@@ -24,9 +38,14 @@
       mkdir -p "$HOME/.local/bin"
       curl -fsSL https://starship.rs/install.sh | sh -s -- --yes --bin-dir "$HOME/.local/bin"
     fi
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
   args:
     executable: /bin/bash
-  changed_when: false
+  register: dotfiles_starship_fedora_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_starship_fedora_install.stdout_lines"
   when:
     - dotfiles_platform.name == 'fedora'
     - not (dotfiles_ci | default(false))

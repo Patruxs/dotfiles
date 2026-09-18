@@ -31,11 +31,33 @@ else
     log_info "ShellCheck passed."
 fi
 
+if ! command -v yamllint >/dev/null 2>&1; then
+    log_warn "yamllint is not installed. Skipping YAML linting."
+else
+    log_info "Running yamllint..."
+    yamllint --strict . || {
+        log_err "yamllint failed."
+        exit 1
+    }
+    log_info "yamllint passed."
+fi
+
+if ! command -v ansible-lint >/dev/null 2>&1; then
+    log_warn "ansible-lint is not installed. Skipping Ansible linting."
+else
+    log_info "Running ansible-lint..."
+    ansible-lint --offline ansible/playbooks ansible/roles || {
+        log_err "ansible-lint failed."
+        exit 1
+    }
+    log_info "ansible-lint passed."
+fi
+
 if ! command -v ansible-playbook >/dev/null 2>&1; then
     log_warn "ansible-playbook is not installed. Skipping Ansible syntax check."
 else
     log_info "Running Ansible Syntax Check..."
-    for playbook in ansible/playbooks/setup.yml ansible/playbooks/ubuntu.yml ansible/playbooks/fedora.yml ansible/playbooks/arch.yml ansible/playbooks/macos.yml; do
+    for playbook in ansible/playbooks/ubuntu.yml ansible/playbooks/fedora.yml ansible/playbooks/arch.yml ansible/playbooks/macos.yml; do
         ansible-playbook --syntax-check "$playbook" || {
             log_err "Ansible syntax check failed for $playbook."
             exit 1

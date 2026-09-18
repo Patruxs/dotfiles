@@ -1,0 +1,84 @@
+---
+- name: Install or update Ghostty on Debian-based Linux
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dotfiles_fingerprint() {
+      dpkg-query -W -f='${db:Status-Status} ${Version}\n' ghostty 2>/dev/null || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)" < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)"
+    fi
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
+  args:
+    executable: /bin/bash
+  register: dotfiles_ghostty_debian_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_ghostty_debian_install.stdout_lines"
+  when:
+    - dotfiles_platform.distro_key == 'debian'
+
+# Fedora itself does not package Ghostty, so the scottames/ghostty Copr is
+# added. Fedora derivatives such as Nobara already carry it in their own repos
+# (Terra), so the Copr is only enabled when no enabled repo can provide it.
+- name: Install or update Ghostty on Fedora
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dotfiles_fingerprint() {
+      rpm -q ghostty 2>/dev/null || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
+    root_script="$(mktemp)"
+    trap 'rm -f "$root_script"' EXIT
+    cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
+    set -euo pipefail
+    if ! rpm -q ghostty >/dev/null 2>&1 && ! dnf -q list --available ghostty >/dev/null 2>&1; then
+      dnf -y copr enable scottames/ghostty
+    fi
+    dnf install -y ghostty
+    DOTFILES_ROOT_SCRIPT
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n /bin/bash "$root_script"
+    fi
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
+  args:
+    executable: /bin/bash
+  register: dotfiles_ghostty_fedora_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_ghostty_fedora_install.stdout_lines"
+  when:
+    - dotfiles_platform.distro_key == 'fedora'
+
+- name: Install or update Ghostty on Arch Linux
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dotfiles_fingerprint() {
+      pacman -Q ghostty 2>/dev/null || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' pacman -S --noconfirm --needed ghostty < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n pacman -S --noconfirm --needed ghostty
+    fi
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
+  args:
+    executable: /bin/bash
+  register: dotfiles_ghostty_arch_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_ghostty_arch_install.stdout_lines"
+  when:
+    - dotfiles_platform.distro_key == 'arch'

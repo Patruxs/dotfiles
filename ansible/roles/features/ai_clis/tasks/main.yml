@@ -1,4 +1,36 @@
 ---
-- name: Install selected AI CLIs
-  include_role:
-    name: ai_tools
+- name: Skip AI CLI upstream installers in automation
+  debug:
+    msg: "Skipping AI CLI upstream installers in automation; run bootstrap locally to install or update AI CLIs."
+  when: dotfiles_automation | default(false)
+
+- name: Load AI CLIs data
+  include_vars:
+    file: "{{ chezmoi_dir }}/home/.chezmoidata/ai-clis.yaml"
+    name: ai_clis_data
+  when:
+    - not (dotfiles_ci | default(false))
+    - not (dotfiles_automation | default(false))
+
+- name: Ensure user-local CLI install directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ lookup('env', 'HOME') }}/.local/bin"
+    - "{{ lookup('env', 'HOME') }}/.local/lib"
+  when:
+    - dotfiles_platform.system != 'Windows'
+    - not (dotfiles_ci | default(false))
+    - not (dotfiles_automation | default(false))
+
+- name: Install AI CLIs (Unix)
+  include_tasks: install_unix_cli_best_effort.yml
+  loop: "{{ (ai_clis_data.ai_clis.clis | default({})) | dict2items }}"
+  loop_control:
+    loop_var: ai_cli
+  when:
+    - dotfiles_platform.system != 'Windows'
+    - not (dotfiles_ci | default(false))
+    - not (dotfiles_automation | default(false))

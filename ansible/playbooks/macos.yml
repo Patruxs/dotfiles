@@ -1,8 +1,8 @@
 ---
-- name: macOS setup
+- name: Set up macOS
   hosts: localhost
   connection: local
-  gather_facts: yes
+  gather_facts: true
 
   vars:
     chezmoi_dir: "{{ lookup('env', 'DOTFILES_CHEZMOI_DIR') | default(lookup('env', 'HOME') ~ '/.local/share/chezmoi', true) }}"
@@ -17,8 +17,8 @@
       distribution_version: "{{ ansible_facts['distribution_version'] | default('') }}"
       distribution_major_version: "{{ ansible_facts['distribution_major_version'] | default('') }}"
       architecture: "{{ ansible_facts['architecture'] | default('') }}"
-      distro_key: ''
-      ubuntu_codename: ''
+      distro_key: ""
+      ubuntu_codename: ""
 
   pre_tasks:
     - name: Load macOS package set
@@ -27,4 +27,5 @@
         name: platform_package_data
 
   tasks:
-    - import_tasks: common.yml
+    - name: Run the shared setup tasks
+      ansible.builtin.import_tasks: common.yml

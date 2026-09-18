@@ -1,0 +1,137 @@
+---
+- name: Install or update VirtualBox on Debian-based Linux
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dotfiles_fingerprint() {
+      dpkg-query -W -f='${Package} ${db:Status-Status} ${Version}\n' 'virtualbox*' 2>/dev/null || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
+    root_script="$(mktemp)"
+    trap 'rm -f "$root_script"' EXIT
+    cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
+    set -euo pipefail
+    codename="{{ dotfiles_platform.ubuntu_codename }}"
+    oracle_repo="https://download.virtualbox.org/virtualbox/debian"
+    oracle_list="/etc/apt/sources.list.d/virtualbox.list"
+    oracle_keyring="/etc/apt/keyrings/oracle-virtualbox-2016.gpg"
+    oracle_installed="$(dpkg-query -W -f '${Package} ${db:Status-Status}\n' 'virtualbox-[0-9]*' 2>/dev/null | awk '$2 == "installed" {print $1; exit}' || true)"
+    probe_status="000"
+    if [ -n "$codename" ]; then
+      probe_status="$(curl -sS --connect-timeout 10 --max-time 30 -o /dev/null -w '%{http_code}' "${oracle_repo}/dists/${codename}/Release" || true)"
+    fi
+
+    vbox_package=""
+    if [ "$probe_status" = "200" ]; then
+      install -d -m 0755 /etc/apt/keyrings
+      if [ ! -f "$oracle_keyring" ]; then
+        keyring_tmp="$(mktemp)"
+        curl -fsSL https://www.virtualbox.org/download/oracle_vbox_2016.asc | gpg --dearmor > "$keyring_tmp"
+        install -D -o root -g root -m 0644 "$keyring_tmp" "$oracle_keyring"
+        rm -f "$keyring_tmp"
+      fi
+      printf '%s\n' "deb [arch=amd64 signed-by=${oracle_keyring}] ${oracle_repo} ${codename} contrib" > "$oracle_list"
+      apt-get update
+      latest_line="$(curl -fsSL --max-time 30 https://download.virtualbox.org/virtualbox/LATEST.TXT | grep -oE '^[0-9]+\.[0-9]+' | head -n 1 || true)"
+      available_lines="$(apt-cache search --names-only '^virtualbox-[0-9]+\.[0-9]+$' | awk '{print $1}' | sort -t- -k2,2V || true)"
+      if [ -n "$latest_line" ] && printf '%s\n' "$available_lines" | grep -qx "virtualbox-${latest_line}"; then
+        vbox_package="virtualbox-${latest_line}"
+      else
+        vbox_package="$(printf '%s\n' "$available_lines" | tail -n 1)"
+      fi
+    fi
+
+    if [ -n "$vbox_package" ]; then
+      echo "Installing ${vbox_package} from Oracle's repository."
+      apt-get install -y "$vbox_package"
+    elif [ -n "$oracle_installed" ]; then
+      if [ "$probe_status" = "404" ]; then
+        echo "Oracle's VirtualBox repository has no build for ${codename} yet; keeping the installed ${oracle_installed}."
+      else
+        echo "Oracle's VirtualBox repository is unreachable (HTTP ${probe_status}); leaving the installed ${oracle_installed} alone."
+      fi
+    else
+      echo "Oracle's VirtualBox repository has no build for ${codename:-this release}; installing the distribution package instead."
+      rm -f "$oracle_list"
+      apt-get update
+      apt-get install -y virtualbox virtualbox-dkms virtualbox-qt
+    fi
+    DOTFILES_ROOT_SCRIPT
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n /bin/bash "$root_script"
+    fi
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
+  args:
+    executable: /bin/bash
+  register: dotfiles_virtualbox_debian_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_virtualbox_debian_install.stdout_lines"
+  when:
+    - dotfiles_platform.distro_key == 'debian'
+    - dotfiles_platform.architecture in ['x86_64', 'amd64']
+
+# VirtualBox comes from RPM Fusion Free. The release package is only added when
+# no enabled repo can already provide VirtualBox (re-runs, or derivatives that
+# ship it themselves). `rpm -E %fedora` resolves on derivatives too, so the
+# matching Fedora release package is picked.
+- name: Install or update VirtualBox on Fedora
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dotfiles_fingerprint() {
+      rpm -q VirtualBox akmod-VirtualBox 2>/dev/null || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
+    root_script="$(mktemp)"
+    trap 'rm -f "$root_script"' EXIT
+    cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
+    set -euo pipefail
+    if ! rpm -q VirtualBox >/dev/null 2>&1 && ! dnf -q list --available VirtualBox >/dev/null 2>&1; then
+      dnf install -y "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
+    fi
+    dnf install -y VirtualBox akmod-VirtualBox
+    DOTFILES_ROOT_SCRIPT
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n /bin/bash "$root_script"
+    fi
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
+  args:
+    executable: /bin/bash
+  register: dotfiles_virtualbox_fedora_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_virtualbox_fedora_install.stdout_lines"
+  when:
+    - dotfiles_platform.distro_key == 'fedora'
+
+- name: Install or update VirtualBox on Arch Linux
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dotfiles_fingerprint() {
+      pacman -Q virtualbox virtualbox-host-modules-arch 2>/dev/null || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' pacman -S --noconfirm --needed virtualbox virtualbox-host-modules-arch < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n pacman -S --noconfirm --needed virtualbox virtualbox-host-modules-arch
+    fi
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
+  args:
+    executable: /bin/bash
+  register: dotfiles_virtualbox_arch_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_virtualbox_arch_install.stdout_lines"
+  when:
+    - dotfiles_platform.distro_key == 'arch'
+    - dotfiles_platform.architecture in ['x86_64', 'amd64']

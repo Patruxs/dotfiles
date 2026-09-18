@@ -19,6 +19,7 @@ platform=""
 desktop=""
 desktop_detail=""
 setup_mode="${DOTFILES_SETUP_MODE:-best_effort}"
+system_upgrade="${DOTFILES_SYSTEM_UPGRADE:-1}"
 report_file="$HOME/.dotfiles_setup_report.md"
 
 if [ "$OS" = "Linux" ] && [ -f /etc/os-release ]; then
@@ -104,7 +105,7 @@ is_ci() {
 using_checked_out_source() {
   [ -n "$script_dir" ] &&
     [ -e "$script_dir/.git" ] &&
-    [ -f "$script_dir/ansible/playbooks/setup.yml" ]
+    [ -f "$script_dir/ansible/playbooks/common.yml" ]
 }
 
 resolve_chezmoi_dir() {
@@ -1224,13 +1225,17 @@ while [[ $# -gt 0 ]]; do
       setup_mode="best_effort"
       shift
       ;;
+    --no-system-upgrade)
+      system_upgrade="0"
+      shift
+      ;;
     --help|-h)
-      echo "Usage: $0 [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--desktop gnome|kde|none] [--best-effort|--strict]"
+      echo "Usage: $0 [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--desktop gnome|kde|none] [--best-effort|--strict] [--no-system-upgrade]"
       exit 0
       ;;
     *)
       echo "Unknown argument: $1"
-      echo "Usage: $0 [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--desktop gnome|kde|none] [--best-effort|--strict]"
+      echo "Usage: $0 [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--desktop gnome|kde|none] [--best-effort|--strict] [--no-system-upgrade]"
       exit 1
       ;;
   esac
@@ -1289,6 +1294,8 @@ plan_step() {
 if [ "$OS" = "Linux" ]; then
   if is_ci; then
     plan_step skip "System package refresh" "Skipping system package refresh in lightweight CI mode." "Skipped in lightweight CI mode."
+  elif [ "$system_upgrade" = "0" ]; then
+    plan_step skip "System package refresh" "Skipping system package refresh (--no-system-upgrade)." "Skipped by --no-system-upgrade."
   else
     plan_step run "System package refresh" update_system
   fi

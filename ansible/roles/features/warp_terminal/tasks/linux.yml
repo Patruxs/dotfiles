@@ -1,0 +1,117 @@
+---
+- name: Install or update Warp on Debian-based Linux
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dotfiles_fingerprint() {
+      dpkg-query -W -f='${db:Status-Status} ${Version}\n' warp-terminal 2>/dev/null || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
+    root_script="$(mktemp)"
+    trap 'rm -f "$root_script"' EXIT
+    cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
+    set -euo pipefail
+    warp_repo_arch="{{ 'amd64' if dotfiles_platform.architecture in ['x86_64', 'amd64'] else 'arm64' }}"
+    install -d -m 0755 /etc/apt/keyrings
+    if [ ! -f /etc/apt/keyrings/warpdotdev.gpg ]; then
+      wget -qO- https://releases.warp.dev/linux/keys/warp.asc | gpg --dearmor > /tmp/warpdotdev.gpg
+      install -D -o root -g root -m 0644 /tmp/warpdotdev.gpg /etc/apt/keyrings/warpdotdev.gpg
+      rm -f /tmp/warpdotdev.gpg
+    fi
+    printf '%s\n' "deb [arch=${warp_repo_arch} signed-by=/etc/apt/keyrings/warpdotdev.gpg] https://releases.warp.dev/linux/deb stable main" > /etc/apt/sources.list.d/warpdotdev.list
+    apt-get update
+    apt-get install -y warp-terminal
+    DOTFILES_ROOT_SCRIPT
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n /bin/bash "$root_script"
+    fi
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
+  args:
+    executable: /bin/bash
+  register: dotfiles_warp_debian_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_warp_debian_install.stdout_lines"
+  when:
+    - dotfiles_platform.distro_key == 'debian'
+
+- name: Install or update Warp on Fedora
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dotfiles_fingerprint() {
+      rpm -q warp-terminal 2>/dev/null || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
+    root_script="$(mktemp)"
+    trap 'rm -f "$root_script"' EXIT
+    cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
+    set -euo pipefail
+    rpm --import https://releases.warp.dev/linux/keys/warp.asc
+    printf '%s\n' \
+      '[warpdotdev]' \
+      'name=warpdotdev' \
+      'baseurl=https://releases.warp.dev/linux/rpm/stable' \
+      'enabled=1' \
+      'gpgcheck=1' \
+      'gpgkey=https://releases.warp.dev/linux/keys/warp.asc' \
+      > /etc/yum.repos.d/warpdotdev.repo
+    dnf install -y warp-terminal
+    DOTFILES_ROOT_SCRIPT
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n /bin/bash "$root_script"
+    fi
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
+  args:
+    executable: /bin/bash
+  register: dotfiles_warp_fedora_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_warp_fedora_install.stdout_lines"
+  when:
+    - dotfiles_platform.distro_key == 'fedora'
+
+- name: Install or update Warp on Arch Linux
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dotfiles_fingerprint() {
+      pacman -Q warp-terminal 2>/dev/null || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
+    root_script="$(mktemp)"
+    trap 'rm -f "$root_script"' EXIT
+    cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
+    set -euo pipefail
+    if ! pacman-key --list-secret-keys 2>/dev/null | grep -q '^sec'; then
+      pacman-key --init
+      pacman-key --populate archlinux
+    fi
+    if ! grep -q '^\[warpdotdev\]' /etc/pacman.conf; then
+      printf '\n%s\n%s\n' '[warpdotdev]' 'Server = https://releases.warp.dev/linux/pacman/$repo/$arch' >> /etc/pacman.conf
+    fi
+    pacman-key -r "linux-maintainers@warp.dev"
+    pacman-key --lsign-key "linux-maintainers@warp.dev"
+    pacman -Sy --noconfirm --needed warp-terminal
+    DOTFILES_ROOT_SCRIPT
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n /bin/bash "$root_script"
+    fi
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
+  args:
+    executable: /bin/bash
+  register: dotfiles_warp_arch_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_warp_arch_install.stdout_lines"
+  when:
+    - dotfiles_platform.distro_key == 'arch'

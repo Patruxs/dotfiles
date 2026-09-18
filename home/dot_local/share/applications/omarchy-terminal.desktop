@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Omarchy: Terminal (Ghostty)
-Exec=/usr/bin/ghostty
+Exec=ghostty
 Icon=com.mitchellh.ghostty
 NoDisplay=true
 Terminal=false

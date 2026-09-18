@@ -1,35 +1,66 @@
+---
 name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
+  schedule:
+  - cron: "0 6 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  checks:
+    name: Test harness
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v5
+    - name: Install shellcheck, Ansible, yamllint and ansible-lint
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y shellcheck ansible pipx
+        pipx install yamllint
+        pipx install ansible-lint
+    - name: Install chezmoi
+      run: |
+        mkdir -p "$HOME/.local/bin"
+        sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+    - name: Run test harness
+      run: |
+        export PATH="$HOME/.local/bin:$PATH"
+        ./test/test_harness.sh
+
   ubuntu-latest:
     name: Ubuntu (${{ matrix.profile }})
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         profile: [personal, work]
     env:
       GITHUB_TOKEN: ${{ github.token }}
-    
+
     steps:
     - uses: actions/checkout@v5
-    
+
     - name: Run Bootstrap
-      run: ./bootstrap.sh --profile ${{ matrix.profile }}
-        
+      run: ./bootstrap.sh --profile ${{ matrix.profile }} --strict
+    - name: Check Setup Report
+      run: ./test/ci_setup_report_check.sh
     - name: Check Idempotency
       run: |
+        set -o pipefail
         export PATH="$HOME/.local/bin:$PATH"
         output_log="$(mktemp)"
         chezmoi_diff="$(mktemp)"
-        ./bootstrap.sh --profile ${{ matrix.profile }} | tee "$output_log"
+        ./bootstrap.sh --profile ${{ matrix.profile }} --strict | tee "$output_log"
         if grep -qE "changed=[1-9]" "$output_log"; then
           echo "Idempotency test failed, changes were made on the second run"
           exit 1
@@ -40,10 +71,13 @@ jobs:
           echo "Idempotency test failed, chezmoi diff reported changes after the second run"
           exit 1
         fi
+    - name: Check Setup Report After Second Run
+      run: ./test/ci_setup_report_check.sh
 
   macos-latest:
     name: macOS (${{ matrix.profile }})
     runs-on: macos-latest
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -57,13 +91,16 @@ jobs:
     steps:
     - uses: actions/checkout@v5
     - name: Run Bootstrap
-      run: ./bootstrap.sh --profile ${{ matrix.profile }}
+      run: ./bootstrap.sh --profile ${{ matrix.profile }} --strict
+    - name: Check Setup Report
+      run: ./test/ci_setup_report_check.sh
     - name: Check Idempotency
       run: |
+        set -o pipefail
         export PATH="$HOME/.local/bin:$PATH"
         output_log="$(mktemp)"
         chezmoi_diff="$(mktemp)"
-        ./bootstrap.sh --profile ${{ matrix.profile }} | tee "$output_log"
+        ./bootstrap.sh --profile ${{ matrix.profile }} --strict | tee "$output_log"
         if grep -qE "changed=[1-9]" "$output_log"; then
           echo "Idempotency test failed, changes were made on the second run"
           exit 1
@@ -74,10 +111,13 @@ jobs:
           echo "Idempotency test failed, chezmoi diff reported changes after the second run"
           exit 1
         fi
+    - name: Check Setup Report After Second Run
+      run: ./test/ci_setup_report_check.sh
 
   windows-latest:
     name: Windows (${{ matrix.profile }})
     runs-on: windows-latest
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -89,11 +129,22 @@ jobs:
       with:
         set-safe-directory: false
     - name: Run Bootstrap
-      run: .\bootstrap.ps1 -ProfileName ${{ matrix.profile }}
+      run: .\bootstrap.ps1 -ProfileName ${{ matrix.profile }} -SetupMode strict
+    - name: Check Setup Report
+      shell: pwsh
+      run: |
+        $report = Join-Path $HOME ".dotfiles_setup_report.md"
+        if (-not (Test-Path $report)) {
+          throw "Setup report not found at $report."
+        }
+        if (-not (Select-String -Path $report -SimpleMatch -Pattern "- Result: Completed successfully." -Quiet)) {
+          Get-Content $report | Write-Host
+          throw "Setup report does not say the run completed successfully."
+        }
     - name: Check Idempotency
       shell: pwsh
       run: |
-        .\bootstrap.ps1 -ProfileName ${{ matrix.profile }}
+        .\bootstrap.ps1 -ProfileName ${{ matrix.profile }} -SetupMode strict
         $diff = chezmoi diff --source "$PWD"
         if ($LASTEXITCODE -ne 0) {
           throw "chezmoi diff failed with exit code $LASTEXITCODE."
@@ -102,6 +153,17 @@ jobs:
           $diff | Write-Host
           throw "Idempotency test failed, chezmoi diff reported changes after the second run."
         }
+    - name: Check Setup Report After Second Run
+      shell: pwsh
+      run: |
+        $report = Join-Path $HOME ".dotfiles_setup_report.md"
+        if (-not (Test-Path $report)) {
+          throw "Setup report not found at $report."
+        }
+        if (-not (Select-String -Path $report -SimpleMatch -Pattern "- Result: Completed successfully." -Quiet)) {
+          Get-Content $report | Write-Host
+          throw "Setup report does not say the run completed successfully."
+        }
     - name: Run CI Bootstrap Regression Checks
       shell: bash
       run: ./test/ci_bootstrap_regressions.sh
@@ -109,6 +171,7 @@ jobs:
   fedora-latest:
     name: Fedora (${{ matrix.profile }})
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -122,13 +185,16 @@ jobs:
       run: dnf install -y git sudo curl
     - uses: actions/checkout@v5
     - name: Run Bootstrap (Fedora)
-      run: ./bootstrap.sh --profile ${{ matrix.profile }}
+      run: ./bootstrap.sh --profile ${{ matrix.profile }} --strict
+    - name: Check Setup Report
+      run: ./test/ci_setup_report_check.sh
     - name: Check Idempotency (Fedora)
       run: |
+        set -o pipefail
         export PATH="$HOME/.local/bin:$PATH"
         output_log="$(mktemp)"
         chezmoi_diff="$(mktemp)"
-        ./bootstrap.sh --profile ${{ matrix.profile }} | tee "$output_log"
+        ./bootstrap.sh --profile ${{ matrix.profile }} --strict | tee "$output_log"
         if grep -qE "changed=[1-9]" "$output_log"; then
           echo "Idempotency test failed, changes were made on the second run"
           exit 1
@@ -139,10 +205,13 @@ jobs:
           echo "Idempotency test failed, chezmoi diff reported changes after the second run"
           exit 1
         fi
+    - name: Check Setup Report After Second Run
+      run: ./test/ci_setup_report_check.sh
 
   arch-latest:
     name: Arch (${{ matrix.profile }})
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -156,13 +225,16 @@ jobs:
       run: pacman -Syu --noconfirm git sudo curl
     - uses: actions/checkout@v5
     - name: Run Bootstrap (Arch)
-      run: ./bootstrap.sh --profile ${{ matrix.profile }}
+      run: ./bootstrap.sh --profile ${{ matrix.profile }} --strict
+    - name: Check Setup Report
+      run: ./test/ci_setup_report_check.sh
     - name: Check Idempotency (Arch)
       run: |
+        set -o pipefail
         export PATH="$HOME/.local/bin:$PATH"
         output_log="$(mktemp)"
         chezmoi_diff="$(mktemp)"
-        ./bootstrap.sh --profile ${{ matrix.profile }} | tee "$output_log"
+        ./bootstrap.sh --profile ${{ matrix.profile }} --strict | tee "$output_log"
         if grep -qE "changed=[1-9]" "$output_log"; then
           echo "Idempotency test failed, changes were made on the second run"
           exit 1
@@ -173,3 +245,5 @@ jobs:
           echo "Idempotency test failed, chezmoi diff reported changes after the second run"
           exit 1
         fi
+    - name: Check Setup Report After Second Run
+      run: ./test/ci_setup_report_check.sh

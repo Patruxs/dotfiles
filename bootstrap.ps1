@@ -612,6 +612,10 @@ Set-ProgressLabel "chezmoi data"
 $dataJson = chezmoi data --source $chezmoiSource
 Assert-LastExitCode "chezmoi data"
 $data = $dataJson | ConvertFrom-Json
+$profileFeatures = @()
+if ($null -ne $data.dotfiles_features) {
+    $profileFeatures = @($data.dotfiles_features)
+}
 Complete-ProgressStep
 
 $pkgs = @()
@@ -650,7 +654,7 @@ if ((-not (Test-IsCi)) -and $null -ne $data.devtools.npm_global_packages -and (G
 }
 Complete-ProgressStep
 
-if ($selectedProfile -eq "personal" -and (-not (Test-IsCi)) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
+if (($profileFeatures -contains "bitwarden_cli") -and (-not (Test-IsCi)) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
     Invoke-BestEffort -Phase "bitwarden_cli" -Name "Bitwarden CLI" -ScriptBlock {
         Write-Host "Installing Bitwarden CLI via NPM..."
         npm install -g "@bitwarden/cli@latest"
@@ -659,7 +663,7 @@ if ($selectedProfile -eq "personal" -and (-not (Test-IsCi)) -and (Get-Command np
 }
 Complete-ProgressStep
 
-if ($selectedProfile -eq "personal" -and (-not (Test-IsCi))) {
+if (($profileFeatures -contains "llmfit") -and (-not (Test-IsCi))) {
     Invoke-BestEffort -Phase "llmfit" -Name "llmfit" -ScriptBlock {
         Write-Host "Installing or updating llmfit from its latest GitHub release..."
         Install-Llmfit

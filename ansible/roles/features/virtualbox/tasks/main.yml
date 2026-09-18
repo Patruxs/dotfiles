@@ -1,8 +1,6 @@
 ---
-# Fedora derivatives (Nobara, ...) resolve to distro_key 'fedora' and take the
-# same RPM Fusion path as Fedora itself.
-- name: Install VirtualBox feature on Linux
-  include_tasks: "{{ chezmoi_dir }}/ansible/roles/linux_apps/tasks/linux-virtualbox.yml"
+- name: Install VirtualBox on Linux
+  include_tasks: linux.yml
   when:
     - dotfiles_platform.system == 'Linux'
     - not (dotfiles_ci | default(false))

@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Omarchy: Editor (Neovim)
-Exec=/usr/bin/ghostty -e nvim
+Exec=ghostty -e nvim
 Icon=nvim
 NoDisplay=true
 Terminal=false

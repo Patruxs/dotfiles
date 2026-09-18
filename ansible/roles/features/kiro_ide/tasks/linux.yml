@@ -1,0 +1,65 @@
+---
+- name: Install or update Kiro on Linux
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dotfiles_fingerprint() {
+      sha256sum /opt/Kiro/resources/app/package.json 2>/dev/null || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
+    root_script="$(mktemp)"
+    trap 'rm -f "$root_script"' EXIT
+    cat >"$root_script" <<'DOTFILES_ROOT_SCRIPT'
+    set -euo pipefail
+
+    metadata_url="https://prod.download.desktop.kiro.dev/stable/metadata-linux-x64-stable.json"
+    latest_version="$(curl -fsSL "$metadata_url" | jq -r '.currentRelease')"
+    current_version=""
+
+    if [ -f /opt/Kiro/resources/app/package.json ]; then
+      current_version="$(jq -r '.version // empty' /opt/Kiro/resources/app/package.json)"
+    fi
+
+    if [ "$current_version" = "$latest_version" ] && [ -x /opt/Kiro/bin/kiro ]; then
+      exit 0
+    fi
+
+    archive_url="$(curl -fsSL "$metadata_url" | jq -r '.releases[] | .updateTo.url | select(test("\\.tar\\.gz$"))' | head -n 1)"
+    tmpdir="$(mktemp -d)"
+    trap 'rm -rf "$tmpdir"' EXIT
+
+    curl -fsSL "$archive_url" -o "$tmpdir/kiro.tar.gz"
+    rm -rf /opt/Kiro
+    tar -xzf "$tmpdir/kiro.tar.gz" -C /opt
+
+    ln -sf /opt/Kiro/bin/kiro /usr/local/bin/kiro
+    install -d -m 0755 /usr/local/share/applications /usr/local/share/pixmaps
+    install -m 0644 /opt/Kiro/resources/app/resources/linux/code.png /usr/local/share/pixmaps/kiro.png
+
+    printf '%s\n' \
+      '[Desktop Entry]' \
+      'Name=Kiro' \
+      'Comment=Kiro IDE' \
+      'Exec=/opt/Kiro/bin/kiro %F' \
+      'Icon=kiro' \
+      'Type=Application' \
+      'Terminal=false' \
+      'Categories=Development;IDE;' \
+      'StartupWMClass=Kiro' \
+      > /usr/local/share/applications/kiro.desktop
+    DOTFILES_ROOT_SCRIPT
+
+    if [ -n {{ dotfiles_sudo_password_file | quote }} ]; then
+      sudo -S -p '' /bin/bash "$root_script" < {{ dotfiles_sudo_password_file | quote }}
+    else
+      sudo -n /bin/bash "$root_script"
+    fi
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
+  args:
+    executable: /bin/bash
+  register: dotfiles_kiro_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_kiro_install.stdout_lines"
+  when:
+    - dotfiles_platform.architecture in ['x86_64', 'amd64']

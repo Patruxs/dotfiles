@@ -135,7 +135,7 @@
 - name: Save selected profile to facts cache
   set_fact:
     dotfiles_profile: "{{ profile }}"
-    cacheable: yes
+    cacheable: true
 
 - name: Remove old legacy profile file if it exists
   file:
@@ -146,33 +146,24 @@
   include_vars:
     file: "{{ chezmoi_dir }}/ansible/vars/profiles/{{ profile }}.yml"
 
-- name: Derive feature compatibility vars
-  set_fact:
-    gnome_settings_enabled: "{{ 'desktop_base' in (features | default([])) }}"
-    kde_settings_enabled: "{{ 'desktop_base' in (features | default([])) }}"
-    install_ai_clis: "{{ 'ai_clis' in (features | default([])) }}"
-    install_docker: "{{ ('docker_engine' in (features | default([]))) or ('docker_desktop' in (features | default([]))) }}"
-    install_jetbrains_toolbox: "{{ 'jetbrains_toolbox' in (features | default([])) }}"
-    linux_native_apps: >-
-      {{
-        []
-        + (['warp'] if 'warp_terminal' in (features | default([])) else [])
-        + (['ghostty'] if 'ghostty_terminal' in (features | default([])) else [])
-        + (['docker-desktop'] if 'docker_desktop' in (features | default([])) else [])
-        + (['virtualbox'] if 'virtualbox' in (features | default([])) else [])
-        + (['kiro'] if 'kiro_ide' in (features | default([])) else [])
-      }}
+- name: Read the Ubuntu releases Docker's apt repository currently serves
+  ansible.builtin.uri:
+    url: https://download.docker.com/linux/ubuntu/dists/
+    return_content: true
+  register: dotfiles_docker_desktop_ubuntu_dists
+  failed_when: false
+  when:
+    - dotfiles_platform.name == 'ubuntu'
+    - "'docker_desktop' in (features | default([]))"
 
 - name: Define Ubuntu releases supported by Docker's apt repository
-  set_fact:
-    dotfiles_docker_desktop_ubuntu_codenames:
-      - focal
-      - jammy
-      - noble
-      - oracular
-      - plucky
-      - questing
-      - resolute
+  ansible.builtin.set_fact:
+    dotfiles_docker_desktop_ubuntu_codenames: >-
+      {{
+        (dotfiles_docker_desktop_ubuntu_dists.content | default('') | regex_findall('href="([a-z]+)/"'))
+        if (dotfiles_docker_desktop_ubuntu_dists.status | default(0)) == 200
+        else [dotfiles_platform.ubuntu_codename]
+      }}
 
 - name: Initialize best-effort setup failure summary
   set_fact:
@@ -187,7 +178,8 @@
       include_role:
         name: profile_preflight
 
-    - include_tasks: execution.yml
+    - name: Run the execution sequence
+      ansible.builtin.include_tasks: execution.yml
   rescue:
     - name: Record the failure that aborted setup
       set_fact:
@@ -199,7 +191,8 @@
                 'phase': 'aborted',
                 'name': ansible_failed_task.name | default('unknown task'),
                 'task': ansible_failed_task.name | default('unknown task'),
-                'error': (ansible_failed_result.stderr | default('') | string) if (ansible_failed_result.stderr | default('') | string | length > 0) else (ansible_failed_result.msg | default(ansible_failed_result | to_json))
+                'error': (ansible_failed_result.stderr | default('') | string) if (ansible_failed_result.stderr | default('') | string | length > 0) else (ansible_failed_result.msg
+          | default(ansible_failed_result | to_json))
               }
             ]
           }}

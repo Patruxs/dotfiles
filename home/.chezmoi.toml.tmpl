@@ -23,6 +23,8 @@
 {{- if not (has $dotfilesProfile (list "personal" "work")) -}}
 {{-   fail (printf "dotfiles_profile must be personal or work, got %q" $dotfilesProfile) -}}
 {{- end -}}
+{{- $profileData := include (joinPath .chezmoi.sourceDir ".." "ansible" "vars" "profiles" (printf "%s.yml" $dotfilesProfile)) | fromYaml -}}
+{{- $dotfilesFeatures := default (list) (get $profileData "features") -}}
 mode = "symlink"
 sourceDir = {{ .chezmoi.sourceDir | quote }}
 
@@ -37,6 +39,7 @@ encryption = "gpg"
     manage_ssh_config = {{ $manageSshConfig }}
     manage_ssh_keys = {{ $manageSshKeys }}
     dotfiles_profile = {{ $dotfilesProfile | quote }}
+    dotfiles_features = {{ $dotfilesFeatures | toJson }}
     gpg_recipient = {{ $gpgRecipient | quote }}
 
 {{ if or $gitName $gitEmail }}

@@ -42,10 +42,7 @@ Three lists sit outside that split:
 
 - `home/.chezmoidata/devtools.yaml` - global npm tools, shared across platforms
 - `home/.chezmoidata/ai-clis.yaml` - AI command-line tools, shared across platforms
-- `home/.chezmoidata/packages.yaml` - the Windows package list, read by `bootstrap.ps1` through `chezmoi data`
-
-> [!NOTE]
-> `packages.yaml` also still contains Linux and macOS sections. Those are leftovers from before per-platform package sets existed, and nothing reads them during setup. Edit `ansible/vars/package_sets/` for Linux and macOS; the `windows:` sections of `packages.yaml` are still live.
+- `home/.chezmoidata/packages.yaml` - the Windows package list only, read by `bootstrap.ps1` through `chezmoi data`
 
 Remove anything you do not want before the first run.
 
@@ -60,9 +57,9 @@ Review these machine-specific areas carefully:
 - Desktop settings apply only for the desktop setup detects (`./scripts/detect-desktop.sh --explain` shows which); a GNOME machine never receives the KDE files and vice versa.
 - `home/.chezmoidata/gnome_dconf.yaml` contains GNOME desktop preferences, including a keyboard input source with the Vietnamese ibus-bamboo IME. Replace that entry with your own layout (the IME engine itself is not installed by setup).
 - `desktop_environment/gnome/extensions.dconf` and `desktop_environment/gnome/extensions.yaml` are the original owner's captured GNOME Shell extension set. Inside a GNOME session the Ansible `gnome` role installs and applies them automatically. Delete `desktop_environment/gnome/extensions.dconf` or re-capture with `./scripts/gnome-extensions-sync.sh capture` before your first run.
-- `desktop_environment/kde/settings/` holds the original owner's KDE Plasma settings, one INI fragment per config file: the `us` keyboard layout with right Alt as the third-level key (`kxkbrc`), night light at 4700 K (`kwinrc`), the power button set to hibernate (`powerdevilrc`), and whatever `./scripts/kde-settings-sync.sh capture` has added since. Inside a KDE Plasma session the Ansible `kde` role applies them with `kwriteconfig6`. Edit the files by hand (they are plain KConfig INI) or delete them and re-capture from your own machine before your first run. Preferences that live in the panel - the clock format, the battery percentage - are part of the panel layout, which is not captured; set them once in the panel.
+- `desktop_environment/kde/settings/` holds the original owner's KDE Plasma settings, one INI fragment per config file: the `us` keyboard layout with right Alt as the third-level key (`kxkbrc`), night light at 4700 K (`kwinrc`), the power button set to hibernate (`powerdevilrc`), and whatever `./scripts/kde-settings-sync.sh capture` has added since. Inside a KDE Plasma session the Ansible `kde` role applies them with `kwriteconfig6`. Edit the files by hand (they are plain KConfig INI) or delete them and re-capture from your own machine before your first run. Preferences that live in the panel - the clock format, the battery percentage - are part of the panel layout, which `./scripts/plasma-panels-sync.sh capture` stores in `desktop_environment/kde/panels.json` and the `kde` role rebuilds inside a Plasma session. The add-ons those settings enable (Krohnkite, the geometry change effect, Active Accent Frame, KDE Control Station) are installed by the `plasma_addons` feature through `./scripts/plasma-addons-install.sh`, and the JetBrainsMono Nerd Font the settings name comes from the `jetbrains_mono_nerd_font` feature (`./scripts/nerd-font-install.sh` on Fedora and Ubuntu).
 - `home/dot_profile` sources `~/.profile.local` at the end. Put per-machine paths and aliases there; that file is never managed or committed.
-- `home/.chezmoiscripts/` holds run-once scripts that download and run upstream installers (zoxide, superfile, llmfit) on the first `chezmoi apply`; they install the latest release at that point but do not upgrade it later (see [Tool versions](reference.md#tool-versions)). Review them and delete any you do not want. In the default best-effort mode on Linux and macOS each script is applied on its own, so one failing installer is recorded in the report and retried next time without blocking the other scripts or your dotfiles; `--strict` and the Windows bootstrap run a single `chezmoi apply`, which stops at the first failing script.
+- `home/.chezmoiscripts/` holds run-once scripts that download and run upstream installers (zoxide, superfile) on the first `chezmoi apply`; they install the latest release at that point but do not upgrade it later (see [Tool versions](reference.md#tool-versions)). Review them and delete any you do not want. In the default best-effort mode on Linux and macOS each script is applied on its own, so one failing installer is recorded in the report and retried next time without blocking the other scripts or your dotfiles; `--strict` and the Windows bootstrap run a single `chezmoi apply`, which stops at the first failing script.
 - `home/dot_config/ghostty/config` sets the `MesloLGS NF` font, which setup does not install. Install a Meslo Nerd Font manually or change the `font-family` entries. Its `theme` entry needs a theme file: `home/dot_config/ghostty/themes/` carries the ones this repo uses, and on Linux distributions whose Ghostty package omits the bundled theme catalogue (Fedora and Nobara) `run_once_after_install_ghostty_themes.sh.tmpl` downloads the rest into `~/.config/ghostty/themes` on the first `chezmoi apply`.
 - `home/dot_config/opencode/opencode.jsonc.tmpl` references an optional local agent-instructions file.
 
@@ -128,7 +125,7 @@ Then run the fast checks from the repository root:
 ./test/test_harness.sh
 ```
 
-ShellCheck and Ansible checks run when those tools are available. The test harness always runs the bootstrap regression checks and a Chezmoi dry run.
+ShellCheck, yamllint, ansible-lint and Ansible checks run when those tools are available. The test harness always runs the bootstrap regression checks and a Chezmoi dry run.
 
 ## 7. Install From Your Published Fork
 

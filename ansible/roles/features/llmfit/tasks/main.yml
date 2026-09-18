@@ -1,0 +1,35 @@
+---
+- name: Skip the llmfit upstream installer in automation
+  debug:
+    msg: "Skipping the llmfit upstream installer in automation; run bootstrap locally to install it."
+  when: dotfiles_automation | default(false)
+
+- name: Check whether llmfit is installed
+  command:
+    argv:
+      - sh
+      - -c
+      - command -v llmfit
+  environment:
+    PATH: "{{ lookup('env', 'HOME') }}/.local/bin:{{ lookup('env', 'PATH') }}"
+  register: llmfit_check
+  changed_when: false
+  failed_when: false
+  when:
+    - dotfiles_platform.system != 'Windows'
+    - not (dotfiles_ci | default(false))
+    - not (dotfiles_automation | default(false))
+
+- name: Install llmfit from its latest release
+  shell: |
+    set -euo pipefail
+    if command -v brew >/dev/null 2>&1; then
+      brew install AlexsJones/llmfit/llmfit || brew install llmfit
+    else
+      curl -fsSL https://raw.githubusercontent.com/AlexsJones/llmfit/main/install.sh | sh -s -- --local
+    fi
+  args:
+    executable: /bin/bash
+  when:
+    - llmfit_check is not skipped
+    - llmfit_check.rc != 0

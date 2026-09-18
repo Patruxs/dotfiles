@@ -3,17 +3,15 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-packages_task="$repo_root/ansible/roles/packages/tasks/main.yml"
-debian_packages_task="$repo_root/ansible/roles/packages/tasks/linux-debian.yml"
-fedora_packages_task="$repo_root/ansible/roles/packages/tasks/linux-fedora.yml"
-arch_packages_task="$repo_root/ansible/roles/packages/tasks/linux-arch.yml"
-macos_packages_task="$repo_root/ansible/roles/packages/tasks/macos.yml"
-lazygit_task="$repo_root/ansible/roles/git_tools/tasks/linux-lazygit.yml"
+packages_task="$repo_root/ansible/roles/package_installer/tasks/main.yml"
+debian_packages_task="$repo_root/ansible/roles/package_installer/tasks/linux-debian.yml"
+fedora_packages_task="$repo_root/ansible/roles/package_installer/tasks/linux-fedora.yml"
+arch_packages_task="$repo_root/ansible/roles/package_installer/tasks/linux-arch.yml"
+macos_packages_task="$repo_root/ansible/roles/package_installer/tasks/macos.yml"
+lazygit_task="$repo_root/ansible/roles/features/core_cli/tasks/linux-lazygit.yml"
 windows_bootstrap="$repo_root/bootstrap.ps1"
-docker_task_main="$repo_root/ansible/roles/docker/tasks/main.yml"
-git_tools_task_main="$repo_root/ansible/roles/git_tools/tasks/main.yml"
+git_tools_task_main="$repo_root/ansible/roles/features/core_cli/tasks/main.yml"
 services_task_main="$repo_root/ansible/roles/services/tasks/main.yml"
-setup_playbook="$repo_root/ansible/playbooks/setup.yml"
 common_playbook="$repo_root/ansible/playbooks/common.yml"
 execution_playbook="$repo_root/ansible/playbooks/execution.yml"
 ubuntu_playbook="$repo_root/ansible/playbooks/ubuntu.yml"
@@ -23,13 +21,13 @@ macos_playbook="$repo_root/ansible/playbooks/macos.yml"
 profile_preflight="$repo_root/ansible/roles/profile_preflight/tasks/main.yml"
 package_installer="$repo_root/ansible/roles/package_installer/tasks/main.yml"
 flatpak_feature="$repo_root/ansible/roles/features/flatpak_apps/tasks/main.yml"
-flatpak_task="$repo_root/ansible/roles/flatpak/tasks/linux.yml"
-flatpak_best_effort_task="$repo_root/ansible/roles/flatpak/tasks/install_app_best_effort.yml"
-ai_tools_task_main="$repo_root/ansible/roles/ai_tools/tasks/main.yml"
-ai_tools_unix_task="$repo_root/ansible/roles/ai_tools/tasks/unix.yml"
-ai_tools_unix_best_effort_task="$repo_root/ansible/roles/ai_tools/tasks/install_unix_cli_best_effort.yml"
-devtools_task_main="$repo_root/ansible/roles/devtools/tasks/main.yml"
-devtools_npm_best_effort_task="$repo_root/ansible/roles/devtools/tasks/install_npm_global_best_effort.yml"
+flatpak_task="$repo_root/ansible/roles/features/flatpak_apps/tasks/linux.yml"
+flatpak_best_effort_task="$repo_root/ansible/roles/features/flatpak_apps/tasks/install_app_best_effort.yml"
+ai_tools_task_main="$repo_root/ansible/roles/features/ai_clis/tasks/main.yml"
+ai_tools_unix_task="$repo_root/ansible/roles/features/ai_clis/tasks/unix.yml"
+ai_tools_unix_best_effort_task="$repo_root/ansible/roles/features/ai_clis/tasks/install_unix_cli_best_effort.yml"
+devtools_task_main="$repo_root/ansible/roles/features/npm_global_tools/tasks/main.yml"
+devtools_npm_best_effort_task="$repo_root/ansible/roles/features/npm_global_tools/tasks/install_npm_global_best_effort.yml"
 ai_clis_data="$repo_root/home/.chezmoidata/ai-clis.yaml"
 packages_data="$repo_root/home/.chezmoidata/packages.yaml"
 winget_manifest="$repo_root/packages/winget.json"
@@ -45,13 +43,12 @@ linux_privileged_task_files=(
   "$fedora_packages_task"
   "$arch_packages_task"
   "$low_memory_task"
-  "$repo_root/ansible/roles/shell/tasks/linux.yml"
-  "$repo_root/ansible/roles/docker/tasks/linux.yml"
-  "$repo_root/ansible/roles/linux_apps/tasks/linux-warp.yml"
-  "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml"
-  "$repo_root/ansible/roles/linux_apps/tasks/linux-kiro.yml"
-  "$repo_root/ansible/roles/linux_apps/tasks/linux-ghostty.yml"
-  "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"
+  "$repo_root/ansible/roles/features/shell/tasks/linux.yml"
+  "$repo_root/ansible/roles/features/warp_terminal/tasks/linux.yml"
+  "$repo_root/ansible/roles/features/virtualbox/tasks/linux.yml"
+  "$repo_root/ansible/roles/features/kiro_ide/tasks/linux.yml"
+  "$repo_root/ansible/roles/features/ghostty_terminal/tasks/linux.yml"
+  "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml"
 )
 
 if ! bash -s -- --help < "$repo_root/bootstrap.sh" >/dev/null; then
@@ -125,7 +122,7 @@ if ! search_file "docker\\.io" "$packages_task"; then
   exit 1
 fi
 
-if ! search_file "'docker-desktop' in \\(linux_native_apps \\| default\\(\\[\\]\\)\\)" "$packages_task"; then
+if ! search_file "'docker_desktop' in \\(features \\| default\\(\\[\\]\\)\\)" "$packages_task"; then
   echo "expected package merge to detect Docker Desktop profile selection"
   exit 1
 fi
@@ -174,11 +171,6 @@ fi
 
 if ! search_file 'Refresh-Repo' "$windows_bootstrap"; then
   echo "expected bootstrap.ps1 to refresh an existing dotfiles checkout"
-  exit 1
-fi
-
-if ! search_file "not \\(dotfiles_ci \\| default\\(false\\)\\)" "$docker_task_main"; then
-  echo "expected docker role to skip service management during CI"
   exit 1
 fi
 
@@ -357,43 +349,38 @@ if ! search_file '\$script:setupMode -eq "strict"' "$windows_bootstrap"; then
   exit 1
 fi
 
-if ! search_file 'DOTFILES_CHEZMOI_DIR' "$setup_playbook"; then
-  echo "expected setup.yml to honor DOTFILES_CHEZMOI_DIR during CI"
-  exit 1
-fi
-
-if ! search_file 'docker-ce-cli' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+if ! search_file 'docker-ce-cli' "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml"; then
   echo "expected Docker Desktop installers to provision docker-ce-cli"
   exit 1
 fi
 
-if ! search_file 'download\.docker\.com/linux/ubuntu' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+if ! search_file 'download\.docker\.com/linux/ubuntu' "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml"; then
   echo "expected Ubuntu Docker Desktop installer to add the official Docker apt repository"
   exit 1
 fi
 
-if ! search_file_literal 'dnf -q list --available ghostty' "$repo_root/ansible/roles/linux_apps/tasks/linux-ghostty.yml" ||
-  ! search_file_literal 'dnf -q list --available VirtualBox' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml"; then
+if ! search_file_literal 'dnf -q list --available ghostty' "$repo_root/ansible/roles/features/ghostty_terminal/tasks/linux.yml" ||
+  ! search_file_literal 'dnf -q list --available VirtualBox' "$repo_root/ansible/roles/features/virtualbox/tasks/linux.yml"; then
   echo "expected Fedora Ghostty and VirtualBox installers to prefer packages already provided by enabled repos before adding Copr or RPM Fusion"
   exit 1
 fi
 
-if ! search_file 'download\.docker\.com/linux/fedora/docker-ce\.repo' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+if ! search_file 'download\.docker\.com/linux/fedora/docker-ce\.repo' "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml"; then
   echo "expected Fedora Docker Desktop installer to add the official Docker dnf repository"
   exit 1
 fi
 
-if ! search_file '--nogpgcheck' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+if ! search_file '--nogpgcheck' "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml"; then
   echo "expected Fedora Docker Desktop installer to allow Docker''s unsigned desktop RPM"
   exit 1
 fi
 
-if search_file 'apt_repository:' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+if search_file 'apt_repository:' "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml"; then
   echo "expected Ubuntu Docker Desktop installer to avoid the deprecated apt_repository module"
   exit 1
 fi
 
-if ! search_file '/etc/apt/sources\.list\.d/docker\.sources' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+if ! search_file '/etc/apt/sources\.list\.d/docker\.sources' "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml"; then
   echo "expected Ubuntu Docker Desktop installer to write Docker deb822 source data"
   exit 1
 fi
@@ -506,13 +493,8 @@ if ! search_file "'PATH': lookup\\('env', 'HOME'\\).*\\.local/bin" "$ai_tools_un
   exit 1
 fi
 
-if ! search_file 'pacman-key --init' "$repo_root/ansible/roles/linux_apps/tasks/linux-warp.yml"; then
+if ! search_file 'pacman-key --init' "$repo_root/ansible/roles/features/warp_terminal/tasks/linux.yml"; then
   echo "expected Arch Warp installer to initialize the pacman keyring when needed"
-  exit 1
-fi
-
-if search_file "lookup\\('env', 'CI'\\)" "$setup_playbook"; then
-  echo "expected setup.yml to use DOTFILES_CI only for lightweight CI mode"
   exit 1
 fi
 
@@ -554,17 +536,6 @@ if ! search_file_literal 'nobara-sync cli' "$repo_root/bootstrap.sh"; then
   exit 1
 fi
 
-if ! search_file_literal 'dotfiles_os_release_id_like' "$repo_root/ansible/roles/platform/tasks/main.yml" ||
-  ! search_file_literal "'fedora' in dotfiles_os_release_id_like" "$repo_root/ansible/roles/platform/tasks/main.yml"; then
-  echo "expected the platform role to resolve Fedora rebuilds through os-release ID_LIKE"
-  exit 1
-fi
-
-if search_file_literal "ansible_facts['os_family'] == 'RedHat'" "$setup_playbook"; then
-  echo "expected setup.yml to take the platform family from the platform role instead of raw os_family"
-  exit 1
-fi
-
 if ! search_file 'ansible_playbook="ansible/playbooks/\$platform\.yml"' "$repo_root/bootstrap.sh"; then
   echo "expected bootstrap.sh to select exactly one platform playbook"
   exit 1
@@ -601,20 +572,20 @@ if ! search_file_literal '0 upgraded, 0 newly installed' "$debian_packages_task"
   exit 1
 fi
 
-if ! search_file_literal 'dpkg-query -W' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml" ||
-  ! search_file_literal 'rpm -q docker-desktop' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml" ||
-  ! search_file_literal 'pacman -Q docker-desktop' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+if ! search_file_literal 'dpkg-query -W' "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml" ||
+  ! search_file_literal 'rpm -q docker-desktop' "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml" ||
+  ! search_file_literal 'pacman -Q docker-desktop' "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml"; then
   echo "expected Docker Desktop install blocks to check for an existing installation first"
   exit 1
 fi
 
-if ! search_file_literal 'desktop.docker.com/linux/main/amd64/appcast.xml' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml" ||
-  ! search_file_literal 'sparkle:shortVersionString' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
+if ! search_file_literal 'desktop.docker.com/linux/main/amd64/appcast.xml' "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml" ||
+  ! search_file_literal 'sparkle:shortVersionString' "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml"; then
   echo "expected Docker Desktop tasks to resolve the latest release from Docker's Linux appcast"
   exit 1
 fi
 
-if [ "$(grep -c 'dotfiles_docker_desktop_install_needed | default(false) | bool' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml")" -ne 3 ]; then
+if [ "$(grep -c 'dotfiles_docker_desktop_install_needed | default(false) | bool' "$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml")" -ne 6 ]; then
   echo "expected all three Docker Desktop install blocks to be gated on the version comparison"
   exit 1
 fi
@@ -624,26 +595,26 @@ if grep -rnE "regex_(search|replace|findall)\([\"'][^\"']*\\\\\\\\" "$repo_root/
   exit 1
 fi
 
-if ! search_file_literal 'download.virtualbox.org/virtualbox/LATEST.TXT' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml" ||
-  ! search_file_literal 'apt-get install -y "$vbox_package"' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml" ||
-  ! search_file_literal 'apt-cache search --names-only' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml" ||
-  ! search_file_literal 'leaving the installed ${oracle_installed} alone' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml" ||
-  ! search_file_literal 'keeping the installed ${oracle_installed}' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml" ||
-  ! search_file_literal 'keyring_tmp="$(mktemp)"' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml" ||
-  ! search_file_literal 'apt-get install -y virtualbox virtualbox-dkms virtualbox-qt' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml"; then
+if ! search_file_literal 'download.virtualbox.org/virtualbox/LATEST.TXT' "$repo_root/ansible/roles/features/virtualbox/tasks/linux.yml" ||
+  ! search_file_literal 'apt-get install -y "$vbox_package"' "$repo_root/ansible/roles/features/virtualbox/tasks/linux.yml" ||
+  ! search_file_literal 'apt-cache search --names-only' "$repo_root/ansible/roles/features/virtualbox/tasks/linux.yml" ||
+  ! search_file_literal 'leaving the installed ${oracle_installed} alone' "$repo_root/ansible/roles/features/virtualbox/tasks/linux.yml" ||
+  ! search_file_literal 'keeping the installed ${oracle_installed}' "$repo_root/ansible/roles/features/virtualbox/tasks/linux.yml" ||
+  ! search_file_literal 'keyring_tmp="$(mktemp)"' "$repo_root/ansible/roles/features/virtualbox/tasks/linux.yml" ||
+  ! search_file_literal 'apt-get install -y virtualbox virtualbox-dkms virtualbox-qt' "$repo_root/ansible/roles/features/virtualbox/tasks/linux.yml"; then
   echo "expected the Debian VirtualBox task to use Oracle's repository with the release line resolved at run time, falling back to the archive package"
   exit 1
 fi
 
-if search_file 'virtualbox-[0-9]+\.[0-9]+' "$repo_root/ansible/roles/linux_apps/tasks/linux-virtualbox.yml"; then
+if search_file 'virtualbox-[0-9]+\.[0-9]+' "$repo_root/ansible/roles/features/virtualbox/tasks/linux.yml"; then
   echo "expected no hardcoded VirtualBox release line in the Debian VirtualBox task"
   exit 1
 fi
 
-if ! search_file_literal '/opt/homebrew/bin/bash' "$repo_root/ansible/roles/shell/tasks/macos.yml" ||
-  ! search_file_literal 'shell_macos_login_shell' "$repo_root/ansible/roles/shell/tasks/macos.yml" ||
-  ! search_file_literal 'path: /etc/shells' "$repo_root/ansible/roles/shell/tasks/macos.yml" ||
-  search_file 'ignore_errors' "$repo_root/ansible/roles/shell/tasks/macos.yml" ||
+if ! search_file_literal '/opt/homebrew/bin/bash' "$repo_root/ansible/roles/features/shell/tasks/macos.yml" ||
+  ! search_file_literal 'shell_macos_login_shell' "$repo_root/ansible/roles/features/shell/tasks/macos.yml" ||
+  ! search_file_literal 'path: /etc/shells' "$repo_root/ansible/roles/features/shell/tasks/macos.yml" ||
+  search_file 'ignore_errors' "$repo_root/ansible/roles/features/shell/tasks/macos.yml" ||
   [ -e "$repo_root/home/.chezmoiscripts/run_once_after_macos-install-bash.sh.tmpl" ]; then
   echo "expected the macOS shell role to own the Homebrew bash login shell, without ignore_errors and without the duplicate run_once chsh script"
   exit 1
@@ -700,15 +671,24 @@ if ! search_file_literal 'force-remove-reinstreq docker-desktop' "$repo_root/boo
   exit 1
 fi
 
-if ! search_file_literal 'dotfiles_docker_desktop_ubuntu_codenames:' "$common_playbook" ||
+docker_desktop_tasks="$repo_root/ansible/roles/features/docker_desktop/tasks/linux.yml"
+if ! search_file_literal 'https://download.docker.com/linux/ubuntu/dists/' "$common_playbook" ||
+  ! search_file_literal 'dotfiles_docker_desktop_ubuntu_codenames:' "$common_playbook" ||
   ! search_file_literal 'dotfiles_docker_desktop_ubuntu_codenames' "$profile_preflight" ||
-  ! search_file_literal 'dotfiles_docker_desktop_ubuntu_codenames' "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
-  echo "expected the Docker Desktop Ubuntu codename list to be shared via dotfiles_docker_desktop_ubuntu_codenames"
+  ! search_file_literal 'dotfiles_docker_desktop_ubuntu_codenames' "$docker_desktop_tasks"; then
+  echo "expected the Docker Desktop Ubuntu codename list to be read from download.docker.com at run time and shared via dotfiles_docker_desktop_ubuntu_codenames"
   exit 1
 fi
-if search_file_literal "'focal'" "$profile_preflight" ||
-  search_file_literal "'focal'" "$repo_root/ansible/roles/linux_apps/tasks/linux-docker-desktop.yml"; then
-  echo "expected no duplicated literal Ubuntu codename whitelist outside common.yml"
+if grep -qE -- "- (focal|jammy|noble|oracular|plucky|questing|resolute)$" "$common_playbook" ||
+  search_file_literal "'focal'" "$profile_preflight" ||
+  search_file_literal "'focal'" "$docker_desktop_tasks"; then
+  echo "expected no hardcoded Ubuntu codename whitelist for Docker Desktop"
+  exit 1
+fi
+if ! search_file_literal 'checksums.txt' "$docker_desktop_tasks" ||
+  ! search_file_literal 'checksum: "sha256:{{ dotfiles_docker_desktop_package_sha256 }}"' "$docker_desktop_tasks" ||
+  ! search_file_literal 'Fail when the Docker Desktop package cannot be verified' "$docker_desktop_tasks"; then
+  echo "expected the Docker Desktop package to be verified against Docker's published checksums.txt before install"
   exit 1
 fi
 
@@ -1053,6 +1033,31 @@ fi
 
 if ! search_file '\.\\bootstrap\.ps1 -ProfileName \$\{\{ matrix\.profile \}\}' "$workflow_file"; then
   echo "expected ci.yml to pass matrix.profile through bootstrap.ps1"
+  exit 1
+fi
+
+if ! search_file '\./bootstrap\.sh --profile \$\{\{ matrix\.profile \}\} --strict' "$workflow_file"; then
+  echo "expected ci.yml to run bootstrap.sh in strict mode so a failed install fails the job"
+  exit 1
+fi
+
+if ! search_file '-SetupMode strict' "$workflow_file"; then
+  echo "expected ci.yml to run bootstrap.ps1 in strict mode so a failed install fails the job"
+  exit 1
+fi
+
+if ! search_file 'test/ci_setup_report_check\.sh' "$workflow_file"; then
+  echo "expected ci.yml to verify the setup report says the run completed successfully"
+  exit 1
+fi
+
+if ! search_file 'Result: Completed successfully\.' "$workflow_file"; then
+  echo "expected the Windows CI job to verify the setup report says the run completed successfully"
+  exit 1
+fi
+
+if ! search_file 'test/test_harness\.sh' "$workflow_file"; then
+  echo "expected ci.yml to run the test harness"
   exit 1
 fi
 

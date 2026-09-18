@@ -5,6 +5,7 @@
     managed_user_systemd_service_path: "{{ lookup('env', 'HOME') }}/.config/systemd/user/auto-headphone-switch.service"
     managed_user_runtime_dir: "{{ lookup('env', 'XDG_RUNTIME_DIR') | default('/run/user/' ~ lookup('pipe', 'id -u'), true) }}"
   when:
+    - "'audio_auto_switch' in (features | default([]))"
     - dotfiles_platform.system == 'Linux'
     - not (dotfiles_ci | default(false))
 
@@ -13,6 +14,7 @@
     path: "{{ managed_user_systemd_service_path }}"
   register: managed_user_systemd_service_stat
   when:
+    - "'audio_auto_switch' in (features | default([]))"
     - dotfiles_platform.system == 'Linux'
     - not (dotfiles_ci | default(false))
 
@@ -21,6 +23,7 @@
     path: "{{ managed_user_runtime_dir }}"
   register: managed_user_runtime_dir_stat
   when:
+    - "'audio_auto_switch' in (features | default([]))"
     - dotfiles_platform.system == 'Linux'
     - not (dotfiles_ci | default(false))
 
@@ -29,6 +32,7 @@
     path: "{{ managed_user_runtime_dir }}/bus"
   register: managed_user_systemd_bus_stat
   when:
+    - "'audio_auto_switch' in (features | default([]))"
     - dotfiles_platform.system == 'Linux'
     - not (dotfiles_ci | default(false))
 
@@ -43,6 +47,7 @@
     XDG_RUNTIME_DIR: "{{ managed_user_runtime_dir }}"
     DBUS_SESSION_BUS_ADDRESS: "unix:path={{ managed_user_runtime_dir }}/bus"
   when:
+    - "'audio_auto_switch' in (features | default([]))"
     - dotfiles_platform.system == 'Linux'
     - not (dotfiles_ci | default(false))
     - managed_user_systemd_service_stat.stat.exists

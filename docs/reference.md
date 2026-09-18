@@ -5,7 +5,7 @@ Flags, environment variables, and file formats. See [Architecture](architecture.
 ## bootstrap.sh (Linux and macOS)
 
 ```sh
-./bootstrap.sh [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--desktop gnome|kde|none] [--best-effort|--strict]
+./bootstrap.sh [--profile personal|work] [--platform ubuntu|fedora|arch|macos] [--desktop gnome|kde|none] [--best-effort|--strict] [--no-system-upgrade]
 ```
 
 | Flag | Default | Description |
@@ -15,6 +15,7 @@ Flags, environment variables, and file formats. See [Architecture](architecture.
 | `--desktop <name>` | `DOTFILES_DESKTOP`, or detected | Which desktop's settings to apply on Linux: `gnome`, `kde`, or `none` (apply neither). Without it `scripts/detect-desktop.sh` decides from the running session, this user's session processes, or the installed session files. Allowed on real machines, unlike `--platform`, because a machine with two desktops installed and no session running (setup over SSH) genuinely needs to be told. |
 | `--best-effort` | this is the default | Skip a failing step and keep going, recording every skipped failure in the final report. Applies to the bootstrap prerequisite steps as well as package installs, feature roles, each `chezmoi` script, and services. |
 | `--strict` | | Stop at the first failure. Use this while developing. The report still records where the run stopped. |
+| `--no-system-upgrade` | | Skip the system package refresh (`dnf upgrade`, `apt-get upgrade`, `pacman -Syu`, or `nobara-sync`) that otherwise runs before anything is installed. Use it to install a tool without pulling in a full system upgrade; the report records the step as skipped. |
 
 The script detects the OS, maps it to a platform, installs chezmoi, git, Ansible, and the required collections, detects the desktop environment (see [Desktop settings](#desktop-settings)), then runs exactly one playbook: `ansible/playbooks/<platform>.yml`. On macOS, Homebrew must already be installed - without it the first step that needs a package (usually installing Ansible) aborts the run, and the report says so.
 
@@ -47,6 +48,7 @@ Packages are installed with one `winget import --ignore-versions`, which install
 | `DOTFILES_REPO` | none | Repository to clone. Required when running a downloaded bootstrap script; ignored when running from a checkout. |
 | `DOTFILES_PROFILE` | none | Profile to use, equivalent to `--profile`. |
 | `DOTFILES_SETUP_MODE` | `best_effort` | `best_effort` or `strict`. |
+| `DOTFILES_SYSTEM_UPGRADE` | `1` | Set to `0` to skip the system package refresh; equivalent to `--no-system-upgrade`. |
 | `DOTFILES_DESKTOP` | detected | `gnome`, `kde`, or `none`; equivalent to `--desktop`. Read by `scripts/detect-desktop.sh`, which both `bootstrap.sh` and the playbook run in the same environment, so the two agree whether the value was set or detected. |
 | `DOTFILES_CHEZMOI_DIR` | `~/.local/share/chezmoi` | Chezmoi source directory. Exported by bootstrap for the playbooks. |
 | `DOTFILES_PROGRESS` | `1` | Set to `0` to turn off the progress bar that `bootstrap.sh` and `bootstrap.ps1` keep on the last terminal row. It is already off when output is not a terminal (or, on Windows, the host has no VT support) or in lightweight CI mode. |
@@ -90,7 +92,7 @@ features:                              # explicit: there are no hidden defaults
   - docker_desktop
 ```
 
-Profiles may also set compatibility variables consumed by older roles, but the `features` list is the source of truth - `common.yml` derives `gnome_settings_enabled`, `kde_settings_enabled`, `install_ai_clis`, `install_docker`, `install_jetbrains_toolbox`, and `linux_native_apps` from it.
+Nothing else in the file is read. `features` is the only source of truth: roles ask `'docker_desktop' in features`, never a derived flag.
 
 ## Package set file format
 
@@ -133,7 +135,7 @@ Generated before `chezmoi apply` and passed with `--override-data`:
 | `dotfiles_desktop` | `kde` (`gnome`, `kde`, `other`, or `none`; always `none` on macOS) |
 | `dotfiles_features` | `["core_cli", "desktop_base", ...]` |
 
-Read them defensively in templates, since `chezmoi` commands run outside a setup run will not have them:
+`chezmoi init` also stores `dotfiles_features` in the chezmoi config, read from the selected profile's `features` list, so it is available on a plain `chezmoi apply`; the setup run's `--override-data` wins when both exist. Read the keys defensively anyway:
 
 ```text
 {{ $features := default (list) (get . "dotfiles_features") }}
@@ -182,7 +184,7 @@ Detection order: `DOTFILES_DESKTOP`; the session environment (`XDG_CURRENT_DESKT
 
 `capture` drops the runtime state KDE keeps in those files - `[$Version]` update stamps, window and dialog geometry (the rest of `[MainWindow]` and the dialog groups, such as `MenuBar` or `Show hidden files`, is kept), saved sessions, virtual desktop and tiling UUIDs, the Xwayland scale derived from the display configuration, colour scheme hashes, activity shortcuts, notification "seen" flags - and keeps only the global shortcuts whose active binding differs from the default. In `kdeglobals`, colours are kept only when `[General] ColorScheme` names a scheme the user chose; colours a distro installed through its config cascade without naming the scheme are left out. A stored file with no counterpart on the machine is kept, so `apply` before `capture` if you edited a stored file by hand. `apply` writes every stored entry that differs, one `kwriteconfig6 --notify` call each (Plasma 5 machines use `kwriteconfig5`), leaves every other key in the live file alone, and asks KWin to reload when `kwinrc` changed; global shortcuts, power management, and the session itself pick the change up at the next login. `check` exits 0 when every stored entry matches the live file, or failing that the value `kreadconfig6` resolves through KDE's config cascade, which is what keeps the Ansible run idempotent.
 
-Not captured on purpose: the panel layout (`plasma-org.kde.plasma.desktop-appletsrc`, `plasmashellrc` - tied to activity and screen identifiers) and the display layout (`kwinoutputconfig.json`, `kscreen/` - hardware serials). `home/.chezmoiignore` guards those, and every rc file the script tracks, against an accidental `chezmoi add`, because KDE replaces a symlinked rc file with a plain file on its first save.
+Not captured by this script: the panel layout (`plasma-org.kde.plasma.desktop-appletsrc`, `plasmashellrc` - tied to activity and screen identifiers), which `scripts/plasma-panels-sync.sh` captures through the plasmashell scripting API instead, and the display layout (`kwinoutputconfig.json`, `kscreen/` - hardware serials), which is not captured at all. `home/.chezmoiignore` guards those, and every rc file the script tracks, against an accidental `chezmoi add`, because KDE replaces a symlinked rc file with a plain file on its first save.
 
 ## Tool versions
 
@@ -192,12 +194,12 @@ Every install path resolves the latest release at run time; no installer pins a 
 | :--- | :--- |
 | System packages (`apt`, `dnf`, `pacman`), Homebrew, Flatpak, npm globals | Package manager `latest` state, so re-running bootstrap upgrades what is already installed. |
 | winget (Windows) | `winget import --ignore-versions`, which installs missing packages and upgrades installed ones. Node is installed from the `OpenJS.NodeJS.LTS` channel on purpose (newest LTS rather than Node current). winget publishes Python as one package id per minor version (`Python.Python.3.x`); the package data names `Python.Python.3` and `bootstrap.ps1` resolves it to the newest minor id winget offers at run time (`Resolve-WingetPackageIds`), so no Python version is spelled out anywhere. |
-| lazygit, Kiro, Docker Desktop (Linux) | The installed version is compared with the upstream release feed (GitHub API, Kiro's metadata, Docker's appcast) on every run and the package is downloaded again only when it differs. Docker Desktop for Linux has no in-app updater, so this is the only thing that keeps it current. |
+| lazygit, Kiro, Docker Desktop (Linux) | The installed version is compared with the upstream release feed (GitHub API, Kiro's metadata, Docker's appcast) on every run and the package is downloaded again only when it differs. Docker Desktop for Linux has no in-app updater, so this is the only thing that keeps it current. The appcast also names the build number; the package is downloaded from that build's directory and checked against the SHA-256 in the `checksums.txt` Docker publishes next to it, and the install is refused when the checksum cannot be read. Docker's apt repository is asked at run time (`dists/` on `download.docker.com`) which Ubuntu releases it serves. |
 | JetBrains Toolbox, chezmoi | Downloaded from the vendor's permanent "latest" URL on every run. |
 | Warp, Ghostty, VirtualBox | Vendor or distro repository; the package manager picks the newest build. On Ubuntu (amd64 only; preflight rejects the `virtualbox` feature on other architectures, as on Arch) VirtualBox comes from Oracle's repository: the newest release line Oracle publishes for this Ubuntu codename is installed (the `LATEST.TXT` line when the repository carries it, otherwise the newest `virtualbox-X.Y` it offers). The archive package is used only when Oracle has no build for the codename and nothing from Oracle is installed yet; an existing Oracle install is never replaced, whether the repository is unreachable or the codename is not published yet. |
 | AI CLIs | Upstream installer scripts, which fetch their own latest release. |
 | Starship (`starship_prompt`) | Distro or Homebrew package on Fedora, Arch, and macOS, and `Starship.Starship` on winget. Ubuntu only packages Starship from 25.10, so the feature role runs the upstream installer (`starship.rs/install.sh`, which downloads the `releases/latest` build) into `~/.local/bin` on every run, upgrading an existing install. `home/dot_config/starship.toml` is managed but intentionally holds only the schema line: Starship's built-in default prompt is the intended config, and the file exists so Nobara's `/etc/profile.d` hook does not copy its own theme into place when it finds no config. |
-| zoxide, llmfit, superfile (`home/.chezmoiscripts/`) | Upstream installer scripts, fetched unpinned from the project's default branch exactly as each project's README recommends; each resolves the latest GitHub release itself at run time. These scripts run once per machine and skip when the command already exists, so they do not upgrade an existing install; re-run the upstream installer by hand, or delete the chezmoi run-once state, to update them. |
+| zoxide, superfile (`home/.chezmoiscripts/`), llmfit (`llmfit` feature role) | Upstream installer scripts, fetched unpinned from the project's default branch exactly as each project's README recommends; each resolves the latest GitHub release itself at run time. These scripts run once per machine and skip when the command already exists, so they do not upgrade an existing install; re-run the upstream installer by hand, or delete the chezmoi run-once state, to update them. |
 | Ghostty themes (`home/.chezmoiscripts/`) | The Fedora/Nobara `ghostty` package ships no `/usr/share/ghostty/themes`, so `theme = ...` in `home/dot_config/ghostty/config` fails to resolve. `run_once_after_install_ghostty_themes.sh.tmpl` runs once per machine, does nothing when a Ghostty resources directory already carries themes, and otherwise unpacks the ghostty themes from the default branch of `mbadolato/iTerm2-Color-Schemes` into `~/.config/ghostty/themes`. Themes chezmoi already manages there are never overwritten. |
 | llmfit (Windows) | Not on winget, so `bootstrap.ps1` resolves the latest GitHub release tag, verifies the published checksum, and installs to `%LOCALAPPDATA%\Programs\llmfit` whenever the installed version differs. |
 | Login shell (macOS) | The `shell` feature uses the Homebrew `bash` (kept current by the brew pass) as the login shell and falls back to `/bin/bash` only when it is missing. `bootstrap.sh` also runs `brew upgrade ansible` before the playbook so Ansible itself stays current. |
@@ -216,8 +218,8 @@ Every install path resolves the latest release at run time; no installer pins a 
 ## Testing
 
 ```sh
-./test/test_harness.sh          # shellcheck, Ansible checks, bootstrap, desktop detection, KDE settings and upstream installer checks, chezmoi dry run
+./test/test_harness.sh          # shellcheck, yamllint, ansible-lint, Ansible syntax checks, bootstrap, desktop detection, KDE settings and upstream installer checks, chezmoi dry run
 ./bootstrap.sh --profile personal --strict
 ```
 
-The harness needs chezmoi on `PATH`. ShellCheck and Ansible checks run only when those tools are available; the upstream installer checks need network access to GitHub for their live part and skip it without it.
+The harness needs chezmoi on `PATH`. ShellCheck, yamllint, ansible-lint and the Ansible syntax checks run only when those tools are available (`.yamllint` and `.ansible-lint` at the repository root hold their configuration); the upstream installer checks need network access to GitHub for their live part and skip it without it.

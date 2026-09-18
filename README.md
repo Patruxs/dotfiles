@@ -127,8 +127,27 @@ everything else in the live file is left alone.
 
 `capture` copies a fixed list of KDE config files and drops the runtime state
 KDE keeps in them (update stamps, window geometry, virtual desktop and screen
-UUIDs, shortcuts still at their default). Panel layout and display layout are
-machine state and are not captured.
+UUIDs, shortcuts still at their default). The display layout is machine state
+and is not captured.
+
+Panels are captured separately, through plasmashell's scripting API, because
+their config file is keyed by per-machine IDs:
+
+```sh
+./scripts/plasma-panels-sync.sh capture      # machine -> desktop_environment/kde/panels.json
+./scripts/plasma-panels-sync.sh apply        # rebuild the panels from the file (needs a Plasma session)
+./scripts/plasma-panels-sync.sh diff         # what drifted since the last capture
+./scripts/plasma-panels-sync.sh check        # exit 0 when already in sync
+```
+
+Two more scripts back the stored settings. The `plasma_addons` feature runs
+`./scripts/plasma-addons-install.sh install` to fetch the add-ons the settings
+and panels enable (Krohnkite, the geometry change effect, Active Accent Frame,
+KDE Control Station) from their latest upstream release; `check` and `list`
+report what is installed. The `jetbrains_mono_nerd_font` feature runs
+`./scripts/nerd-font-install.sh install` on Fedora and Ubuntu, which have no
+Nerd Font package, to put JetBrainsMono Nerd Font into `~/.local/share/fonts`
+from the latest nerd-fonts release.
 
 ## 🔑 Manual logins
 
@@ -158,14 +177,14 @@ The system is split into two primary profiles to keep work machines lean while f
 
 | Feature / App Category | OS | Personal Profile | Work Profile | Description / Apps Included |
 | :--- | :--- | :---: | :---: | :--- |
-| **Core CLI & Shell** | Linux, macOS, Windows | ✅ | ✅ | **Tools**: `git`, `curl`, `wget`, `unzip`, `gnupg`, `bash`, `neovim`, `ripgrep`, `jq`, `bat`, `fzf`, `zoxide`, `fd`, `eza`, `lazygit`, `gh`, `mole` (macOS). `tmux` and `btop` on Linux/macOS only. <br> **Configs**: Multi-shell integrations (`bash`, `zsh`, `powershell`), aliases, `.gitconfig` with GitHub CLI credential helper. The `shell` feature sets bash as the login shell on Linux and macOS. The `starship_prompt` feature installs [Starship](https://starship.rs) and wires it into bash, zsh, and PowerShell with its default prompt (`~/.config/starship.toml`). |
-| **Dev Tools & SDKs** | Linux, macOS, Windows | ✅ | ✅ | **Languages**: `nodejs`, `python3`, `gcc`, `go`, `java`. (Plus POSIX UCRT on Windows). <br> **Package Mgrs**: `npm`, `python-pip`, `pnpm`, `uv`, `maven`, `gradle`. <br> **Testing**: `playwright`. |
+| **Core CLI & Shell** | Linux, macOS, Windows | ✅ | ✅ | **Tools**: `git`, `curl`, `wget`, `unzip`, `gnupg`, `bash`, `neovim`, `ripgrep`, `jq`, `bat`, `fzf`, `zoxide`, `fd`, `eza`, `lazygit`, `gh`. `tmux` and `btop` on Linux/macOS only. On Ubuntu and Fedora `lazygit` comes from its upstream GitHub release; everywhere else from the package manager. <br> **Configs**: Multi-shell integrations (`bash`, `zsh`, `powershell`), aliases, `.gitconfig` with GitHub CLI credential helper. The `shell` feature sets bash as the login shell on Linux and macOS. The `starship_prompt` feature installs [Starship](https://starship.rs) and wires it into bash, zsh, and PowerShell with its default prompt (`~/.config/starship.toml`). |
+| **Dev Tools & SDKs** | Linux, macOS, Windows | ✅ | ✅ | **Languages**: `nodejs`, `python3`, `gcc`, `go` (plus POSIX UCRT on Windows). <br> **Package Mgrs**: `npm`, `python-pip` (Linux). <br> **Testing**: `playwright` (global npm package). |
 | **Security / Passwords** | Linux, macOS, Windows | ✅ | ❌ | Bitwarden CLI (`bw`) installed via npm globally. |
 | **Desktop Base** | Linux, macOS, Windows | ✅ | ✅ | **Editors**: VS Code, Zed, Obsidian. <br> **Utils**: GitButler, LocalSend, GParted (Linux), flatpak (Linux). |
 | **Modern Terminals** | Linux, macOS, Windows | ✅ | ✅ | Warp Terminal. Ghostty on Linux and macOS (no Windows build). |
 | **Docker Ecosystem** | Linux, macOS, Windows | ✅ | ✅ | Docker Desktop. A separate `docker_engine` feature exists for the native engine; no shipped profile selects it. |
-| **AI CLIs** | Linux, macOS, Windows | ✅ | ✅ | `codex`, `agy`, `droid`, `opencode`, `herdr`, `paseo`, `pi` (Plus `llmfit` installed natively on Personal only). |
-| **System & Desktop Configs** | Linux, macOS, Windows | ✅ | ✅ | SSH host aliases. <br> **Linux-only**: GNOME `dconf` preferences and Shell extensions, or KDE Plasma settings, for whichever desktop is detected; `user-dirs.dirs` (XDG dirs), `auto-headphone-switch.service` (Systemd), swap/low-memory tuning. |
+| **AI CLIs** | Linux, macOS, Windows | ✅ | ✅ | `codex`, `agy`, `droid`, `opencode`, `herdr`, `paseo`, `pi` (Plus `llmfit` through the `llmfit` feature). |
+| **System & Desktop Configs** | Linux, macOS, Windows | ✅ | ✅ | SSH host aliases. <br> **Linux-only**: GNOME `dconf` preferences and Shell extensions, or KDE Plasma settings, for whichever desktop is detected; `user-dirs.dirs` (XDG dirs), `auto-headphone-switch.service` (Systemd, the `audio_auto_switch` feature), swap/low-memory tuning. |
 | **Heavy IDEs** | Linux, macOS, Windows | ✅ | ❌ | JetBrains Toolbox, Kiro IDE. |
 | **Virtualization** | Linux, macOS, Windows | ✅ | ❌ | Oracle VirtualBox. |
 | **Desktop Apps** | Linux, macOS, Windows | ✅ | ❌ | **Comm/Media**: Telegram, Zoom, Spotify, OBS Studio. <br> **Work/Utils**: Postman, ONLYOFFICE, Edge, Anki, Termius, Bazaar (Linux). <br> **System**: `nvtop` (Linux), TreeSize (Win), RevoUninstaller (Win). |

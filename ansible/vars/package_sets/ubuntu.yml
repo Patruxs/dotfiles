@@ -3,6 +3,11 @@ platform: ubuntu
 package_family: apt
 
 package_sets:
+  audio_auto_switch:
+    apt:
+      - jq
+      - pipewire-bin
+      - wireplumber
   core_cli:
     apt:
       - git
@@ -17,6 +22,8 @@ package_sets:
       - ripgrep
       - jq
       - bat
+      - fd-find
+      - eza
   desktop_base:
     apt:
       - flatpak

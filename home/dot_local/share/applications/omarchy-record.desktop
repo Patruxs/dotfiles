@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Omarchy: Screen recording (region)
-Exec=/usr/bin/spectacle -R r
+Exec=spectacle -R r
 Icon=spectacle
 NoDisplay=true
 Terminal=false

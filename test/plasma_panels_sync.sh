@@ -84,7 +84,9 @@ if "$sync" check >"$work/check2.out"; then
   fail "check must fail when the stored layout differs"
 fi
 "$sync" diff >"$work/diff.out" || true
-grep -q '^-.*"height": 36' "$work/diff.out" && grep -q '^+.*"height": 30' "$work/diff.out" || fail "diff must show the changed height: $(cat "$work/diff.out")"
+if ! grep -q '^-.*"height": 36' "$work/diff.out" || ! grep -q '^+.*"height": 30' "$work/diff.out"; then
+  fail "diff must show the changed height: $(cat "$work/diff.out")"
+fi
 
 "$sync" apply >"$work/apply2.out" || fail "apply failed: $(cat "$work/apply2.out")"
 grep -q '^applied 1 panel(s)' "$work/apply2.out" || fail "apply did not report the panel: $(cat "$work/apply2.out")"

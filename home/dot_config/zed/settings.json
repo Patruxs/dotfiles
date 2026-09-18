@@ -1,4 +1,5 @@
 {
+  "cli_default_open_behavior": "existing_window",
   "icon_theme": "Warm Charmed Icons",
   "theme": "Aura Dark",
   "theme_overrides": {

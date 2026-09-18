@@ -1,7 +1,0 @@
----
-- name: Configure Docker for Linux
-  include_tasks: linux.yml
-  when:
-    - install_docker | default(false)
-    - dotfiles_platform.system == 'Linux'
-    - not (dotfiles_ci | default(false))

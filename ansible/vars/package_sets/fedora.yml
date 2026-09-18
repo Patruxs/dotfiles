@@ -3,6 +3,11 @@ platform: fedora
 package_family: dnf
 
 package_sets:
+  audio_auto_switch:
+    dnf:
+      - jq
+      - pipewire-utils
+      - wireplumber
   core_cli:
     dnf:
       - git
@@ -16,6 +21,8 @@ package_sets:
       - ripgrep
       - jq
       - bat
+      - fd-find
+      - eza
   desktop_base:
     dnf:
       - flatpak

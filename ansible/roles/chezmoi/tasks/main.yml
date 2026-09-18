@@ -14,7 +14,7 @@
   environment:
     PROFILE: "{{ profile }}"
   register: chezmoi_result
-  changed_when: false
+  changed_when: (chezmoi_result.stdout | default('') | trim) | length > 0
   when: dotfiles_setup_mode | default('best_effort') == 'strict'
 
 - name: Run chezmoi apply in isolated steps (best effort)

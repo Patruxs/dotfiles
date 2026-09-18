@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 scripts_dir="$repo_root/home/.chezmoiscripts"
+installer_files=("$scripts_dir"/*.tmpl "$repo_root"/ansible/roles/features/llmfit/tasks/main.yml)
 
 failures=0
 fail() {
@@ -10,16 +11,16 @@ fail() {
   failures=$((failures + 1))
 }
 
-if grep -nE 'raw\.githubusercontent\.com/[^/ ]+/[^/ ]+/v?[0-9]+\.[0-9]+' "$scripts_dir"/*.tmpl; then
+if grep -nE 'raw\.githubusercontent\.com/[^/ ]+/[^/ ]+/v?[0-9]+\.[0-9]+' "${installer_files[@]}"; then
   fail "an installer URL above pins a version; use the upstream default branch so the installer itself stays current"
 fi
-if grep -nE 'expected_sha256|sha256sum|shasum' "$scripts_dir"/*.tmpl; then
+if grep -nE 'expected_sha256|sha256sum|shasum' "${installer_files[@]}"; then
   fail "an installer above is pinned by checksum; upstream changes would break the install instead of being picked up"
 fi
 
-installer_urls="$(grep -ohE 'https://[^ "'"'"')]+/install\.sh' "$scripts_dir"/*.sh.tmpl | sort -u)"
+installer_urls="$(grep -ohE 'https://[^ "'"'"')]+/install\.sh' "${installer_files[@]}" | sort -u)"
 if [ -z "$installer_urls" ]; then
-  fail "no upstream installer URLs found under ${scripts_dir#"$repo_root"/}"
+  fail "no upstream installer URLs found in ${installer_files[*]#"$repo_root"/}"
 fi
 
 if ! curl -fsSL --max-time 30 -o /dev/null https://raw.githubusercontent.com/ 2>/dev/null \

@@ -1,7 +1,0 @@
----
-- name: Install Linux git tools
-  include_tasks: linux-lazygit.yml
-  when:
-    - dotfiles_platform.system == 'Linux'
-    - dotfiles_platform.distro_key in ['debian', 'fedora']
-    - not (dotfiles_ci | default(false))

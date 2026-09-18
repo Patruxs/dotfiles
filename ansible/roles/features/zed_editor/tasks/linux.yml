@@ -1,0 +1,22 @@
+---
+# Zed's installer puts the app in ~/.local/zed.app and a launcher in
+# ~/.local/bin/zed, so it runs as the user and needs no privileges. Re-running
+# it updates an existing install in place, which is also how Zed self-updates.
+- name: Install or update Zed on Linux
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dotfiles_fingerprint() {
+      sha256sum "$HOME/.local/zed.app/bin/zed" 2>/dev/null || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
+    curl -f https://zed.dev/install.sh | sh
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
+  args:
+    executable: /bin/bash
+  register: dotfiles_zed_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_zed_install.stdout_lines"
+  when:
+    - dotfiles_platform.architecture in ['x86_64', 'amd64', 'aarch64', 'arm64']

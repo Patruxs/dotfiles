@@ -65,9 +65,24 @@
 .config/plasma-org.kde.plasma.desktop-appletsrc
 .config/plasmashellrc
 
-{{- if or (ne .chezmoi.os "linux") (ne (default "personal" (get . "dotfiles_profile")) "personal") }}
+{{- $features := default (list) (get . "dotfiles_features") }}
+{{- $desktop := default "none" (get . "dotfiles_desktop") }}
+{{- if and (eq .chezmoi.os "linux") (not (get . "dotfiles_desktop")) }}
+{{-   $desktop = default "none" (output "bash" (joinPath .chezmoi.sourceDir ".." "scripts" "detect-desktop.sh") | trim) }}
+{{- end }}
+
+{{- if or (ne .chezmoi.os "linux") (not (has "audio_auto_switch" $features)) }}
 .local/bin/auto-headphone-switch
 .config/systemd/user/auto-headphone-switch.service
+{{- end }}
+
+{{- if ne $desktop "kde" }}
+.config/rofi/**
+.local/share/rofi/**
+.local/share/applications/omarchy-*.desktop
+.local/bin/omarchy-pin-window
+.local/bin/omarchy-show-battery
+.local/bin/omarchy-show-time
 {{- end }}
 
 {{- if ne .chezmoi.os "linux" }}
@@ -79,14 +94,8 @@
 .config/systemd/**
 .config/user-dirs.dirs
 .config/user-dirs.locale
-.config/rofi/**
-.local/share/rofi/**
 .local/share/icons/dotfiles/**
 .config/fontconfig/**
-.local/share/applications/omarchy-*.desktop
-.local/bin/omarchy-pin-window
-.local/bin/omarchy-show-battery
-.local/bin/omarchy-show-time
 .local/bin/update-flatpak-wrappers
 {{- end }}
 

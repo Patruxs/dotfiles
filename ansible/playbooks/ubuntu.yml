@@ -2,7 +2,7 @@
 - name: Ubuntu setup
   hosts: localhost
   connection: local
-  gather_facts: yes
+  gather_facts: true
 
   vars:
     chezmoi_dir: "{{ lookup('env', 'DOTFILES_CHEZMOI_DIR') | default(lookup('env', 'HOME') ~ '/.local/share/chezmoi', true) }}"
@@ -27,4 +27,5 @@
         name: platform_package_data
 
   tasks:
-    - import_tasks: common.yml
+    - name: Run the shared setup tasks
+      ansible.builtin.import_tasks: common.yml

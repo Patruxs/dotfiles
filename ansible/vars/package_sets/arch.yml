@@ -3,6 +3,11 @@ platform: arch
 package_family: pacman
 
 package_sets:
+  audio_auto_switch:
+    pacman:
+      - jq
+      - pipewire
+      - wireplumber
   core_cli:
     pacman:
       - git

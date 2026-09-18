@@ -49,13 +49,13 @@ package_sets:
 # ansible/roles/features/your_feature/tasks/main.yml
 ---
 - name: Install your feature on Linux
-  include_tasks: "{{ chezmoi_dir }}/ansible/roles/linux_apps/tasks/linux-yourtool.yml"
+  include_tasks: linux.yml
   when:
     - dotfiles_platform.system == 'Linux'
     - not (dotfiles_ci | default(false))
 ```
 
-Guard every task with the platforms it actually supports. A role that runs on a platform it was not written for is worse than one that is missing.
+Everything the feature does lives under its own directory (`linux.yml`, `macos.yml`, helper task files); a feature role never includes task files from another role. Guard every task with the platforms it actually supports. A role that runs on a platform it was not written for is worse than one that is missing.
 
 **Both.** A feature can have package-set entries *and* a role - `docker_desktop` installs its dependency packages from the package set and does the rest procedurally.
 
@@ -95,7 +95,7 @@ features:
 ### Step 7: Test
 
 ```sh
-./test/test_harness.sh                    # fast checks: shellcheck, ansible, chezmoi dry run
+./test/test_harness.sh                    # fast checks: shellcheck, yamllint, ansible-lint, ansible, chezmoi dry run
 ./bootstrap.sh --profile personal --strict  # real run, fail fast on the first problem
 ```
 
@@ -135,6 +135,8 @@ If the file should only exist on some machines, guard it with the setup data the
 .config/yourkdetool/config
 {{- end }}
 ```
+
+A file that only one desktop can use (a KDE launcher entry, a rofi theme) is guarded by `dotfiles_desktop`; a file that belongs to one feature (a user service, a tool's config) is guarded by `dotfiles_features`. Outside a setup run `dotfiles_features` comes from the profile chosen at `chezmoi init`, and `dotfiles_desktop` from `scripts/detect-desktop.sh`, so those guards work for a plain `chezmoi apply` too. Never guard on `dotfiles_profile`.
 
 KDE's own rc files (`kdeglobals`, `kwinrc`, `kglobalshortcutsrc`, ...) are the exception: KDE rewrites them atomically, which replaces a chezmoi symlink with a plain file, so they are not managed by chezmoi. Add the keys you care about to `desktop_environment/kde/settings/<file>` (or run `./scripts/kde-settings-sync.sh capture`) and the `kde` role writes them with `kwriteconfig6`. The global theme is the exception: `apply` reads `[KDE] LookAndFeelPackage` from the stored kdeglobals and applies that package with `plasma-apply-lookandfeel` before writing the keys, so pick the theme in System Settings and capture. GNOME preferences go in `home/.chezmoidata/gnome_dconf.yaml`.
 

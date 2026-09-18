@@ -1,0 +1,22 @@
+---
+extends: default
+
+ignore: |
+  home/
+  desktop_environment/
+
+rules:
+  indentation:
+    indent-sequences: whatever
+  line-length: disable
+  truthy:
+    check-keys: false
+  document-start: disable
+  comments:
+    min-spaces-from-content: 1
+  braces:
+    max-spaces-inside: 1
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
+  comments-indentation: false

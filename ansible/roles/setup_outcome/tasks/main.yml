@@ -371,7 +371,7 @@
     dest: "{{ dotfiles_setup_report_path }}"
     mode: "0644"
   changed_when: false
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Collect failure lines for the terminal summary
   vars:

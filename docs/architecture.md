@@ -42,9 +42,9 @@ Each feature is implemented in one of three ways on a given platform.
 
 | Implementation | Use it when | Example |
 | :--- | :--- | :--- |
-| **Package set only** | The package manager can install it directly | `core_cli`, `devtools` |
+| **Package set only** | The package manager can install it directly | `devtools`, `terminal_toys` |
 | **Feature role only** | Installing needs steps, not just a name | `warp_terminal`, `jetbrains_toolbox` |
-| **Both** | Direct packages plus procedural setup | `docker_desktop`, `desktop_base` |
+| **Both** | Direct packages plus procedural setup | `core_cli`, `docker_desktop`, `desktop_base` |
 
 **Package sets are data.** `ansible/vars/package_sets/ubuntu.yml` maps feature names to package entries grouped by installer type, and nothing else. No conditionals, no repositories, no scripts.
 
@@ -96,15 +96,13 @@ Two upstream failure modes are handled here specifically. The Snap build of `cur
 
 Each platform playbook (`ubuntu.yml`, `fedora.yml`, `arch.yml`, `macos.yml`) is thin. It defines the `dotfiles_platform` facts - name, package family, distribution, version, architecture, Ubuntu codename - loads its package set into `platform_package_data`, and imports the shared `common.yml`.
 
-`setup.yml` also exists as a compatibility entrypoint that detects the platform itself and forwards to the same `common.yml`.
-
 ### 3. `common.yml` resolves the profile and validates
 
 `ansible/playbooks/common.yml` owns everything that is identical across platforms:
 
 - detect the environment: automation (CI), container CI, setup mode, low-memory mode, and the desktop environment (`dotfiles_desktop`, through `scripts/detect-desktop.sh`)
 - resolve the profile from `-e profile=`, then a cached fact, then an interactive prompt, and fail clearly in non-interactive mode when none is available
-- load the profile file and derive compatibility variables from its features
+- load the profile file, whose `features` list is the only thing the rest of the run reads from it
 - run `profile_preflight` and `execution.yml` inside one block: a `rescue` clause records whichever failure aborted the run, the `always` clause writes the outcome report, and a final task re-raises the failure so the play still fails
 
 ### 4. Preflight fails before anything is installed
@@ -252,11 +250,29 @@ Instead one list in `profile_preflight` owns the order, and profiles just say wh
 
 This is why every profile runs `chezmoi apply`, including future server profiles. Guarded templates, not skipped applies, are what keep desktop config off a server.
 
+### Every feature role is self-contained
+
+The feature roles started life as one-line shims: `features/warp_terminal` included a task file from a shared `linux_apps` role, `features/jetbrains_toolbox` one from `packages`, and `features/shell` simply included a `shell` role that lived beside them. That made the directory listing preflight relies on a lie: a feature "existed" because a shim did, while the behavior lived somewhere the rules said it should not, and the shared roles accumulated task files nothing included any more. So a feature's tasks live inside its own role directory, the package-family installers live inside `package_installer`, and a role that is not reached from `execution.yml` is deleted rather than kept for compatibility. The same rule removed the compatibility variables (`install_docker`, `linux_native_apps`, ...) that profiles once set and `common.yml` then recomputed from `features`: a second copy of the feature list, in a different vocabulary, is only ever a source of drift, and `features` is the one the code reads.
+
+Templates follow the same idea. `chezmoi init` reads the selected profile's `features` list into the chezmoi config, so a template can ask `has "audio_auto_switch" .dotfiles_features` on a plain `chezmoi apply` as well as inside a setup run, and the two things that used to hinge on the profile being called `personal` (the headphone switcher and llmfit) became features of their own. Files that only make sense under one desktop, such as the KDE launcher entries and the rofi configuration behind them, are guarded by the detected desktop for the same reason: a GNOME machine or a server has no use for them, and a guard that names the reason survives the next profile unchanged.
+
 ### CI runs the real path
 
 It is tempting to run CI with lightweight mode on, since it is fast and green. But it skips so much of the install flow that a pass stops meaning anything about a real machine.
 
-So CI runs the normal path and skips only the specific surfaces that cannot work in a hosted runner - Flatpak payloads in containers, upstream shell installers in automation. Everything else is exercised for both profiles across all five platforms, including a second run to prove the setup is idempotent.
+So CI runs the normal path and skips only the specific surfaces that cannot work in a hosted runner - Flatpak payloads in containers, upstream shell installers in automation. Everything else is exercised for both profiles across all five platforms, including a second run to prove the setup is idempotent. The second run must report `changed=0` and an empty `chezmoi diff`. For that to mean anything, installer tasks that run a shell script (Warp, Ghostty, VirtualBox, Kiro, Zed, Starship, JetBrains Toolbox, the AI CLIs) fingerprint what they manage before and after (package version, or a digest of the installed binary), print `DOTFILES_CHANGED` only when the fingerprint differs, and report `changed` from that marker; `chezmoi apply -v` reports `changed` when it printed any action. Only `changed_when: false` on read-only checks and on the npm and Homebrew modules, which report spurious changes, remains.
+
+### Downloads are verified, and nothing that changes upstream is written down
+
+Docker Desktop for Linux is the one package here that does not come from a signed repository: the `.deb`, `.rpm` and Arch package are plain downloads, and the RPM carries no GPG signature at all, which is why the Fedora install keeps `--nogpgcheck`. What Docker does publish is a `checksums.txt` next to each build. So the installer reads the build number from the same appcast that gives it the version, downloads the package from that build's directory rather than the moving `latest` URL, and hands `get_url` the SHA-256 from the checksum file. A run that cannot read the appcast or the checksum file does not install an unverified package; it fails that step, which best-effort mode records in the report.
+
+The Ubuntu releases Docker's apt repository serves used to be a list in `common.yml`, edited by hand after every Ubuntu release, which is exactly the kind of pinned upstream fact the rest of this repository refuses to carry. It is now read from `dists/` on `download.docker.com` when the profile selects `docker_desktop` on Ubuntu. When that listing is unreachable the running codename is assumed supported so the install is attempted, and `apt-get update` reports the missing suite if the assumption was wrong.
+
+Bootstrap upgrades the whole system before it installs anything, because a fresh machine with a stale package index fails in confusing ways. On a machine that is already maintained that upgrade is the slowest step and sometimes the unwanted one, so `--no-system-upgrade` (or `DOTFILES_SYSTEM_UPGRADE=0`) skips it and the report says so.
+
+### Lint runs where the tests run
+
+`shellcheck`, `yamllint` and `ansible-lint` run in the test harness when they are installed and always in the CI `checks` job; `.yamllint` and `.ansible-lint` at the repository root are their configuration. Two ansible-lint rules are switched off on purpose: `var-naming[no-role-prefix]`, because the `dotfiles_` prefix is the convention here and renaming every fact would touch every test, and `command-instead-of-module`, because the package queries (`rpm -q`, `dpkg-query`, `pacman -Q`) are read-only checks with no module equivalent. `role-name[path]` is off because feature roles live under `features/` by design. The workflow itself has a `concurrency` group so a superseded pull request run is cancelled, a `timeout-minutes` on every job so a hung installer cannot hold a runner for six hours, and a weekly schedule: every install here resolves the latest upstream release at run time, so only a run that happens without a commit can show that an upstream URL or installer moved.
 
 ## Where things live
 
@@ -266,7 +282,6 @@ bootstrap.ps1                         Windows entrypoint: winget, separate path
 
 ansible/playbooks/
   ubuntu.yml fedora.yml arch.yml macos.yml   one per platform, thin
-  setup.yml                           compatibility entrypoint that detects the platform
   common.yml                          profile resolution, validation, shared wrapper
   execution.yml                       the ordered phases of a run
   feature_best_effort.yml             runs one feature role under the current setup mode
@@ -276,14 +291,14 @@ ansible/vars/package_sets/            how each platform installs each feature
 
 ansible/roles/
   profile_preflight/                  validation before any install
-  package_installer/                  direct package entries
+  package_installer/                  direct package entries, one installer task file per package family
   chezmoi_setup_data/                 data handed to templates
   chezmoi/                            chezmoi apply (isolated per file set and script in best-effort mode)
-  services/                           service enablement
+  services/                           user service enablement for features that ship one (audio_auto_switch)
   setup_outcome/                      verified end-of-run Markdown report
   low_memory/                         swap and installer throttling on small machines
   gnome/ kde/                         desktop settings, selected by the detected desktop
-  features/<feature_name>/            procedural feature implementations
+  features/<feature_name>/            procedural feature implementations, each self-contained
 
 scripts/
   detect-desktop.sh                   the one desktop detector bootstrap and Ansible share
@@ -318,6 +333,7 @@ test/                                 harness and bootstrap regression checks
 - Plasma panels capture drops popup and dialog geometry, screen-sized lengths and the tray's seen-items list, writes home paths portably, `check` and `diff` compare exactly the stored layout, `apply` rebuilds the panels only when they differ, both work through `dbus-send` when no qdbus binary exists and both refuse to run without a Plasma session (`test/plasma_panels_sync.sh`)
 - a failed bootstrap step is recorded and skipped in best-effort mode, stops the run in strict mode or when critical, and always reaches the Markdown report (`test/bootstrap_best_effort.sh`)
 - best-effort `chezmoi apply` isolates managed files from each `run_` script and records per-script failures
-- no install path hardcodes a tool version: download URLs must resolve the release at run time, `winget import` runs without `--no-upgrade` so installed packages are upgraded, Docker Desktop and VirtualBox resolve their current release from the vendor feed, and the upstream installers (zoxide, llmfit, superfile) are fetched unpinned and still resolve the latest release themselves (`test/upstream_installers_latest.sh`)
+- the Docker Desktop package for Linux is downloaded from the build directory the appcast names and checked against the SHA-256 Docker publishes in that build's `checksums.txt`, and the install is refused when no checksum can be read (`test/ci_bootstrap_regressions.sh`)
+- no install path hardcodes a tool version: download URLs must resolve the release at run time, `winget import` runs without `--no-upgrade` so installed packages are upgraded, Docker Desktop and VirtualBox resolve their current release from the vendor feed, Docker's Ubuntu release list is read from its apt repository at run time, and the upstream installers (zoxide and superfile in `home/.chezmoiscripts/`, llmfit in its feature role) are fetched unpinned and still resolve the latest release themselves (`test/upstream_installers_latest.sh`)
 
-CI runs the full bootstrap and an idempotency check for both profiles on Ubuntu, Fedora, Arch, macOS, and Windows. It skips installer surfaces that are known to be unreliable in hosted runners - Flatpak app payloads in containers, upstream AI CLI shell installers - rather than switching on lightweight `DOTFILES_CI` mode, which would skip too much of the real path to be meaningful.
+CI runs the full bootstrap in `strict` mode and an idempotency check for both profiles on Ubuntu, Fedora, Arch, macOS, and Windows. Strict mode makes a failed install fail the job instead of being rescued into the report, and after each run CI also reads `~/.dotfiles_setup_report.md` and requires `Result: Completed successfully.`. A separate job installs shellcheck, Ansible, and chezmoi and runs `test/test_harness.sh`, so the linting, regression tests, and chezmoi dry run do not depend on someone remembering to run them locally. It skips installer surfaces that are known to be unreliable in hosted runners - Flatpak app payloads in containers, upstream AI CLI shell installers - rather than switching on lightweight `DOTFILES_CI` mode, which would skip too much of the real path to be meaningful.

@@ -1,7 +1,9 @@
 ---
-- name: Run selected feature role {{ selected_feature }} (strict)
+- name: Run selected feature role (strict) {{ selected_feature }}
+  when: dotfiles_setup_mode == 'strict'
   block:
-    - include_role:
+    - name: Run the feature role
+      ansible.builtin.include_role:
         name: "features/{{ selected_feature }}"
 
     - name: Record selected feature completion
@@ -12,15 +14,17 @@
               {
                 'phase': 'feature',
                 'name': selected_feature,
-                'detail': (dotfiles_feature_details | default({}))[selected_feature] | default('Selected feature role finished; platform and environment conditions may skip individual subtasks.')
+                'detail': (dotfiles_feature_details | default({}))[selected_feature] | default('Selected feature role finished; platform and environment conditions
+          may skip individual subtasks.')
               }
             ]
           }}
-  when: dotfiles_setup_mode == 'strict'
 
-- name: Run selected feature role {{ selected_feature }} (best effort)
+- name: Run selected feature role (best effort) {{ selected_feature }}
+  when: dotfiles_setup_mode == 'best_effort'
   block:
-    - include_role:
+    - name: Run the feature role
+      ansible.builtin.include_role:
         name: "features/{{ selected_feature }}"
 
     - name: Record selected feature completion
@@ -31,7 +35,8 @@
               {
                 'phase': 'feature',
                 'name': selected_feature,
-                'detail': (dotfiles_feature_details | default({}))[selected_feature] | default('Selected feature role finished; platform and environment conditions may skip individual subtasks.')
+                'detail': (dotfiles_feature_details | default({}))[selected_feature] | default('Selected feature role finished; platform and environment conditions
+          may skip individual subtasks.')
               }
             ]
           }}
@@ -45,8 +50,8 @@
                 'phase': 'feature',
                 'name': selected_feature,
                 'task': ansible_failed_task.name | default('unknown task'),
-                'error': (ansible_failed_result.stderr | default('') | string) if (ansible_failed_result.stderr | default('') | string | length > 0) else (ansible_failed_result.msg | default(ansible_failed_result | to_json))
+                'error': (ansible_failed_result.stderr | default('') | string) if (ansible_failed_result.stderr | default('') | string | length > 0) else (ansible_failed_result.msg
+          | default(ansible_failed_result | to_json))
               }
             ]
           }}
-  when: dotfiles_setup_mode == 'best_effort'

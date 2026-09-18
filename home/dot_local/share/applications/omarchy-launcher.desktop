@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Omarchy: Launcher (rofi)
-Exec=/usr/bin/rofi -show drun
+Exec=rofi -show drun
 Icon=start-here
 NoDisplay=true
 Terminal=false

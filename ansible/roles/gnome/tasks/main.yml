@@ -2,6 +2,5 @@
 - name: Configure GNOME settings
   include_tasks: linux.yml
   when:
-    - gnome_settings_enabled | default(false)
     - dotfiles_platform.system == 'Linux'
     - dotfiles_desktop | default('none') == 'gnome'
