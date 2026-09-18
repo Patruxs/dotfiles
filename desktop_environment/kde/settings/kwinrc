@@ -23,6 +23,8 @@ Active=true
 NightTemperature=4700
 
 [Plugins]
+blurEnabled=false
+contrastEnabled=false
 dialogparentEnabled=false
 dimscreenEnabled=false
 eyeonscreenEnabled=true
@@ -35,6 +37,7 @@ scaleEnabled=false
 slideEnabled=false
 squashEnabled=false
 tileseditorEnabled=false
+translucencyEnabled=false
 windowapertureEnabled=false
 
 [Script-krohnkite]

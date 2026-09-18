@@ -7,7 +7,7 @@
     "lengthMode": "fill",
     "location": "top",
     "offset": 0,
-    "opacity": "translucent",
+    "opacity": "opaque",
     "widgets": [
       {
         "config": {

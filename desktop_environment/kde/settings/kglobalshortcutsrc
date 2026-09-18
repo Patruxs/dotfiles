@@ -18,12 +18,12 @@ Log Out=Ctrl+Alt+Del\tMeta+Esc,Ctrl+Alt+Del,Show Logout Screen
 
 [kwin]
 Activate Window Demanding Attention=none,Meta+Ctrl+A,Activate Window Demanding Attention
-Decrease Opacity=Meta+Backspace,none,Decrease Opacity of Active Window by 5%
+Decrease Opacity=none,none,Decrease Opacity of Active Window by 5%
 Expose=Ctrl+F9,Ctrl+F9\tMeta+F9,Toggle Present Windows (Current desktop)
 ExposeAll=Launch (C)\tCtrl+F10,Launch (C)\tCtrl+F10\tMeta+F10,Toggle Present Windows (All desktops)
 ExposeClass=Ctrl+F7,Ctrl+F7\tMeta+F7,Toggle Present Windows (Window class)
 Grid View=none,Meta+G,Toggle Grid View
-Increase Opacity=Meta+Ctrl+Backspace,none,Increase Opacity of Active Window by 5%
+Increase Opacity=none,none,Increase Opacity of Active Window by 5%
 Kill Window=none,Meta+Ctrl+Esc,Kill Window
 KrohnkiteFocusDown=Meta+Down,none,Krohnkite: Focus Down
 KrohnkiteFocusLeft=Meta+Left,none,Krohnkite: Focus Left
