@@ -5,7 +5,7 @@ set -euo pipefail
 nvim_dir="${XDG_CONFIG_HOME:-$HOME/.config}/nvim"
 [ -d "$nvim_dir" ] || exit 0
 
-for stale in lazy-lock.json .gitignore LICENSE lua/plugins/example.lua lua/config/autocmds.lua; do
+for stale in lazy-lock.json .gitignore LICENSE README.md lazyvim.json lua/plugins/example.lua lua/config/autocmds.lua; do
   if [ -L "$nvim_dir/$stale" ] && [ ! -e "$nvim_dir/$stale" ]; then
     rm -f "$nvim_dir/$stale"
   fi

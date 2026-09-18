@@ -750,7 +750,7 @@ if ! search_file_literal 'Run chezmoi apply (strict)' "$chezmoi_task_main" ||
   ! search_file_literal "'--exclude=scripts'" "$chezmoi_best_effort_task" ||
   ! search_file_literal "'--include=scripts', item.target" "$chezmoi_best_effort_task" ||
   ! search_file_literal '--path-style=source-absolute' "$chezmoi_best_effort_task" ||
-  ! search_file_literal 'dotfiles_setup_failures' "$chezmoi_best_effort_task" ||
+  ! search_file_literal 'name: record_failure' "$chezmoi_best_effort_task" ||
   ! search_file_literal "'before'" "$chezmoi_best_effort_task" ||
   ! search_file_literal "'after'" "$chezmoi_best_effort_task"; then
   echo "expected best-effort chezmoi apply to isolate files and each run_ script and record per-script failures"
@@ -851,7 +851,7 @@ if ! search_file 'mise ls --missing|- --missing' "$mise_tools_task" ||
   ! search_file 'GITHUB_TOKEN' "$mise_tools_task" ||
   ! search_file 'dotfiles_mise_missing_tools_before \| length > 0' "$mise_tools_task" ||
   ! search_file 'dotfiles_mise_outdated_tools_before \| length > 0' "$mise_tools_task" ||
-  ! search_file "'phase': 'mise'" "$mise_tools_task" ||
+  ! search_file 'failure_phase: mise' "$mise_tools_task" ||
   ! search_file 'Record each mise tool still missing after install' "$mise_tools_task"; then
   echo "expected mise_tools to capture the missing and outdated tools before acting, derive changed from them, and record every tool still missing"
   exit 1

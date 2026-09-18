@@ -34,6 +34,7 @@ YAML
 cat >"$work/bin/fakepkg" <<'SH'
 #!/usr/bin/env bash
 shift
+printf '%s\n' "$*" >>"$(dirname "$0")/fakepkg.log"
 status=0
 for package in "$@"; do
   case "$package" in
@@ -51,6 +52,17 @@ fi
 exit "$status"
 SH
 chmod +x "$work/bin/fakepkg"
+
+cat >"$work/bin/fakeindex" <<'SH'
+#!/usr/bin/env bash
+touch "$(dirname "$0")/index-refreshed"
+if [ "${1:-}" = fail ]; then
+  echo "index-boom" >&2
+  exit 100
+fi
+echo "index refreshed"
+SH
+chmod +x "$work/bin/fakeindex"
 
 cat >"$work/phases.yml" <<YAML
 ---
@@ -97,6 +109,7 @@ cat >"$work/packages.yml" <<YAML
     system_packages: [good, broken, present, later]
     dotfiles_platform:
       package_family: fake
+      package_index_refresh_command: "{{ index_refresh_command | default([]) }}"
       package_install_command: ["$work/bin/fakepkg", install]
       package_install_serial_command: ["$work/bin/fakepkg", install]
       package_install_noop_marker: NOTHING-TO-DO
@@ -187,6 +200,47 @@ else
   echo "ok: strict low-memory package installs fail the play"
 fi
 expect "$result" "'good' in d['attempted'] and 'broken' in d['attempted']" "True" "strict low-memory installs one package at a time"
+
+result="$work/packages-index-best-effort.json"
+rm -f "$work/bin/index-refreshed"
+if run_playbook "$work/packages.yml" "$result" -e dotfiles_setup_mode=best_effort -e "{\"index_refresh_command\": [\"$work/bin/fakeindex\", \"fail\"]}"; then
+  echo "ok: best_effort survives a failed package index refresh"
+else
+  fail "best_effort package play failed after a failed package index refresh"
+  cat "$result.log" >&2
+fi
+[ -e "$work/bin/index-refreshed" ] || fail "expected the package index refresh command to run"
+expect "$result" "[(f['phase'], f['name'], f['error']) for f in d['failures']][0]" "('fake_package', 'package index refresh', 'index-boom')" "best_effort records the failed package index refresh"
+expect "$result" "d['attempted']" "['good', 'broken', 'present', 'later']" "best_effort still installs packages from the existing index"
+
+result="$work/packages-index-strict.json"
+rm -f "$work/bin/fakepkg.log"
+if run_playbook "$work/packages.yml" "$result" -e dotfiles_setup_mode=strict -e "{\"index_refresh_command\": [\"$work/bin/fakeindex\", \"fail\"]}"; then
+  fail "strict package play succeeded despite a failed package index refresh"
+else
+  echo "ok: strict stops at a failed package index refresh"
+fi
+expect "$result" "[(f['phase'], f['name'], f['error']) for f in d['failures']]" "[('fake_package', 'package index refresh', 'index-boom')]" "strict records the failed package index refresh once"
+if [ -e "$work/bin/fakepkg.log" ]; then
+  fail "expected strict mode to stop before installing packages, but the installer ran: $(cat "$work/bin/fakepkg.log")"
+else
+  echo "ok: strict installs nothing after a failed package index refresh"
+fi
+
+result="$work/packages-index-ok.json"
+if run_playbook "$work/packages.yml" "$result" -e dotfiles_setup_mode=best_effort -e "{\"index_refresh_command\": [\"$work/bin/fakeindex\"]}"; then
+  echo "ok: a successful package index refresh keeps the play successful"
+else
+  fail "best_effort package play failed with a working package index refresh"
+  cat "$result.log" >&2
+fi
+expect "$result" "[f['name'] for f in d['failures']]" "['broken']" "a successful package index refresh records no failure"
+if grep -Eq 'changed=2 ' "$result.log"; then
+  echo "ok: the package index refresh is not reported as a change"
+else
+  fail "expected the package index refresh to leave the changed count at the two installed packages"
+  cat "$result.log" >&2
+fi
 
 if [ "$failures" -gt 0 ]; then
   echo "setup mode phase checks failed: $failures" >&2

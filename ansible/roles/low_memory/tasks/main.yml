@@ -32,13 +32,18 @@
       exit 0
     fi
 
+    ensure_fstab_entry() {
+      grep -qE '^[[:space:]]*/swapfile[[:space:]]' /etc/fstab || printf '%s\n' '/swapfile none swap sw 0 0' >> /etc/fstab
+    }
+
     if [ -e /swapfile ]; then
-      if ! swapon --show=NAME --noheadings | grep -qx '/swapfile'; then
-        swapon /swapfile || true
+      if ! swapon --show=NAME --noheadings | grep -x '/swapfile' >/dev/null && ! swapon /swapfile; then
+        echo "/swapfile exists but cannot be activated as swap. Remove it with 'sudo rm /swapfile' and re-run setup to recreate it." >&2
+        exit 1
       fi
 
       if [ "$(current_swap_mb)" -ge "$min_swap_mb" ]; then
-        /bin/sh -c "grep -qE '^[^#][[:space:]]*/swapfile[[:space:]]+none[[:space:]]+swap[[:space:]]' /etc/fstab || printf '%s\n' '/swapfile none swap sw 0 0' >> /etc/fstab"
+        ensure_fstab_entry
         echo "DOTFILES_LOW_MEMORY_SWAP=activated_existing"
         exit 0
       fi
@@ -68,7 +73,7 @@
       echo "Could not create and activate /swapfile; the partial file was removed." >&2
       exit 1
     fi
-    /bin/sh -c "grep -qE '^[^#][[:space:]]*/swapfile[[:space:]]+none[[:space:]]+swap[[:space:]]' /etc/fstab || printf '%s\n' '/swapfile none swap sw 0 0' >> /etc/fstab"
+    ensure_fstab_entry
     echo "DOTFILES_LOW_MEMORY_SWAP=created_${swapfile_size_mb}mb"
   become: true
   args:

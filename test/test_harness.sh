@@ -122,6 +122,20 @@ log_info "Running bootstrap best-effort step handling test..."
 }
 log_info "Bootstrap best-effort step handling test passed."
 
+log_info "Running bootstrap chezmoi upgrade test..."
+./test/bootstrap_chezmoi_upgrade.sh || {
+    log_err "Bootstrap chezmoi upgrade test failed."
+    exit 1
+}
+log_info "Bootstrap chezmoi upgrade test passed."
+
+log_info "Running bootstrap entrypoint test..."
+./test/bootstrap_entrypoint.sh || {
+    log_err "Bootstrap entrypoint test failed."
+    exit 1
+}
+log_info "Bootstrap entrypoint test passed."
+
 log_info "Running CI bootstrap regression checks..."
 ./test/ci_bootstrap_regressions.sh || {
     log_err "CI bootstrap regression checks failed."
@@ -156,6 +170,13 @@ log_info "Running setup mode phase checks..."
     exit 1
 }
 log_info "setup mode phase checks passed."
+
+log_info "Running failure recording checks..."
+./test/failure_recording.sh || {
+    log_err "failure recording checks failed."
+    exit 1
+}
+log_info "failure recording checks passed."
 
 log_info "Running GNOME extensions sync regression test..."
 ./test/gnome_extensions_sync.sh || {

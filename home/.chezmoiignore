@@ -112,11 +112,6 @@
 {{- end }}
 
 {{- if ne .chezmoi.os "linux" }}
-.config/MangoHud/**
-.config/fcitx5/**
-.config/goverlay/**
-.config/gpu-screen-recorder/**
-.config/mimeapps.list
 .config/systemd/**
 .config/user-dirs.dirs
 .config/user-dirs.locale

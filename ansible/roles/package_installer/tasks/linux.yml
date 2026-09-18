@@ -1,4 +1,23 @@
 ---
+- name: Refresh the package index
+  ansible.builtin.command:
+    argv: "{{ dotfiles_platform.package_index_refresh_command }}"
+  become: true
+  register: dotfiles_package_index_refresh
+  changed_when: false
+  failed_when: false
+  when: dotfiles_platform.package_index_refresh_command | length > 0
+
+- name: Record a package index refresh failure
+  ansible.builtin.include_role:
+    name: record_failure
+  vars:
+    failure_phase: "{{ dotfiles_platform.package_family }}_package"
+    failure_name: package index refresh
+    failure_task: Refresh the package index
+    failure_result: "{{ dotfiles_package_index_refresh }}"
+  when: (dotfiles_package_index_refresh.rc | default(0)) != 0
+
 - name: Install system packages
   ansible.builtin.command:
     argv: "{{ dotfiles_platform.package_install_command + system_packages }}"

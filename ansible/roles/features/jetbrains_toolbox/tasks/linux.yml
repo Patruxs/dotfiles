@@ -40,7 +40,7 @@
     fi
 
     mkdir -p "$bin_dir"
-    cp -a "$(dirname "$binary")/." "$bin_dir/"
+    cp -a --remove-destination "$(dirname "$binary")/." "$bin_dir/"
     chmod 0755 "$bin_dir/jetbrains-toolbox"
     printf '%s\n' "$build" >"$marker"
     echo DOTFILES_CHANGED

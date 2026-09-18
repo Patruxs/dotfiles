@@ -19,6 +19,7 @@
       architecture: "{{ ansible_facts['architecture'] | default('') }}"
       distro_key: ""
       ubuntu_codename: ""
+      package_index_refresh_command: []
       package_install_command: []
       package_install_serial_command: []
       package_install_noop_marker: ""

@@ -99,8 +99,13 @@ jobs:
     - uses: actions/checkout@v5
       with:
         set-safe-directory: false
-    - name: Run Bootstrap
-      run: .\bootstrap.ps1 -ProfileName ${{ matrix.profile }} -SetupMode strict
+    - name: Run Bootstrap Under Windows PowerShell 5.1
+      shell: powershell
+      run: |
+        .\bootstrap.ps1 -ProfileName ${{ matrix.profile }} -SetupMode strict
+        if (-not (Test-Path (Join-Path $HOME ".config\mise\conf.d\core_cli.toml"))) {
+          throw "bootstrap.ps1 did not pass the profile's features to chezmoi: ~/.config/mise/conf.d/core_cli.toml was not applied."
+        }
     - name: Check Setup Report
       shell: pwsh
       run: |

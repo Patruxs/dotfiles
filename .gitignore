@@ -8,5 +8,5 @@ Thumbs.db
 *.rej
 *~
 
-# Machine-local AI context notes; never commit (a local pre-commit hook also guards this).
+# Machine-local AI context notes; never commit.
 CONTEXT.md

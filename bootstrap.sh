@@ -939,7 +939,7 @@ install_chezmoi_from_package_manager() {
   esac
 }
 
-install_chezmoi() {
+install_chezmoi_to_local_bin() {
   mkdir -p "$HOME/.local/bin"
 
   if fetch_to_stdout "https://get.chezmoi.io/lb" | sh -s -- -b "$HOME/.local/bin" && [ -x "$HOME/.local/bin/chezmoi" ]; then
@@ -947,7 +947,11 @@ install_chezmoi() {
   fi
 
   echo "The chezmoi installer script failed. Trying a direct download of the latest release binary..."
-  if install_chezmoi_release_binary; then
+  install_chezmoi_release_binary
+}
+
+install_chezmoi() {
+  if install_chezmoi_to_local_bin; then
     return
   fi
 
@@ -955,8 +959,42 @@ install_chezmoi() {
   install_chezmoi_from_package_manager
 }
 
+latest_chezmoi_version() {
+  local url="https://github.com/twpayne/chezmoi/releases/latest"
+  local header="Accept: application/json"
+
+  if have curl; then
+    curl -fsSL --connect-timeout 30 --max-time 60 --retry 3 --retry-delay 2 -H "$header" "$url"
+  else
+    wget -q --timeout=30 --tries=3 --header="$header" -O- "$url"
+  fi | sed -n 's/.*"tag_name":"v\{0,1\}\([^"]*\)".*/\1/p'
+}
+
+installed_chezmoi_version() {
+  chezmoi --version | sed -n 's/^chezmoi version v\{0,1\}\([0-9][0-9.]*\).*/\1/p'
+}
+
 upgrade_chezmoi() {
-  chezmoi upgrade
+  local installed latest
+
+  latest="$(latest_chezmoi_version || true)"
+  if [ -z "$latest" ]; then
+    echo "Could not read the latest chezmoi release from github.com."
+    return 1
+  fi
+
+  installed="$(installed_chezmoi_version)"
+  if [ "$installed" = "$latest" ]; then
+    echo "chezmoi $installed is the latest release."
+    return
+  fi
+
+  echo "Upgrading chezmoi ${installed:-(unknown version)} to $latest..."
+  if [ "$(command -v chezmoi)" = "$HOME/.local/bin/chezmoi" ]; then
+    install_chezmoi_to_local_bin
+  else
+    chezmoi upgrade
+  fi
 }
 
 upgrade_ansible() {
@@ -1119,7 +1157,7 @@ required_ansible_collections_present() {
   requirements_file="$1"
 
   while read -r collection_name minimum; do
-    installed="$(ansible-galaxy collection list "$collection_name" 2>/dev/null | awk -v name="$collection_name" '$1 == name { print $2; exit }')"
+    installed="$(ansible-galaxy collection list "$collection_name" 2>/dev/null | awk -v name="$collection_name" '$1 == name { print $2 }' | sort -V | tail -n 1)"
     if [ -z "$installed" ]; then
       echo "Required Ansible collection $collection_name is not installed."
       missing=1

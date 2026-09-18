@@ -89,19 +89,14 @@
   when: dotfiles_setup_mode | default('best_effort') == 'best_effort'
 
 - name: Record the mise install failure
-  set_fact:
-    dotfiles_setup_failures: >-
-      {{
-        (dotfiles_setup_failures | default([])) + [
-          {
-            'phase': 'mise',
-            'name': 'mise install',
-            'task': 'Install missing mise tools (best effort)',
-            'error': (dotfiles_mise_install_result.stderr | default('') | string) if (dotfiles_mise_install_result.stderr | default('') | string | length > 0)
-      else (dotfiles_mise_install_result.stdout | default('') | string)
-          }
-        ]
-      }}
+  ansible.builtin.include_role:
+    name: record_failure
+  vars:
+    failure_phase: mise
+    failure_name: mise install
+    failure_task: Install missing mise tools (best effort)
+    failure_result:
+      stderr: "{{ dotfiles_mise_install_result.stderr | default('', true) or dotfiles_mise_install_result.stdout | default('') }}"
   when:
     - dotfiles_mise_install_result is not skipped
     - dotfiles_mise_install_result.rc != 0
@@ -120,19 +115,14 @@
   when: dotfiles_setup_mode | default('best_effort') == 'best_effort'
 
 - name: Record the mise upgrade failure
-  set_fact:
-    dotfiles_setup_failures: >-
-      {{
-        (dotfiles_setup_failures | default([])) + [
-          {
-            'phase': 'mise',
-            'name': 'mise upgrade',
-            'task': 'Upgrade mise tools (best effort)',
-            'error': (dotfiles_mise_upgrade_result.stderr | default('') | string) if (dotfiles_mise_upgrade_result.stderr | default('') | string | length > 0)
-      else (dotfiles_mise_upgrade_result.stdout | default('') | string)
-          }
-        ]
-      }}
+  ansible.builtin.include_role:
+    name: record_failure
+  vars:
+    failure_phase: mise
+    failure_name: mise upgrade
+    failure_task: Upgrade mise tools (best effort)
+    failure_result:
+      stderr: "{{ dotfiles_mise_upgrade_result.stderr | default('', true) or dotfiles_mise_upgrade_result.stdout | default('') }}"
   when:
     - dotfiles_mise_upgrade_result is not skipped
     - dotfiles_mise_upgrade_result.rc != 0
@@ -151,16 +141,14 @@
   when: dotfiles_setup_mode | default('best_effort') == 'best_effort'
 
 - name: Record each mise tool still missing after install
-  set_fact:
-    dotfiles_setup_failures: >-
-      {{
-        (dotfiles_setup_failures | default([])) + [
-          {
-            'phase': 'mise',
-            'name': item,
-            'task': 'Install missing mise tools (best effort)',
-            'error': 'mise still lists ' ~ item ~ ' as missing after `mise install`; run `mise install ' ~ item ~ '` to see why it failed.'
-          }
-        ]
-      }}
+  ansible.builtin.include_role:
+    name: record_failure
+  vars:
+    failure_phase: mise
+    failure_name: "{{ missing_tool }}"
+    failure_task: Install missing mise tools (best effort)
+    failure_result:
+      msg: "mise still lists {{ missing_tool }} as missing after `mise install`; run `mise install {{ missing_tool }}` to see why it failed."
   loop: "{{ ((dotfiles_mise_missing_after.stdout | default('{}') | trim or '{}') | from_json | list) if dotfiles_mise_missing_after is not skipped else [] }}"
+  loop_control:
+    loop_var: missing_tool

@@ -49,16 +49,7 @@ progress_total=0
 progress_done=0
 progress_label=""
 progress_phase_index=""
-progress_ansible_phases=(
-  "profile_preflight : "
-  "low_memory : "
-  "chezmoi_setup_data : "
-  "package_installer : "
-  "features/"
-  "chezmoi : "
-  "services : "
-  "setup_outcome : "
-)
+eval "$(sed -n '/^progress_ansible_phases=(/,/^)/p' "$BOOTSTRAP")"
 
 eval "$(extract_function progress_draw)"
 eval "$(extract_function progress_set_label)"
@@ -215,6 +206,10 @@ fi
 progress_ansible_phase_index "features/flatpak_apps : Install Flatpak apps"
 if [ "$progress_phase_index" != "5" ]; then
   fail "expected feature role tasks to map to phase 5, got '$progress_phase_index'"
+fi
+progress_ansible_phase_index "mise_tools : Install the mise tool lists"
+if [ "$progress_phase_index" != "7" ]; then
+  fail "expected mise_tools tasks to map to phase 7, after chezmoi apply, got '$progress_phase_index'"
 fi
 
 progress_total=2

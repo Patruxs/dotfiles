@@ -27,10 +27,13 @@ fi
 if grep -nE '(apt-get|dnf|pacman|brew|winget|flatpak|npm|pipx?|mise) +(install|use|-S)[^|;&]*[A-Za-z0-9_.+-]+(=|==|@)v?[0-9]+(\.[0-9]+)+' "${install_path_files[@]}"; then
   fail "a package install above pins a version"
 fi
-echo "ok: no install path under bootstrap, ansible/, scripts/ or the chezmoi scripts spells out a version (${#install_path_files[@]} files)"
+if [ "$failures" -eq 0 ]; then
+  echo "ok: no install path under bootstrap, ansible/, scripts/ or the chezmoi scripts spells out a version (${#install_path_files[@]} files)"
+fi
 
 if [ "${#installer_files[@]}" -eq 0 ]; then
   echo "No upstream installer files found; nothing to check."
+  [ "$failures" -eq 0 ] || exit 1
   exit 0
 fi
 

@@ -182,7 +182,7 @@ function Update-Progress {
     $percent = [int][Math]::Floor($script:progress.Done * 100 / $script:progress.Total)
     $filled = [int][Math]::Floor($width * $script:progress.Done / $script:progress.Total)
   }
-  $bar = ("█" * $filled) + ("░" * ($width - $filled))
+  $bar = ([string][char]0x2588 * $filled) + ([string][char]0x2591 * ($width - $filled))
   $maxLabel = [Math]::Max(0, $script:progress.Cols - $width - 10)
   $label = $script:progress.Label
   if ($label.Length -gt $maxLabel) { $label = $label.Substring(0, $maxLabel) }
@@ -269,11 +269,14 @@ function Write-SetupReport {
 }
 
 function Show-Banner {
-  Write-Host "▓▓▓▓   ▓▓▓  ▓▓▓▓▓ ▓▓▓▓▓ ▓▓▓ ▓     ▓▓▓▓▓  ▓▓▓▓"
-  Write-Host "▓   ▓ ▓   ▓   ▓   ▓      ▓  ▓     ▓     ▓"
-  Write-Host "▓   ▓ ▓   ▓   ▓   ▓▓▓▓   ▓  ▓     ▓▓▓▓   ▓▓▓"
-  Write-Host "▓   ▓ ▓   ▓   ▓   ▓      ▓  ▓     ▓         ▓"
-  Write-Host "▓▓▓▓   ▓▓▓    ▓   ▓     ▓▓▓ ▓▓▓▓▓ ▓▓▓▓▓ ▓▓▓▓"
+  $block = [string][char]0x2593
+  @(
+    "####   ###  ##### ##### ### #     #####  ####",
+    "#   # #   #   #   #      #  #     #     #",
+    "#   # #   #   #   ####   #  #     ####   ###",
+    "#   # #   #   #   #      #  #     #         #",
+    "####   ###    #   #     ### ##### ##### ####"
+  ) | ForEach-Object { Write-Host $_.Replace("#", $block) }
 }
 
 function Show-WelcomeScreen {
@@ -287,12 +290,14 @@ function Show-WelcomeScreen {
 }
 
 function Get-Profile {
+  $profilePattern = "^(personal|work)$"
+
   if ([string]::IsNullOrWhiteSpace($ProfileName) -and -not [string]::IsNullOrWhiteSpace($env:DOTFILES_PROFILE)) {
     $ProfileName = $env:DOTFILES_PROFILE
   }
 
   if (-not [string]::IsNullOrWhiteSpace($ProfileName)) {
-    if ($ProfileName -match "^(personal|work)$") {
+    if ($ProfileName -match $profilePattern) {
       Set-Content -Path $profileCacheFile -Value $ProfileName
       return $ProfileName
     }
@@ -300,21 +305,26 @@ function Get-Profile {
   }
 
   if (Test-Path $profileCacheFile) {
-    $savedProfile = (Get-Content $profileCacheFile).Trim()
-    $reply = Read-Host "Current profile is $savedProfile. Continue? [Y/n]"
-    if ([string]::IsNullOrWhiteSpace($reply) -or $reply -match "^(y|yes)$") {
-      return $savedProfile
+    $savedProfile = ([string](Get-Content $profileCacheFile -TotalCount 1)).Trim()
+    if ($savedProfile -match $profilePattern) {
+      $reply = Read-Host "Current profile is $savedProfile. Continue? [Y/n]"
+      if ([string]::IsNullOrWhiteSpace($reply) -or $reply -match "^(y|yes)$") {
+        return $savedProfile
+      }
+    } else {
+      Write-Warning "Ignoring the saved profile '$savedProfile' in $profileCacheFile because it is not a known profile."
     }
   }
 
-  while ($true) {
+  foreach ($attempt in 1..3) {
     $reply = Read-Host "Select profile (personal or work)"
-    if ($reply -match "^(personal|work)$") {
+    if ($reply -match $profilePattern) {
       Set-Content -Path $profileCacheFile -Value $reply
       return $reply
     }
     Write-Host "Invalid profile. Please enter 'personal' or 'work'."
   }
+  throw "No valid profile was entered. Re-run with -ProfileName personal or -ProfileName work."
 }
 
 function Refresh-Repo {
@@ -329,9 +339,9 @@ function Refresh-Repo {
 
   Push-Location $chezmoiSource
   try {
-    git diff --quiet --ignore-submodules HEAD -- 2>$null
+    git diff --quiet --ignore-submodules HEAD --
     $worktreeClean = ($LASTEXITCODE -eq 0)
-    git diff --quiet --ignore-submodules --cached -- 2>$null
+    git diff --quiet --ignore-submodules --cached --
     $indexClean = ($LASTEXITCODE -eq 0)
 
     if ($worktreeClean -and $indexClean) {
@@ -362,7 +372,7 @@ function Resolve-WingetPackageIds {
     }
     $family = $Matches.family
     $major = [int]$Matches.major
-    $searchOutput = [string](& winget search --id "$family.$major." --source winget --accept-source-agreements --disable-interactivity 2>$null | Out-String)
+    $searchOutput = [string](& winget search --id "$family.$major." --source winget --accept-source-agreements --disable-interactivity | Out-String)
     $minors = @([regex]::Matches($searchOutput, [regex]::Escape("$family.$major.") + '(?<minor>[0-9]+)') | ForEach-Object { [int]$_.Groups['minor'].Value } | Sort-Object -Unique)
     if ($minors.Count -eq 0) {
       Write-Warning "Could not resolve the newest $family.$major.x package id from winget; leaving $pkg as is (winget import will report it unavailable)."
@@ -424,7 +434,7 @@ function New-ChezmoiOverrideDataFile {
   $featuresTemplate = '{{ (include (joinPath .chezmoi.sourceDir ".." "ansible" "vars" "profiles" (printf "%s.yml" (env "DOTFILES_PROFILE"))) | fromYaml).features | toJson }}'
   $featuresJson = [string]($featuresTemplate | chezmoi execute-template --source $chezmoiSource | Out-String)
   Assert-LastExitCode "chezmoi execute-template (profile features)"
-  $features = @($featuresJson | ConvertFrom-Json)
+  [string[]]$features = $featuresJson | ConvertFrom-Json
   if ($features.Count -eq 0) {
     throw "Profile '$SelectedProfile' lists no features in ansible/vars/profiles/$SelectedProfile.yml."
   }
@@ -461,7 +471,7 @@ function Install-MiseTools {
   Write-Host "Upgrading mise tools to their latest release..."
   mise upgrade
   Assert-LastExitCode "mise upgrade"
-  $missing = [string](& mise ls --missing 2>$null | Out-String)
+  $missing = [string](& mise ls --missing | Out-String)
   if (-not [string]::IsNullOrWhiteSpace($missing)) {
     throw "mise still lists tools as missing after install:`n$missing"
   }
@@ -551,7 +561,7 @@ try {
   New-Item -ItemType SymbolicLink -Path $symlinkProbeLink -Target $symlinkProbeTarget -ErrorAction Stop | Out-Null
   $symlinkOk = $true
 } catch {
-  cmd /c mklink "$symlinkProbeLink" "$symlinkProbeTarget" > $null 2>&1
+  cmd /c "mklink ""$symlinkProbeLink"" ""$symlinkProbeTarget"" >nul 2>&1"
   if ($LASTEXITCODE -eq 0) { $symlinkOk = $true }
 }
 Remove-Item $symlinkProbeLink -Force -ErrorAction SilentlyContinue
@@ -587,6 +597,10 @@ foreach ($feature in $profileFeatures) {
     }
 }
 $pkgs = @($pkgs | Select-Object -Unique)
+if ($PSVersionTable.PSEdition -eq "Core" -and $pkgs -contains "Microsoft.PowerShell") {
+    Write-Host "Leaving Microsoft.PowerShell out of the winget import because this script is running inside it. Update it from Windows PowerShell with: winget upgrade --id Microsoft.PowerShell"
+    $pkgs = @($pkgs | Where-Object { $_ -ne "Microsoft.PowerShell" })
+}
 if (-not (Test-IsCi)) {
     $pkgs = Resolve-WingetPackageIds -PackageIds $pkgs
 }

@@ -185,7 +185,7 @@
   ansible.builtin.set_fact:
     dotfiles_docker_desktop_fedora_releases: >-
       {{
-        docker_fedora_releases[-2:]
+        docker_fedora_releases
         if (dotfiles_docker_desktop_fedora_index.status | default(0)) == 200 and docker_fedora_releases | length > 0
         else [dotfiles_platform.distribution_major_version | int]
       }}

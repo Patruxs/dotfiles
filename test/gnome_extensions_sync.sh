@@ -137,6 +137,20 @@ else
   echo "ok: check fails when a stored extension is missing"
 fi
 
+echo "@as []" >"$work/state/enabled-extensions"
+echo "@as []" >"$work/state/disabled-extensions"
+run_sync capture >/dev/null 2>"$work/capture-empty.err" || fail "capture failed with no enabled extensions: $(cat "$work/capture-empty.err")"
+if grep -q '@as' "$work/capture-empty.err" "$stored_dir/extensions.yaml"; then
+  fail "capture read GNOME's empty-array marker '@as []' as an extension UUID"
+else
+  echo "ok: capture reads '@as []' as an empty extension list"
+fi
+if run_sync check; then
+  echo "ok: check passes when no extension is enabled"
+else
+  fail "check failed on a machine with no enabled extensions, which gsettings reports as '@as []'"
+fi
+
 if [ "$failures" -gt 0 ]; then
   echo "gnome extensions sync failed: $failures" >&2
   exit 1

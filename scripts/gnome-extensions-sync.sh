@@ -61,7 +61,7 @@ extension_origin() {
 # Turn a gsettings string array - ['a', 'b'] - into one UUID per line.
 gsettings_list() {
   gsettings get org.gnome.shell "$1" 2>/dev/null |
-    sed "s/^\[//; s/\]$//; s/', *'/\n/g; s/^'//; s/'$//" |
+    sed "s/^@as //; s/^\[//; s/\]$//; s/', *'/\n/g; s/^'//; s/'$//" |
     sed "s/^ *//; s/ *$//" |
     grep -v '^$' || true
 }
