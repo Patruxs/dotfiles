@@ -1,0 +1,39 @@
+{{- $features := default (list) (get . "dotfiles_features") -}}
+{{- $desktop := default "none" (get . "dotfiles_desktop") -}}
+{{- if and (eq .chezmoi.os "linux") (has "desktop_apps" $features) (ne $desktop "none") -}}
+#!/bin/bash
+set -euo pipefail
+
+edge_config="$HOME/.var/app/com.microsoft.Edge/config/microsoft-edge"
+
+if ! command -v flatpak >/dev/null 2>&1 || ! flatpak info com.microsoft.Edge >/dev/null 2>&1; then
+    exit 0
+fi
+
+if pgrep -x msedge >/dev/null 2>&1; then
+    echo "Microsoft Edge is running; skipping system title bar setup. Close Edge and run: chezmoi state delete-bucket --bucket=scriptState && chezmoi apply" >&2
+    exit 0
+fi
+
+mkdir -p "$edge_config/Default"
+[ -f "$edge_config/Default/Preferences" ] || printf '{}' > "$edge_config/Default/Preferences"
+
+for prefs in "$edge_config"/Default/Preferences "$edge_config"/Profile\ */Preferences; do
+    [ -f "$prefs" ] || continue
+    python3 - "$prefs" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+with open(path) as handle:
+    data = json.load(handle)
+browser = data.setdefault("browser", {})
+if browser.get("custom_chrome_frame") is False:
+    sys.exit(0)
+browser["custom_chrome_frame"] = False
+with open(path, "w") as handle:
+    json.dump(data, handle, separators=(",", ":"))
+print("Enabled the system title bar in " + path)
+PY
+done
+{{- end }}
