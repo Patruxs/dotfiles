@@ -36,10 +36,12 @@
   ansible.builtin.shell: |
     set -euo pipefail
     dotfiles_fingerprint() {
-      rpm -q --qf '%{VERSION}' klassy 2>/dev/null || true
+      if rpm -q klassy >/dev/null 2>&1; then
+        rpm -q --qf '%{VERSION}' klassy
+      fi
     }
     dotfiles_before="$(dotfiles_fingerprint)"
-    if [ -z "$dotfiles_before" ] && ! dnf -q repoquery --available klassy 2>/dev/null | grep -q .; then
+    if [ -z "$dotfiles_before" ] && ! dnf -q repoquery --available --arch "$(uname -m),noarch" --qf '%{name}\n' klassy 2>/dev/null | grep -qx klassy; then
       klassy_repo="https://download.opensuse.org/repositories/home:/paulmcauley/Fedora_$(rpm -E %fedora)"
       if ! curl -fsI --max-time 60 -o /dev/null "$klassy_repo/repodata/repomd.xml"; then
         echo DOTFILES_UNAVAILABLE
@@ -54,7 +56,7 @@
         'gpgcheck=1' \
         "gpgkey=$klassy_repo/repodata/repomd.xml.key" \
         > /etc/yum.repos.d/home_paulmcauley.repo
-      if ! dnf -q --refresh repoquery --available klassy 2>/dev/null | grep -q .; then
+      if ! dnf -q --refresh repoquery --available --arch "$(uname -m),noarch" --qf '%{name}\n' klassy 2>/dev/null | grep -qx klassy; then
         echo DOTFILES_UNAVAILABLE
         exit 0
       fi
