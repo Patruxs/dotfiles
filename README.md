@@ -149,7 +149,11 @@ KDE Control Station) from their latest upstream release; `check` and `list`
 report what is installed. The `jetbrains_mono_nerd_font` feature runs
 `./scripts/nerd-font-install.sh install` on Fedora and Ubuntu, which have no
 Nerd Font package, to put JetBrainsMono Nerd Font into `~/.local/share/fonts`
-from the latest nerd-fonts release.
+from the latest nerd-fonts release. The `klassy_theme` feature installs Klassy
+itself - the window decoration, application style and global theme that
+`kwinrc` and `klassy/klassyrc` select - from the distribution's own `klassy`
+package where one exists, and otherwise from the upstream `home:paulmcauley`
+repository on the Open Build Service.
 
 ## 🔑 Manual logins
 
@@ -188,7 +192,7 @@ The system is split into two primary profiles to keep work machines lean while f
 | **Docker Ecosystem** | Linux, macOS, Windows | ✅ | ✅ | Docker Desktop. A separate `docker_engine` feature exists for the native engine; no shipped profile selects it. |
 | **AI CLIs** | Linux, macOS, Windows | ✅ | ✅ | `claude`, `codex`, `agy`, `opencode`, `herdr`, `paseo`, `pi` from the `ai_clis` mise tool list; `droid` from its vendor installer (skipped in automation). The personal profile adds `llmfit` through the `llmfit` mise tool list. |
 | **System & Desktop Configs** | Linux, macOS, Windows | ✅ | ✅ | SSH host aliases. <br> **Linux-only**: GNOME `dconf` preferences and Shell extensions, or KDE Plasma settings, for whichever desktop is detected; `user-dirs.dirs` (XDG dirs), `auto-headphone-switch.service` (Systemd, the `audio_auto_switch` feature, personal profile only), swap/low-memory tuning. |
-| **Fonts & Plasma add-ons** | Linux, macOS | ✅ | ✅ | JetBrainsMono Nerd Font (`jetbrains_mono_nerd_font`). On KDE Plasma, the `plasma_addons` feature installs Krohnkite, the geometry change effect, the Active Accent Frame decoration and the KDE Control Station widget from upstream. |
+| **Fonts, Plasma add-ons & theme** | Linux, macOS | ✅ | ✅ | JetBrainsMono Nerd Font (`jetbrains_mono_nerd_font`). On KDE Plasma, the `plasma_addons` feature installs Krohnkite, the geometry change effect, the Active Accent Frame decoration and the KDE Control Station widget from upstream, and the `klassy_theme` feature installs [Klassy](https://github.com/paulmcauley/klassy), the window decoration and application style the stored KDE settings select. |
 | **Heavy IDEs** | Linux, macOS, Windows | ✅ | ❌ | JetBrains Toolbox, Kiro IDE. |
 | **Virtualization** | Linux, macOS, Windows | ✅ | ❌ | Oracle VirtualBox. |
 | **Desktop Apps** | Linux, macOS, Windows | ✅ | ❌ | **Comm/Media**: Telegram, Zoom, Spotify, OBS Studio. <br> **Work/Utils**: Postman, ONLYOFFICE, Edge, Anki, Termius, Bazaar (Linux). <br> **System**: `nvtop` (Linux), RevoUninstaller (Win). |

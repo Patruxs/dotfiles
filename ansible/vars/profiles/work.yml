@@ -11,6 +11,7 @@ features:
   - desktop_base
   - jetbrains_mono_nerd_font
   - plasma_addons
+  - klassy_theme
   - shell
   - starship_prompt
   - devtools

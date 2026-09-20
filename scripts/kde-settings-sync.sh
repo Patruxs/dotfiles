@@ -46,6 +46,7 @@ tracked_files=(
   dolphinrc               # file manager
   konsolerc               # terminal
   baloofilerc             # file indexing
+  klassy/klassyrc         # Klassy window decoration: corners, outline, window overrides
 )
 
 # Groups and keys that KDE rewrites on its own: update stamps, cache hashes,
@@ -116,6 +117,11 @@ kwin_reconfigure() {
   if have dbus-send; then
     dbus-send --session --dest=org.kde.KWin /KWin org.kde.KWin.reconfigure >/dev/null 2>&1 || true
   fi
+}
+
+klassy_refresh_colors() {
+  have dbus-send || return 0
+  dbus-send --session --type=signal /KlassyDecoration org.kde.Klassy.Style.updateDecorationColorCache >/dev/null 2>&1 || true
 }
 
 kwriteconfig_bin() {
@@ -273,10 +279,10 @@ HEADER
 
 stored_files() {
   local path
-  for path in "$data_dir"/*; do
-    [ -f "$path" ] || continue
-    printf '%s\n' "${path##*/}"
-  done
+  [ -d "$data_dir" ] || return 0
+  while IFS= read -r path; do
+    printf '%s\n' "${path#"$data_dir"/}"
+  done < <(find "$data_dir" -type f | LC_ALL=C sort)
 }
 
 # The union of the tracked list and what is already stored, in that order.
@@ -314,6 +320,7 @@ cmd_capture() {
       continue
     fi
     count="$(printf '%s\n' "$records" | grep -c .)"
+    mkdir -p "$(dirname "$data_dir/$file")"
     printf '%s\n' "$records" | write_settings_file "$file" "$data_dir/$file"
     log "wrote $count setting(s) to ${data_dir#"$repo_dir"/}/$file"
     written=$((written + 1))
@@ -495,7 +502,7 @@ cmd_apply() {
     *--notify*) notify=(--notify) ;;
   esac
 
-  local file group key value live_value count=0 kwin_changed=0
+  local file group key value live_value count=0 kwin_changed=0 klassy_changed=0
   local -a args=()
   while IFS="$rs" read -r file group key value live_value; do
     mapfile -t args < <(group_args "$group")
@@ -503,6 +510,7 @@ cmd_apply() {
     log "  $file [$group] $key=$value"
     count=$((count + 1))
     [ "$file" = "kwinrc" ] && kwin_changed=1
+    [ "$file" = "klassy/klassyrc" ] && klassy_changed=1
   done < <(mismatched_entries)
 
   if [ "$count" -eq 0 ]; then
@@ -510,6 +518,11 @@ cmd_apply() {
     return 0
   fi
   log "wrote $count setting(s)"
+
+  if [ "$klassy_changed" -eq 1 ] && session_running; then
+    klassy_refresh_colors
+    kwin_changed=1
+  fi
 
   if [ "$kwin_changed" -eq 1 ] && session_running; then
     kwin_reconfigure

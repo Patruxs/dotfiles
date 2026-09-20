@@ -89,6 +89,13 @@
 .config/systemd/user/auto-headphone-switch.service
 {{- end }}
 
+{{- if or (ne .chezmoi.os "linux") (ne $desktop "kde") }}
+.local/bin/ghostty
+.local/share/applications/com.mitchellh.ghostty.desktop
+.config/systemd/user/app-com.mitchellh.ghostty.service.d
+.config/systemd/user/app-com.mitchellh.ghostty.service.d/**
+{{- end }}
+
 {{- if ne $desktop "kde" }}
 .config/rofi/**
 .local/share/rofi/**

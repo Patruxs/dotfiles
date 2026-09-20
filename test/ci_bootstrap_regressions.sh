@@ -405,6 +405,28 @@ if ! search_file 'pacman-key --init' "$repo_root/ansible/roles/features/warp_ter
   exit 1
 fi
 
+klassy_task="$repo_root/ansible/roles/features/klassy_theme/tasks/linux.yml"
+
+if ! search_file_literal 'home:/paulmcauley' "$klassy_task"; then
+  echo "expected the Klassy installer to fall back to the upstream package repository"
+  exit 1
+fi
+
+if search_file 'git clone|cmake|make install' "$klassy_task"; then
+  echo "expected Klassy to be installed from a package repository, not built from source"
+  exit 1
+fi
+
+if ! search_file 'DOTFILES_UNAVAILABLE' "$klassy_task"; then
+  echo "expected the Klassy installer to report a release upstream publishes no package for"
+  exit 1
+fi
+
+if [ "$(awk '/klassy_theme/ {print NR}' "$profile_preflight")" -gt "$(awk '/- desktop_base/ {print NR; exit}' "$profile_preflight")" ]; then
+  echo "expected klassy_theme to run before desktop_base applies the KDE settings"
+  exit 1
+fi
+
 if ! search_file 'export DOTFILES_CHEZMOI_DIR="\$chezmoi_dir"' "$repo_root/bootstrap.sh"; then
   echo "expected bootstrap.sh to export DOTFILES_CHEZMOI_DIR for ansible"
   exit 1

@@ -1,0 +1,151 @@
+---
+- name: Install or update Klassy on Debian-based Linux
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dotfiles_fingerprint() {
+      dpkg-query -W -f='${Version}' klassy 2>/dev/null || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
+    dotfiles_candidate="$(apt-cache policy klassy 2>/dev/null | awk '/Candidate:/ {print $2}')"
+    if [ -z "$dotfiles_candidate" ] || [ "$dotfiles_candidate" = "(none)" ]; then
+      klassy_repo="https://download.opensuse.org/repositories/home:/paulmcauley/xUbuntu_{{ dotfiles_platform.distribution_version }}"
+      if ! curl -fsI --max-time 60 -o /dev/null "$klassy_repo/Release"; then
+        echo DOTFILES_UNAVAILABLE
+        exit 0
+      fi
+      install -d -m 0755 /etc/apt/keyrings
+      curl -fsSL --max-time 60 "$klassy_repo/Release.key" | gpg --dearmor --yes -o /etc/apt/keyrings/home_paulmcauley.gpg
+      printf '%s\n' "deb [signed-by=/etc/apt/keyrings/home_paulmcauley.gpg] $klassy_repo/ /" > /etc/apt/sources.list.d/home_paulmcauley.list
+      apt-get update
+    fi
+    env DEBIAN_FRONTEND=noninteractive apt-get install -y klassy
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
+    printf 'Klassy %s is installed.\n' "${dotfiles_after:-(unknown version)}"
+  become: true
+  args:
+    executable: /bin/bash
+  register: dotfiles_klassy_debian_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_klassy_debian_install.stdout_lines"
+  when:
+    - dotfiles_platform.distro_key == 'debian'
+
+- name: Install or update Klassy on Fedora
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dotfiles_fingerprint() {
+      rpm -q --qf '%{VERSION}' klassy 2>/dev/null || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
+    if [ -z "$dotfiles_before" ] && ! dnf -q repoquery --available klassy 2>/dev/null | grep -q .; then
+      klassy_repo="https://download.opensuse.org/repositories/home:/paulmcauley/Fedora_$(rpm -E %fedora)"
+      if ! curl -fsI --max-time 60 -o /dev/null "$klassy_repo/repodata/repomd.xml"; then
+        echo DOTFILES_UNAVAILABLE
+        exit 0
+      fi
+      rpm --import "$klassy_repo/repodata/repomd.xml.key"
+      printf '%s\n' \
+        '[home_paulmcauley]' \
+        'name=home:paulmcauley (Klassy)' \
+        "baseurl=$klassy_repo/" \
+        'enabled=1' \
+        'gpgcheck=1' \
+        "gpgkey=$klassy_repo/repodata/repomd.xml.key" \
+        > /etc/yum.repos.d/home_paulmcauley.repo
+    fi
+    dnf install -y klassy
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
+    printf 'Klassy %s is installed.\n' "${dotfiles_after:-(unknown version)}"
+  become: true
+  args:
+    executable: /bin/bash
+  register: dotfiles_klassy_fedora_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_klassy_fedora_install.stdout_lines"
+  when:
+    - dotfiles_platform.distro_key == 'fedora'
+
+- name: Install or update Klassy on Arch Linux
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dotfiles_fingerprint() {
+      pacman -Q klassy 2>/dev/null | awk '{print $2}' || true
+    }
+    dotfiles_before="$(dotfiles_fingerprint)"
+    if ! pacman -Si klassy >/dev/null 2>&1; then
+      klassy_repo="https://download.opensuse.org/repositories/home:/paulmcauley/Arch"
+      klassy_key="$klassy_repo/$(uname -m)/home_paulmcauley_Arch.key"
+      if ! curl -fsI --max-time 60 -o /dev/null "$klassy_repo/$(uname -m)/home_paulmcauley_Arch.db"; then
+        echo DOTFILES_UNAVAILABLE
+        exit 0
+      fi
+      if ! pacman-key --list-secret-keys 2>/dev/null | grep -q '^sec'; then
+        pacman-key --init
+        pacman-key --populate archlinux
+      fi
+      klassy_fingerprint="$(curl -fsSL --max-time 60 "$klassy_key" | gpg --with-colons --import-options show-only --import 2>/dev/null | awk -F: '/^fpr:/ {print $10; exit}')"
+      curl -fsSL --max-time 60 "$klassy_key" | pacman-key --add -
+      pacman-key --lsign-key "$klassy_fingerprint"
+      if ! grep -q '^\[home_paulmcauley_Arch\]' /etc/pacman.conf; then
+        printf '\n%s\n%s\n' '[home_paulmcauley_Arch]' 'Server = https://download.opensuse.org/repositories/home:/paulmcauley/Arch/$arch' >> /etc/pacman.conf
+      fi
+    fi
+    pacman -Sy --noconfirm --needed klassy
+    dotfiles_after="$(dotfiles_fingerprint)"
+    if [ "$dotfiles_before" != "$dotfiles_after" ]; then
+      echo DOTFILES_CHANGED
+    fi
+    printf 'Klassy %s is installed.\n' "${dotfiles_after:-(unknown version)}"
+  become: true
+  args:
+    executable: /bin/bash
+  register: dotfiles_klassy_arch_install
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_klassy_arch_install.stdout_lines"
+  when:
+    - dotfiles_platform.distro_key == 'arch'
+
+- name: Collect the Klassy install output
+  ansible.builtin.set_fact:
+    dotfiles_klassy_output: >-
+      {{
+        [
+          dotfiles_klassy_debian_install | default({}),
+          dotfiles_klassy_fedora_install | default({}),
+          dotfiles_klassy_arch_install | default({})
+        ]
+        | rejectattr('skipped', 'defined')
+        | map(attribute='stdout_lines')
+        | flatten
+        | reject('equalto', '')
+        | reject('equalto', 'DOTFILES_CHANGED')
+        | list
+      }}
+
+- name: Record that upstream publishes no Klassy package for this release
+  ansible.builtin.set_fact:
+    dotfiles_setup_skipped: >-
+      {{
+        (dotfiles_setup_skipped | default([])) + [
+          {
+            'phase': 'feature',
+            'name': 'klassy_theme',
+            'detail': 'No Klassy package is published for ' ~ dotfiles_platform.name ~ ' '
+                      ~ (dotfiles_platform.distribution_version | default('')) ~ ', so the theme was left alone.'
+          }
+        ]
+      }}
+  when: "'DOTFILES_UNAVAILABLE' in dotfiles_klassy_output"
+
+- name: Record the Klassy theme result for the report
+  ansible.builtin.set_fact:
+    dotfiles_feature_details: >-
+      {{
+        (dotfiles_feature_details | default({})) | combine({
+          'klassy_theme': (dotfiles_klassy_output | reject('equalto', 'DOTFILES_UNAVAILABLE') | join('; '))
+        })
+      }}
+  when: dotfiles_klassy_output | length > 0

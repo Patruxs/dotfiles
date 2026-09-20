@@ -1,0 +1,31 @@
+# KDE Plasma settings for ~/.config/klassy/klassyrc, captured by scripts/kde-settings-sync.sh.
+#
+# Regenerate with:   ./scripts/kde-settings-sync.sh capture
+# Restore with:      ./scripts/kde-settings-sync.sh apply
+#
+# Values use KConfig's own escaping (a tab is \t, a backslash is \\).
+
+[Global]
+LookAndFeelSet=org.kde.breezedark.desktop
+
+[Windeco]
+ButtonIconStyle=StyleSystemIconTheme
+WindowCornerRadius=10
+
+[Windeco Exception 0]
+Enabled=true
+ExceptionProgramNamePattern=
+ExceptionWindowPropertyPattern=.*
+ExceptionWindowPropertyType=ExceptionWindowTitle
+HideTitleBar=Always
+
+[WindowOutlineStyle]
+LockWindowOutlineCustomColorActiveInactive=true
+LockWindowOutlineStyleActiveInactive=false
+WindowOutlineCustomColorActive=170,255,255
+WindowOutlineCustomColorInactive=170,255,255
+WindowOutlineCustomColorOpacityActive=70
+WindowOutlineCustomColorOpacityInactive=38
+WindowOutlineStyleActive=WindowOutlineCustomColor
+WindowOutlineStyleInactive=WindowOutlineNone
+WindowOutlineThickness=2

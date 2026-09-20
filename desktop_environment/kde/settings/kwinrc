@@ -10,6 +10,7 @@ Number=6
 Rows=1
 
 [Effect-blur]
+BlurStrength=15
 NoiseStrength=6
 
 [Effect-kwin4_effect_geometry_change]
@@ -23,7 +24,7 @@ Active=true
 NightTemperature=4700
 
 [Plugins]
-blurEnabled=false
+blurEnabled=true
 contrastEnabled=false
 dialogparentEnabled=false
 dimscreenEnabled=false
@@ -70,7 +71,7 @@ ElectricBorderTiling=false
 WindowSnapZone=0
 
 [org.kde.kdecoration2]
-BorderSize=Tiny
+BorderSize=None
 BorderSizeAuto=false
-library=org.kde.kwin.aurorae.v2
-theme=__aurorae__svg__ActiveAccentFrame
+library=org.kde.klassy
+theme=Klassy

@@ -5,13 +5,6 @@
 #
 # Values use KConfig's own escaping (a tab is \t, a backslash is \\).
 
-[6765abcf-b4a2-40bc-b975-8c66ea36e311]
-Description=Application settings for com.mitchellh.ghostty
-types=66494
-wmclass=ghostty com.mitchellh.ghostty
-wmclasscomplete=true
-wmclassmatch=1
-
 [00d0148d-6c88-43a2-9a57-a8517c228050]
 Description=Block compositing for DaVinci Resolve
 blockcompositing=true
@@ -21,6 +14,21 @@ wmclass=resolve-real resolve-real
 wmclasscomplete=true
 wmclassmatch=1
 
+[3dd1321f-345f-41e2-b21d-b3d75b72d6ad]
+Description=Force server-side decoration for Discord
+noborder=false
+noborderrule=2
+wmclass=discord
+wmclasscomplete=false
+wmclassmatch=3
+
+[6765abcf-b4a2-40bc-b975-8c66ea36e311]
+Description=Application settings for com.mitchellh.ghostty
+types=66494
+wmclass=ghostty com.mitchellh.ghostty
+wmclasscomplete=true
+wmclassmatch=1
+
 [General]
-count=2
-rules=6765abcf-b4a2-40bc-b975-8c66ea36e311,00d0148d-6c88-43a2-9a57-a8517c228050
+count=3
+rules=6765abcf-b4a2-40bc-b975-8c66ea36e311,00d0148d-6c88-43a2-9a57-a8517c228050,3dd1321f-345f-41e2-b21d-b3d75b72d6ad
