@@ -54,6 +54,10 @@
         'gpgcheck=1' \
         "gpgkey=$klassy_repo/repodata/repomd.xml.key" \
         > /etc/yum.repos.d/home_paulmcauley.repo
+      if ! dnf -q --refresh repoquery --available klassy 2>/dev/null | grep -q .; then
+        echo DOTFILES_UNAVAILABLE
+        exit 0
+      fi
     fi
     dnf install -y klassy
     dotfiles_after="$(dotfiles_fingerprint)"
