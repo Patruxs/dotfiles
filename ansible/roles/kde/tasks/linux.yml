@@ -8,6 +8,7 @@
   find:
     paths: "{{ chezmoi_dir }}/desktop_environment/kde/settings"
     file_type: file
+    recurse: true
   register: kde_settings_files
 
 - name: Check for the KDE configuration writer
