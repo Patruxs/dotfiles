@@ -24,7 +24,7 @@ Active=true
 NightTemperature=4700
 
 [Plugins]
-blurEnabled=true
+blurEnabled=false
 contrastEnabled=false
 dialogparentEnabled=false
 dimscreenEnabled=false

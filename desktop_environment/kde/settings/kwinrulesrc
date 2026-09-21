@@ -29,6 +29,18 @@ wmclass=ghostty com.mitchellh.ghostty
 wmclasscomplete=true
 wmclassmatch=1
 
+[7335d806-7a1b-4e9a-bdce-d4c818cdf2bd]
+Description=Neutralise classless untitled phantom windows (Edge tooltips) that made Krohnkite retile on hover
+minimize=true
+minimizerule=2
+size=2,2
+sizerule=2
+title=^$
+titlematch=3
+wmclass=^$
+wmclasscomplete=false
+wmclassmatch=3
+
 [General]
-count=3
-rules=6765abcf-b4a2-40bc-b975-8c66ea36e311,00d0148d-6c88-43a2-9a57-a8517c228050,3dd1321f-345f-41e2-b21d-b3d75b72d6ad
+count=4
+rules=6765abcf-b4a2-40bc-b975-8c66ea36e311,00d0148d-6c88-43a2-9a57-a8517c228050,3dd1321f-345f-41e2-b21d-b3d75b72d6ad,7335d806-7a1b-4e9a-bdce-d4c818cdf2bd
