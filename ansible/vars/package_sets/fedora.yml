@@ -33,6 +33,7 @@ package_sets:
       - com.visualstudio.code
       - md.obsidian.Obsidian
       - org.localsend.localsend_app
+      - it.mijorus.gearlever
   desktop_apps:
     dnf:
       - nvtop

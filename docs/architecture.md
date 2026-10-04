@@ -42,7 +42,7 @@ Each feature is implemented in one of four ways on a given platform.
 
 | Implementation | Use it when | Example |
 | :--- | :--- | :--- |
-| **Package set only** | The package manager can install it directly | `devtools`, `terminal_toys` |
+| **Package set only** | The package manager can install it directly | `terminal_toys`, `docker_engine` |
 | **Feature role only** | Installing needs steps, not just a name | `warp_terminal`, `jetbrains_toolbox` |
 | **mise tool list** | A user-level CLI that is the same binary on every platform, needs no root and has no GUI | `core_cli`, `starship_prompt`, `ai_clis`, `npm_global_tools`, `bitwarden_cli`, `llmfit` |
 | **Both** | Direct packages plus procedural setup | `mise`, `docker_desktop`, `desktop_base` |
