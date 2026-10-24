@@ -58,3 +58,4 @@ if command -v starship >/dev/null 2>&1; then
   esac
 fi
 export PATH="$HOME/.local/bin:$HOME/.local/ollama/bin:$PATH"
+export PATH="$(npm config get prefix)/bin:$PATH"

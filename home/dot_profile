@@ -36,6 +36,10 @@ if [ -d "$HOME/.opencode/bin" ]; then
   path_prepend "$HOME/.opencode/bin"
 fi
 
+if [ -d "$HOME/.bun/bin" ]; then
+  path_prepend "$HOME/.bun/bin"
+fi
+
 if command -v pnpm >/dev/null 2>&1; then
   export PNPM_HOME="${PNPM_HOME:-$HOME/.local/share/pnpm}"
   mkdir -p "$PNPM_HOME"
