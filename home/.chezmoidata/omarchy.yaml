@@ -22,6 +22,42 @@ omarchy_desktop:
     - Google Messages
     - Google Photos
     - HEY
+  # Shell plugins from git, in bar order. Each missing one is cloned with
+  # `omarchy plugin add <url> --yes` and enabled into its `section` (left, center
+  # or right; omit it for a plugin with no bar widget). Only the install is
+  # captured: widget options, the order within a section and the members of
+  # jrmmhm.pocket live in ~/.config/omarchy/shell.json, which is not managed.
+  # Needs the running shell, so a run from a TTY leaves them for the next apply.
+  plugins:
+    - id: evindor.keystroke
+      url: https://github.com/evindor/keystroke.git
+      section: left
+    - id: mmsbrggr.per-monitor-workspaces
+      url: https://github.com/mmsbrggr/omarchy-per-monitor-workspaces.git
+      section: left
+    - id: gladimdim.config-sync
+      url: https://github.com/gladimdim/omarchy-config-sync-plugin.git
+      section: right
+    - id: harshith.system-monitor
+      url: https://github.com/Harshith292002/omarchy-system-monitor.git
+      section: right
+    - id: dizziee.system-updates
+      url: https://github.com/JJDizz1L/dizziee.system-updates.git
+      section: right
+    - id: io.github.dragosol.better-displays-pro
+      url: https://github.com/dragosol/omarchy-better-displays.git
+      section: right
+    - id: omaplug
+      url: https://github.com/fross100/omaplug.git
+      section: right
+    - id: jrmmhm.pocket
+      url: https://github.com/jrmmhm/omarchy-pocket.git
+      section: right
+    - id: jankeesvw.notification-center
+      url: https://github.com/jankeesvw/omarchy-notification-center.git
+      section: right
+    - id: io.github.sirjul1337.lock-explorer
+      url: https://github.com/SirJul1337/omarchy-lock-explorer.git
   # Arch branding. The files are plain chezmoi files: home/dot_config/omarchy/
   # branding/about.txt (the About window and fastfetch logo, a braille render of
   # /usr/share/pixmaps/archlinux-logo.svg at the 54x26 cell size Omarchy's own

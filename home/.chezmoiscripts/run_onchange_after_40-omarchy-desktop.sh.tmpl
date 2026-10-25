@@ -97,6 +97,43 @@ else
 fi
 {{- end }}
 
+# Shell plugins: clone each missing one and enable it into its bar section.
+# `omarchy plugin add` registers the clone with the running shell, so without
+# one this waits for an apply from the desktop. A clone that fails (no network,
+# a moved repository) is reported and the rest still run. Comes before the
+# branding step so a freshly added Keystroke gets its glyph in the same run.
+{{- $plugins := default (list) (get $desktop "plugins") }}
+{{- if $plugins }}
+plugins_dir="$HOME/.config/omarchy/plugins"
+
+# omarchy plugin add rescans asynchronously; enabling before the shell knows
+# the id fails with "not known", so poll the way the add command itself does.
+wait_for_plugin() {
+    local attempt
+    for (( attempt = 0; attempt < 40; attempt++ )); do
+        if omarchy-plugin-list --json 2>/dev/null | jq -e --arg id "$1" 'any(.[]; .id == $id)' >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 0.05
+    done
+    return 1
+}
+
+if ! pgrep -x quickshell >/dev/null 2>&1; then
+    echo "omarchy-shell is not running; run 'chezmoi apply' from the desktop to add the shell plugins." >&2
+else
+{{- range $plugins }}
+    if [ -e "$plugins_dir/{{ .id }}" ]; then
+        echo "Shell plugin {{ .id }} already installed."
+    elif omarchy plugin add {{ .url | quote }} --yes && wait_for_plugin {{ .id | quote }} && omarchy plugin enable {{ .id | quote }}{{ with (get . "section") }} --section {{ . }}{{ end }}; then
+        echo "Added shell plugin {{ .id }}."
+    else
+        echo "Could not add shell plugin {{ .id }} from {{ .url }}; add it by hand with: omarchy plugin add {{ .url }}" >&2
+    fi
+{{- end }}
+fi
+{{- end }}
+
 # Branding in code: the Keystroke bar plugin (a clone of omarchy.menu) draws
 # its menu button with the Omarchy glyph from Omarchy's icon font. Shell
 # plugins are not managed here, so this only patches an installed copy, and
