@@ -400,11 +400,6 @@ if ! search_file "'PATH': lookup\\('env', 'HOME'\\).*\\.local/bin" "$ai_tools_un
   exit 1
 fi
 
-if ! search_file 'pacman-key --init' "$repo_root/ansible/roles/features/warp_terminal/tasks/linux.yml"; then
-  echo "expected Arch Warp installer to initialize the pacman keyring when needed"
-  exit 1
-fi
-
 klassy_task="$repo_root/ansible/roles/features/klassy_theme/tasks/linux.yml"
 
 if ! search_file_literal 'home:/paulmcauley' "$klassy_task"; then
@@ -490,6 +485,18 @@ done
 for playbook in "$fedora_playbook" "$arch_playbook" "$macos_playbook"; do
   if ! search_file 'import_tasks: common\.yml' "$playbook"; then
     echo "expected ${playbook##*/} to use the shared platform common flow"
+    exit 1
+  fi
+done
+
+if ! search_file 'ansible/vars/package_sets/omarchy\.yml' "$arch_playbook" || ! search_file 'when: dotfiles_omarchy' "$arch_playbook"; then
+  echo "expected the Arch playbook to replace Arch package entries with the Omarchy ones when Omarchy is detected"
+  exit 1
+fi
+
+for playbook in "$ubuntu_playbook" "$fedora_playbook" "$macos_playbook" "$common_playbook" "$execution_playbook"; do
+  if search_file 'omarchy' "$playbook"; then
+    echo "expected ${playbook##*/} not to know about Omarchy, an Arch derivative"
     exit 1
   fi
 done

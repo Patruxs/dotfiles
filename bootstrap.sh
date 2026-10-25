@@ -1358,6 +1358,8 @@ main() {
       plan_step skip "System package refresh" "Skipping system package refresh in lightweight CI mode." "Skipped in lightweight CI mode."
     elif [ "$system_upgrade" = "0" ]; then
       plan_step skip "System package refresh" "Skipping system package refresh (--no-system-upgrade)." "Skipped by --no-system-upgrade."
+    elif [ "$DISTRO" = "omarchy" ]; then
+      plan_step skip "System package refresh" "Skipping pacman -Syu: Omarchy runs system updates through 'omarchy update'." "Omarchy runs system updates through 'omarchy update'; run that instead of a bare pacman -Syu."
     else
       plan_step run "System package refresh" update_system
     fi

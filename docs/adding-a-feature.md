@@ -46,7 +46,7 @@ Keep the tool in the package set instead when it needs root (a daemon, a kernel 
 
 Otherwise: *can the platform's package manager install this by name alone?*
 
-**Yes - package set only.** Add the feature to every platform where it is supported. Package sets hold nothing but names grouped by installer type.
+**Yes - package set only.** Add the feature to every platform where it is supported. Package sets hold nothing but names grouped by installer type. Omarchy uses the Arch entry unless `omarchy.yml` replaces it; list a feature there only when Omarchy's repository has a native package Arch lacks, and repeat the whole feature, since the file replaces entries rather than merging them. Nothing here comes from the AUR: when Arch has no package, the app is a Flatpak.
 
 ```yaml
 # ansible/vars/package_sets/ubuntu.yml
@@ -92,7 +92,7 @@ Place it after anything it depends on. Package-set-only features do not go in th
 
 ### Step 5: Declare where it cannot run
 
-If the feature is unavailable on some version or architecture, say so in the unsupported-feature checks in `profile_preflight`, next to the existing `docker_desktop` and `kiro_ide` entries. Preflight then fails with a clear message before anything is installed, which is the behavior this project wants - an unsupported selection is an error, not a silent skip.
+If the feature is unavailable on some version or architecture, say so in the unsupported-feature checks in `profile_preflight`, next to the existing `docker_desktop` and `virtualbox` entries. Preflight then fails with a clear message before anything is installed, which is the behavior this project wants - an unsupported selection is an error, not a silent skip.
 
 If the feature should also install something on Windows, add its winget ids under `windows_package_sets.<feature_name>.winget` in `home/.chezmoidata/packages.yaml`. The key is the same feature name; `bootstrap.ps1` installs a set only when the profile lists that feature, and `test/feature_data.sh` rejects a key that is a profile name or a feature no other platform knows.
 
@@ -140,7 +140,7 @@ chezmoi add ~/.config/yourtool/config
 chezmoi diff
 ```
 
-If the file should only exist on some machines, guard it with the setup data the run generates - `dotfiles_platform`, `dotfiles_desktop`, and `dotfiles_features` - rather than `dotfiles_profile`:
+If the file should only exist on some machines, guard it with the setup data the run generates - `dotfiles_platform`, `dotfiles_desktop`, and `dotfiles_features`, or the `omarchy` flag for something Omarchy already provides (`dotfiles_platform` is `arch` there) - rather than `dotfiles_profile`:
 
 ```text
 {{- if not (has "desktop_base" (default (list) (get . "dotfiles_features"))) }}

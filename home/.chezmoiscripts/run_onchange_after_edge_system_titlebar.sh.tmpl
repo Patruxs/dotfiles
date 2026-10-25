@@ -4,9 +4,13 @@
 #!/bin/bash
 set -euo pipefail
 
-edge_config="$HOME/.var/app/com.microsoft.Edge/config/microsoft-edge"
-
-if ! command -v flatpak >/dev/null 2>&1 || ! flatpak info com.microsoft.Edge >/dev/null 2>&1; then
+# Edge is a pacman package on Omarchy and a Flatpak elsewhere; each keeps its
+# profile in a different place.
+if command -v microsoft-edge-stable >/dev/null 2>&1; then
+    edge_config="$HOME/.config/microsoft-edge"
+elif command -v flatpak >/dev/null 2>&1 && flatpak info com.microsoft.Edge >/dev/null 2>&1; then
+    edge_config="$HOME/.var/app/com.microsoft.Edge/config/microsoft-edge"
+else
     exit 0
 fi
 

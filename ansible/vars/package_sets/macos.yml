@@ -26,9 +26,9 @@ package_sets:
   desktop_apps:
     cask:
       - telegram
-      - zoom
+      - discord
+      - signal
       - spotify
-      - postman
       - onlyoffice
       - obs
       - microsoft-edge
@@ -49,9 +49,6 @@ package_sets:
   jetbrains_toolbox:
     cask:
       - jetbrains-toolbox
-  kiro_ide:
-    cask:
-      - kiro
   jetbrains_mono_nerd_font:
     cask:
       - font-jetbrains-mono-nerd-font
@@ -64,9 +61,6 @@ package_sets:
   virtualbox:
     cask:
       - virtualbox
-  warp_terminal:
-    cask:
-      - warp
   zed_editor:
     cask:
       - zed

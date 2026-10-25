@@ -4,6 +4,12 @@
 {{- $manageSshConfig := false -}}
 {{- $manageSshKeys := false -}}
 {{- $dotfilesProfile := env "DOTFILES_PROFILE" -}}
+{{- /* Omarchy already provides several things the dotfiles would otherwise set up;
+       templates that must leave those alone read this flag. */ -}}
+{{- $omarchy := false -}}
+{{- if and (eq .chezmoi.os "linux") (stat "/etc/os-release") -}}
+{{-   $omarchy = regexMatch `(?m)^ID="?omarchy"?$` (include "/etc/os-release") -}}
+{{- end -}}
 {{- if not (or (env "DOTFILES_CI") (env "GITHUB_ACTIONS")) -}}
 {{-   $gitName = promptStringOnce . "git.name" "Git user.name" "" -}}
 {{-   $gitEmail = promptStringOnce . "git.email" "Git user.email" "" -}}
@@ -39,6 +45,7 @@ encryption = "gpg"
     manage_ssh_config = {{ $manageSshConfig }}
     manage_ssh_keys = {{ $manageSshKeys }}
     dotfiles_profile = {{ $dotfilesProfile | quote }}
+    omarchy = {{ $omarchy }}
     dotfiles_features = {{ $dotfilesFeatures | toJson }}
     gpg_recipient = {{ $gpgRecipient | quote }}
 

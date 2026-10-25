@@ -40,9 +40,9 @@ package_sets:
       - nvtop
     flatpak:
       - org.telegram.desktop
-      - us.zoom.Zoom
+      - com.discordapp.Discord
+      - org.signal.Signal
       - com.spotify.Client
-      - com.getpostman.Postman
       - org.onlyoffice.desktopeditors
       - com.obsproject.Studio
       - com.microsoft.Edge

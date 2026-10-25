@@ -1,8 +1,2 @@
 ai_clis:
-  clis:
-    droid:
-      command: droid
-      install:
-        unix: curl -fsSL https://app.factory.ai/cli | sh
-        windows: irm https://app.factory.ai/cli/windows | iex
-      login: Run `droid` and complete the browser login if prompted.
+  clis: {}

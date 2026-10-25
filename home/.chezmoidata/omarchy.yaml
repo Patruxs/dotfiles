@@ -1,0 +1,24 @@
+# Omarchy desktop state that is a command, not a file: applied by
+# home/.chezmoiscripts/run_onchange_after_40-omarchy-desktop.sh.tmpl, on Omarchy
+# only (the `omarchy` chezmoi data key), and re-applied whenever this file
+# changes. The file-shaped Omarchy settings (fcitx5 Vietnamese input, default
+# browser and terminal, default agent, Nautilus bookmarks) are plain chezmoi
+# files under home/dot_config/, guarded by the same key in .chezmoiignore.
+# Captured from the author's machine; forks: edit to taste.
+omarchy_desktop:
+  # `omarchy theme list` names, lower-cased as ~/.local/state/omarchy/current/theme.name holds them.
+  theme: miasma
+  # `omarchy display text size`: one knob for the shell font base-size, the GTK
+  # text scale and the terminal point size. 12 is Omarchy's default (9pt terminals).
+  text_size: 12
+  # Stock web apps (/usr/share/omarchy/applications) this setup removes with
+  # `omarchy webapp remove`; WhatsApp, X, YouTube and Zoom stay. The native
+  # Discord package replaces the Discord web app.
+  removed_webapps:
+    - Basecamp
+    - Discord
+    - Google Contacts
+    - Google Maps
+    - Google Messages
+    - Google Photos
+    - HEY

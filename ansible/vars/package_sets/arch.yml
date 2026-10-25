@@ -28,26 +28,26 @@ package_sets:
       - gparted
       - rofi
       - python-psutil
+      - obsidian
     flatpak:
       - com.gitbutler.gitbutler
       - com.visualstudio.code
-      - md.obsidian.Obsidian
       - org.localsend.localsend_app
       - it.mijorus.gearlever
   desktop_apps:
     pacman:
       - nvtop
+      - telegram-desktop
+      - discord
+      - obs-studio
+      - anki
+      - bazaar
+      - signal-desktop
     flatpak:
-      - org.telegram.desktop
-      - us.zoom.Zoom
       - com.spotify.Client
-      - com.getpostman.Postman
       - org.onlyoffice.desktopeditors
-      - com.obsproject.Studio
       - com.microsoft.Edge
-      - net.ankiweb.Anki
       - com.termius.Termius
-      - io.github.kolunmi.Bazaar
   devtools:
     pacman:
       - nodejs

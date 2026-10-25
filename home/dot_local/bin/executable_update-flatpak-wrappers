@@ -1,16 +1,42 @@
 #!/usr/bin/env bash
+# Gives every installed Flatpak app a command in ~/.local/bin (termius,
+# onlyoffice, gitbutler, ...) so it starts from a terminal like a native app.
+# ~/.local/bin comes first on PATH, so a wrapper there would hide a native
+# binary of the same name (a pacman obsidian next to a Flatpak Obsidian, say);
+# a name a native install already provides therefore gets no wrapper, and a
+# wrapper is removed once its app is gone or a native install took its name.
+# Prints DOTFILES_CHANGED when a wrapper was written or removed, so the setup
+# step that runs this after the Flatpak installs can report it honestly.
 
 WRAPPER_DIR="$HOME/.local/bin"
 mkdir -p "$WRAPPER_DIR"
+changed=0
+
+# A wrapper's own name must be looked up without the wrapper directory.
+native_command() {
+    local search_path
+    search_path="$(printf '%s\n' "${PATH//:/$'\n'}" | grep -Fvx "$WRAPPER_DIR" | paste -sd: -)"
+    PATH="$search_path" command -v "$1" 2>/dev/null || true
+}
+
+# Prints the app id a wrapper written by this script starts, if it is one.
+wrapper_app_id() {
+    sed -nE 's/^exec flatpak run (--command=env )?"([^"]+)".*$/\2/p' "$1" 2>/dev/null | head -n 1
+}
+
+command -v flatpak >/dev/null 2>&1 || exit 0
+# An empty list must mean "no apps", never "flatpak failed": the pass at the
+# end removes every wrapper whose app is missing from this list.
+installed_apps="$(flatpak list --app --columns=application)" || exit 1
 
 while read -r app_id; do
     [ -z "$app_id" ] && continue
     cmd_name=$(echo "$app_id" | awk -F. '{print $NF}' | tr '[:upper:]' '[:lower:]')
-    
+
     if [[ "$cmd_name" == "desktop" || "$cmd_name" == "client" || "$cmd_name" == "app" ]]; then
         cmd_name=$(echo "$app_id" | awk -F. '{print $(NF-1)}' | tr '[:upper:]' '[:lower:]')
     fi
-    
+
     case "$app_id" in
         "org.onlyoffice.desktopeditors") cmd_name="onlyoffice" ;;
         "com.obsproject.Studio") cmd_name="obs" ;;
@@ -18,6 +44,16 @@ while read -r app_id; do
     esac
 
     flatpak override --user --filesystem="$HOME/.config" "$app_id"
+
+    wrapper_path="$WRAPPER_DIR/$cmd_name"
+
+    if [ -n "$(native_command "$cmd_name")" ]; then
+        if [ -f "$wrapper_path" ] && [ -n "$(wrapper_app_id "$wrapper_path")" ]; then
+            rm -f "$wrapper_path"
+            changed=1
+        fi
+        continue
+    fi
 
     orig_cmd=$(flatpak info --show-metadata "$app_id" | grep '^command=' | cut -d= -f2 | head -n1)
 
@@ -27,14 +63,13 @@ while read -r app_id; do
         exec_line="exec flatpak run --command=env \"$app_id\" XDG_CONFIG_HOME=\"\$HOME/.config\" \"$orig_cmd\" \"\$@\""
     fi
 
-    wrapper_path="$WRAPPER_DIR/$cmd_name"
-    
     if [[ ! -e "$wrapper_path" ]] || grep -q "flatpak run" "$wrapper_path" 2>/dev/null; then
-        cat <<EOF > "$wrapper_path"
-#!/usr/bin/env bash
-$exec_line
-EOF
-        chmod +x "$wrapper_path"
+        wrapper_content="$(printf '#!/usr/bin/env bash\n%s' "$exec_line")"
+        if [ ! -e "$wrapper_path" ] || [ "$(cat "$wrapper_path")" != "$wrapper_content" ]; then
+            printf '%s\n' "$wrapper_content" > "$wrapper_path"
+            chmod +x "$wrapper_path"
+            changed=1
+        fi
     fi
 
     flatpak_config_dir="$HOME/.var/app/$app_id/config"
@@ -42,4 +77,17 @@ EOF
     if [ -L "$flatpak_config" ]; then
         rm -f "$flatpak_config"
     fi
-done < <(flatpak list --app --columns=application)
+done <<<"$installed_apps"
+
+# Wrappers whose app is no longer installed.
+for wrapper_path in "$WRAPPER_DIR"/*; do
+    [ -f "$wrapper_path" ] || continue
+    app_id="$(wrapper_app_id "$wrapper_path")"
+    [ -n "$app_id" ] || continue
+    if ! grep -Fxq "$app_id" <<<"$installed_apps"; then
+        rm -f "$wrapper_path"
+        changed=1
+    fi
+done
+
+[ "$changed" -eq 0 ] || echo DOTFILES_CHANGED

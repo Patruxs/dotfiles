@@ -18,6 +18,40 @@
     failure_result: "{{ dotfiles_package_index_refresh }}"
   when: (dotfiles_package_index_refresh.rc | default(0)) != 0
 
+# pacman -T prints the names no installed package provides and exits 127 when
+# there are any. A name another installed package already provides (Omarchy
+# ships mise-bin for mise and ttf-jetbrains-mono-nerd-basic for
+# ttf-jetbrains-mono-nerd) could only fail with a package conflict, so it is
+# left alone.
+- name: Find pacman packages no installed package provides
+  ansible.builtin.command:
+    argv: "{{ ['pacman', '-T'] + system_packages }}"
+  register: dotfiles_pacman_unprovided
+  changed_when: false
+  failed_when: dotfiles_pacman_unprovided.rc not in [0, 127]
+  when: dotfiles_platform.package_family == 'pacman'
+
+- name: Record pacman packages an installed package already provides
+  ansible.builtin.set_fact:
+    dotfiles_setup_skipped: >-
+      {{
+        (dotfiles_setup_skipped | default([])) + [
+          {
+            'phase': 'pacman_package',
+            'name': system_packages | difference(dotfiles_pacman_unprovided.stdout_lines) | join(', '),
+            'detail': 'Already provided by an installed package, so pacman was not asked to install it.'
+          }
+        ]
+      }}
+  when:
+    - dotfiles_platform.package_family == 'pacman'
+    - system_packages | difference(dotfiles_pacman_unprovided.stdout_lines) | length > 0
+
+- name: Keep only the pacman packages that still need installing
+  ansible.builtin.set_fact:
+    system_packages: "{{ system_packages | select('in', dotfiles_pacman_unprovided.stdout_lines) | list }}"
+  when: dotfiles_platform.package_family == 'pacman'
+
 - name: Install system packages
   ansible.builtin.command:
     argv: "{{ dotfiles_platform.package_install_command + system_packages }}"
@@ -25,6 +59,7 @@
   register: dotfiles_system_packages_install
   changed_when: dotfiles_platform.package_install_noop_marker not in dotfiles_system_packages_install.stdout
   when:
+    - system_packages | length > 0
     - dotfiles_setup_mode == 'strict'
     - not (dotfiles_low_memory_setup | default(false) | bool)
 

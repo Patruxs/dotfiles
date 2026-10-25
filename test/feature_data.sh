@@ -18,13 +18,34 @@ def load(path):
     with open(path) as handle:
         return yaml.safe_load(handle)
 
+def flatten(package_sets):
+    return {feature: sorted(name for names in installers.values() for name in names) for feature, installers in package_sets.items()}
+
+# A file with `overrides: <platform>` is not a platform of its own: on a
+# derivative such as Omarchy its features replace the base platform's entries.
 platform_sets = {}
+overrides = []
 for path in sorted(glob.glob(os.path.join(root, "ansible/vars/package_sets/*.yml"))):
     data = load(path)
-    flat = {}
-    for feature, installers in data["package_sets"].items():
-        flat[feature] = sorted(name for names in installers.values() for name in names)
-    platform_sets[data["platform"]] = flat
+    if "overrides" in data:
+        overrides.append((path, data))
+        continue
+    platform_sets[data["platform"]] = flatten(data["package_sets"])
+
+for path, data in overrides:
+    name = os.path.splitext(os.path.basename(path))[0]
+    base = data["overrides"]
+    if base not in platform_sets:
+        failures.append(f"{name}.yml overrides '{base}', which is not a platform package set")
+        continue
+    if "platform" in data or "package_family" in data:
+        failures.append(f"{name}.yml declares a platform; an override file only replaces entries of {base}.yml")
+    merged = dict(platform_sets[base])
+    for feature, packages in flatten(data["package_sets"]).items():
+        if feature not in platform_sets[base]:
+            failures.append(f"{name}.yml replaces '{feature}', which {base}.yml does not implement; a derivative cannot add features")
+        merged[feature] = packages
+    platform_sets[f"{base} ({name})"] = merged
 
 windows = load(os.path.join(root, "home/.chezmoidata/packages.yaml"))["windows_package_sets"]
 platform_sets["windows"] = {feature: sorted(installers["winget"]) for feature, installers in windows.items()}

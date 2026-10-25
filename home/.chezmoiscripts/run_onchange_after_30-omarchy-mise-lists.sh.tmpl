@@ -1,0 +1,43 @@
+{{- if default false (get . "omarchy") -}}
+{{- $features := default (list) (get . "dotfiles_features") -}}
+{{- $omarchyMiseConfig := joinPath .chezmoi.homeDir ".config" "mise" "config.toml" -}}
+{{- $omarchyMiseTools := dict -}}
+{{- if stat $omarchyMiseConfig -}}
+{{-   $omarchyMiseTools = default (dict) (get (include $omarchyMiseConfig | fromToml) "tools") -}}
+{{- end -}}
+#!/bin/bash
+# Omarchy declares its own mise tools in ~/.config/mise/config.toml, and its
+# launchers in ~/.local/bin run `mise use -g <tool>`, which refuses to run while
+# a tool is declared in two global mise files. .chezmoiignore leaves a tool list
+# that overlaps unmanaged on Omarchy; this writes it without the tools Omarchy
+# already declares. It re-runs whenever a list or Omarchy's tool set changes.
+# Omarchy's tools: {{ keys $omarchyMiseTools | sortAlpha | join " " }}
+set -euo pipefail
+
+conf_dir="$HOME/.config/mise/conf.d"
+mkdir -p "$conf_dir"
+{{ range (glob (joinPath .chezmoi.sourceDir "dot_config" "mise" "conf.d" "*.toml")) }}
+{{-   $feature := trimSuffix ".toml" (base .) }}
+{{-   if has $feature $features }}
+{{-     $overlap := list }}
+{{-     range $tool, $_ := default (dict) (get (include . | fromToml) "tools") }}
+{{-       if hasKey $omarchyMiseTools $tool }}{{ $overlap = append $overlap $tool }}{{ end }}
+{{-     end }}
+{{-     if $overlap }}
+
+# {{ $feature }}: Omarchy already declares {{ $overlap | sortAlpha | join ", " }}
+rm -f "$conf_dir/{{ $feature }}.toml"
+cat > "$conf_dir/{{ $feature }}.toml" <<'EOF'
+# Written by chezmoi from home/dot_config/mise/conf.d/{{ $feature }}.toml.
+# Omarchy already declares {{ $overlap | sortAlpha | join ", " }} in ~/.config/mise/config.toml, so they are left out here.
+{{- range (splitList "\n" (include . | trimSuffix "\n")) }}
+{{-   $key := regexReplaceAll `^\s*"?([^"=\s]+)"?\s*=.*$` . "${1}" }}
+{{-   if not (and (regexMatch `^\s*"?[^"=\s]+"?\s*=` .) (hasKey $omarchyMiseTools $key)) }}
+{{ . }}
+{{-   end }}
+{{- end }}
+EOF
+{{-     end }}
+{{-   end }}
+{{- end }}
+{{ end -}}

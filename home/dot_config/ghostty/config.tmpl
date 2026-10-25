@@ -1,4 +1,6 @@
 theme = Xcode Dark
+# Omarchy: follow the active system theme when present (ignored elsewhere).
+config-file = ?"~/.local/state/omarchy/current/theme/ghostty.conf"
 window-theme = ghostty
 window-height = 40
 window-width = 140
@@ -8,7 +10,9 @@ font-family = JetBrainsMono Nerd Font
 font-family-bold = JetBrainsMono Nerd Font
 font-family-italic = JetBrainsMono Nerd Font
 font-family-bold-italic = JetBrainsMono Nerd Font
-font-size = 12
+{{- /* Omarchy scales terminals with `omarchy display text size` (12px shell == 9pt), and
+       its sed on this file needs a plain file, which a template gives. */}}
+font-size = {{ if default false (get . "omarchy") }}9{{ else }}12{{ end }}
 window-decoration = server
 confirm-close-surface = false
 

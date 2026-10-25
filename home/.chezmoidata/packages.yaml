@@ -24,10 +24,10 @@ windows_package_sets:
   desktop_apps:
     winget:
       - RevoUninstaller.RevoUninstaller
-      - Zoom.Zoom
       - Telegram.TelegramDesktop
+      - Discord.Discord
+      - OpenWhisperSystems.Signal
       - Spotify.Spotify
-      - Postman.Postman
       - ONLYOFFICE.DesktopEditors
       - OBSProject.OBSStudio
       - Microsoft.Edge
@@ -39,15 +39,9 @@ windows_package_sets:
   jetbrains_toolbox:
     winget:
       - JetBrains.Toolbox
-  kiro_ide:
-    winget:
-      - Amazon.Kiro
   virtualbox:
     winget:
       - Oracle.VirtualBox
-  warp_terminal:
-    winget:
-      - Warp.Warp
   zed_editor:
     winget:
       - ZedIndustries.Zed

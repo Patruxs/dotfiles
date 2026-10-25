@@ -26,7 +26,6 @@
 .config/Code/User/workspaceStorage/**
 .config/Code/User/History/**
 .config/Code/User/logs/**
-.config/warp-terminal/user_preferences.json
 .config/nvim/lazy-lock.json
 .config/opencode/node_modules/**
 .config/opencode/**/auth*
@@ -76,9 +75,25 @@
 .config/mise
 .config/mise/**
 {{- else }}
+{{- /* Omarchy declares its own mise tools in ~/.config/mise/config.toml, and its
+         launchers in ~/.local/bin run `mise use -g <tool>`, which refuses to run
+         while a tool is declared in two global mise files. A list that overlaps is
+         therefore not symlinked on Omarchy; .chezmoiscripts/run_onchange_after_30-
+         omarchy-mise-lists.sh.tmpl writes it without the tools Omarchy already has. */ -}}
+{{-   $omarchyMiseTools := dict }}
+{{-   if default false (get . "omarchy") }}
+{{-     $omarchyMiseConfig := joinPath .chezmoi.homeDir ".config" "mise" "config.toml" }}
+{{-     if stat $omarchyMiseConfig }}
+{{-       $omarchyMiseTools = default (dict) (get (include $omarchyMiseConfig | fromToml) "tools") }}
+{{-     end }}
+{{-   end }}
 {{-   range (glob (joinPath .chezmoi.sourceDir "dot_config" "mise" "conf.d" "*.toml")) }}
 {{-     $feature := trimSuffix ".toml" (base .) }}
-{{-     if not (has $feature $features) }}
+{{-     $overlapsOmarchy := false }}
+{{-     range $tool, $_ := default (dict) (get (include . | fromToml) "tools") }}
+{{-       if hasKey $omarchyMiseTools $tool }}{{ $overlapsOmarchy = true }}{{ end }}
+{{-     end }}
+{{-     if or (not (has $feature $features)) $overlapsOmarchy }}
 .config/mise/conf.d/{{ $feature }}.toml
 {{-     end }}
 {{-   end }}
@@ -156,3 +171,35 @@ Documents/**
 .config/powershell
 .config/powershell/**
 {{- end }}
+{{ if default false (get . "omarchy") }}
+# Omarchy manages and themes tmux via ~/.config/tmux/tmux.conf; a ~/.tmux.conf
+# would shadow it.
+.tmux.conf
+# Omarchy lays out the XDG user dirs itself (no Desktop, Templates or Public,
+# a Projects dir) and xdg-user-dirs-update rewrites the file at login, which
+# would replace a symlink.
+.config/user-dirs.dirs
+# Guardrail: the Hyprland monitor layout and scale is machine state, like
+# monitors.xml on GNOME; never manage (or accidentally `chezmoi add`) it.
+.config/hypr/monitors.lua
+{{- $omarchyFeatures := default (list) (get . "dotfiles_features") }}
+{{- if not (has "ghostty_terminal" $omarchyFeatures) }}
+.config/xdg-terminals.list
+{{- end }}
+{{- if not (has "ai_clis" $omarchyFeatures) }}
+.config/omarchy/defaults/agent
+{{- end }}
+{{ else }}
+# The Omarchy desktop layer: fcitx5 with the Vietnamese unikey engine (Omarchy
+# ships and wires fcitx5), its stock mimeapps with the browser swapped, the
+# xdg-terminal-exec default, the default coding agent and the Nautilus
+# bookmarks. Other desktops keep their own.
+.config/fcitx5
+.config/fcitx5/**
+.config/mimeapps.list
+.config/xdg-terminals.list
+.config/omarchy
+.config/omarchy/**
+.config/gtk-3.0
+.config/gtk-3.0/**
+{{ end }}

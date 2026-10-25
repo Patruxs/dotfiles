@@ -26,12 +26,10 @@
       - ai_clis
       - docker_desktop
       - flatpak_apps
-      - warp_terminal
       - ghostty_terminal
       - zed_editor
       - jetbrains_toolbox
       - virtualbox
-      - kiro_ide
       - audio_auto_switch
 
 - name: Find feature role directories
@@ -78,7 +76,6 @@
       in dotfiles_docker_desktop_fedora_releases and dotfiles_platform.architecture in ['x86_64', 'amd64']) else [])
         + (['docker_desktop'] if 'docker_desktop' in features and dotfiles_platform.name == 'arch' and dotfiles_platform.architecture not in ['x86_64', 'amd64'] else
       [])
-        + (['kiro_ide'] if 'kiro_ide' in features and dotfiles_platform.system == 'Linux' and dotfiles_platform.architecture not in ['x86_64', 'amd64'] else [])
         + (['virtualbox'] if 'virtualbox' in features and dotfiles_platform.name in ['ubuntu', 'arch'] and dotfiles_platform.architecture not in ['x86_64', 'amd64']
       else [])
       }}

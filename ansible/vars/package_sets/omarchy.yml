@@ -1,0 +1,41 @@
+---
+# Omarchy is Arch with its own pacman repository, which carries native builds
+# of apps Arch itself only has as Flatpaks or AUR packages (Spotify, Microsoft
+# Edge, Visual Studio Code, LocalSend) and preinstalls several of the others.
+# On Omarchy the Arch playbook loads arch.yml and then replaces every feature
+# listed here with its entry below, so no app is requested both as a package
+# and as a Flatpak. Names Omarchy already installed are skipped by the
+# `pacman -T` check in package_installer. Data only, like every package set.
+overrides: arch
+
+package_sets:
+  desktop_base:
+    pacman:
+      - flatpak
+      - gparted
+      - rofi
+      - python-psutil
+      - visual-studio-code-bin
+      - obsidian
+      - localsend
+      # Vietnamese input for the fcitx5 Omarchy ships and wires into Hyprland;
+      # home/dot_config/fcitx5/ selects the engine.
+      - fcitx5-unikey
+      - fcitx5-configtool
+    flatpak:
+      - com.gitbutler.gitbutler
+      - it.mijorus.gearlever
+  desktop_apps:
+    pacman:
+      - nvtop
+      - telegram-desktop
+      - discord
+      - spotify
+      - obs-studio
+      - microsoft-edge-stable-bin
+      - anki
+      - bazaar
+      - signal-desktop
+    flatpak:
+      - org.onlyoffice.desktopeditors
+      - com.termius.Termius

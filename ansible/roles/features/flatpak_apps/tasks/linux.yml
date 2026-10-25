@@ -11,3 +11,16 @@
   loop: "{{ flatpak_apps | default([]) }}"
   loop_control:
     loop_var: flatpak_app
+
+# The source-tree copy: chezmoi apply runs after the feature roles, so on the
+# run that moves an app from Flatpak to a package the deployed copy is still
+# the old one. The native packages are already installed by then, so wrappers
+# that would hide them are dropped here instead of waiting for the next
+# interactive `flatpak` command in bash.
+- name: Reconcile the Flatpak command wrappers in ~/.local/bin
+  ansible.builtin.command:
+    argv:
+      - bash
+      - "{{ chezmoi_dir }}/home/dot_local/bin/executable_update-flatpak-wrappers"
+  register: dotfiles_flatpak_wrappers
+  changed_when: "'DOTFILES_CHANGED' in dotfiles_flatpak_wrappers.stdout_lines"

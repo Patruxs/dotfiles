@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Omarchy: Messenger (Telegram)
-Exec=flatpak run org.telegram.desktop
+Exec={{ if stat "/usr/bin/telegram-desktop" }}telegram-desktop{{ else }}flatpak run org.telegram.desktop{{ end }}
 Icon=org.telegram.desktop
 NoDisplay=true
 Terminal=false

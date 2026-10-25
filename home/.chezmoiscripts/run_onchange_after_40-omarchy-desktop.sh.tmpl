@@ -1,0 +1,69 @@
+{{- if default false (get . "omarchy") -}}
+{{- $desktop := default (dict) (get . "omarchy_desktop") -}}
+#!/bin/bash
+# Omarchy keeps the theme, the text size and the set of web apps as state its
+# own commands write (~/.local/state/omarchy, shell.toml, the terminal configs,
+# ~/.local/share/applications), so they are applied with those commands rather
+# than as files. Declared in home/.chezmoidata/omarchy.yaml; this re-runs when
+# that file changes and only acts on what differs, so a re-run changes nothing.
+# Declared: {{ $desktop | toJson }}
+set -euo pipefail
+
+if ! command -v omarchy >/dev/null 2>&1; then
+    echo "omarchy command not found; leaving the Omarchy desktop state alone." >&2
+    exit 0
+fi
+
+state_dir="$HOME/.local/state/omarchy"
+
+# Theme. `omarchy theme set` restarts the shell and reloads Hyprland, so it
+# needs the Hyprland session that owns them.
+theme={{ default "" (get $desktop "theme") | quote }}
+if [ -n "$theme" ]; then
+    current_theme="$(cat "$state_dir/current/theme.name" 2>/dev/null || true)"
+    if [ "$current_theme" = "$theme" ]; then
+        echo "Omarchy theme already $theme."
+    elif [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && ! pgrep -x Hyprland >/dev/null 2>&1; then
+        echo "No Hyprland session; run 'omarchy theme set $theme' from the desktop to apply the theme." >&2
+    else
+        omarchy theme set "$theme"
+        echo "Omarchy theme set to $theme."
+    fi
+fi
+
+# Text size: shell font base-size (12 when unset), GTK text scale and terminal
+# point size together. Reading the base-size mirrors omarchy-display-text-size.
+text_size={{ default "" (get $desktop "text_size") | quote }}
+if [ -n "$text_size" ]; then
+    shell_config="$HOME/.config/omarchy/shell.toml"
+    current_size=""
+    if [ -f "$shell_config" ]; then
+        current_size="$(awk '
+            /^[[:space:]]*\[/ { in_font = ($0 ~ /^[[:space:]]*\[font\]([[:space:]]|$)/); next }
+            in_font && /^[[:space:]]*base-size[[:space:]]*=/ {
+                v = $0
+                sub(/^[^=]*=[[:space:]]*/, "", v)
+                sub(/[[:space:]]*(#.*)?$/, "", v)
+                print v
+                exit
+            }
+        ' "$shell_config")"
+    fi
+    if [ "${current_size:-12}" = "$text_size" ]; then
+        echo "Omarchy text size already ${text_size}px."
+    else
+        omarchy display text size "$text_size"
+        echo "Omarchy text size set to ${text_size}px."
+    fi
+fi
+
+# Web apps: only a launcher Omarchy's web app commands wrote is removed, so a
+# same-named app installed some other way is left alone.
+applications_dir="$HOME/.local/share/applications"
+{{- range (default (list) (get $desktop "removed_webapps")) }}
+if grep -qE '^Exec=.*(omarchy-launch-webapp|omarchy-webapp-handler)' "$applications_dir/{{ . }}.desktop" 2>/dev/null; then
+    OMARCHY_REMOVE_NOTIFY=false omarchy webapp remove {{ . | quote }}
+    echo "Removed the {{ . }} web app."
+fi
+{{- end }}
+{{ end -}}

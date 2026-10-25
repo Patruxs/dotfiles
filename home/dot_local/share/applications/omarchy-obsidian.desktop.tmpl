@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Omarchy: Obsidian
-Exec={{ .chezmoi.homeDir }}/.local/bin/obsidian
+Exec={{ if stat "/usr/bin/obsidian" }}/usr/bin/obsidian{{ else }}{{ .chezmoi.homeDir }}/.local/bin/obsidian{{ end }}
 Icon=obsidian
 NoDisplay=true
 Terminal=false

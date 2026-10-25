@@ -30,6 +30,35 @@
         file: "{{ chezmoi_dir }}/ansible/vars/package_sets/arch.yml"
         name: platform_package_data
 
+    # Omarchy (an Arch derivative) already ships Docker Engine, mise, the
+    # JetBrainsMono Nerd Font, several desktop apps and its own kernel, carries
+    # native builds of apps Arch only has as Flatpaks in its own pacman
+    # repository, and runs system updates through `omarchy update`. Steps that
+    # would reinstall or conflict with what Omarchy provides are skipped there;
+    # the dotfiles themselves still apply as usual.
+    - name: Detect Omarchy
+      set_fact:
+        dotfiles_omarchy: >-
+          {{
+            (lookup('file', '/etc/os-release', errors='ignore') | default('', true) | string)
+            is regex('(?m)^ID="?omarchy"?$')
+          }}
+
+    - name: Load the Omarchy package entries
+      include_vars:
+        file: "{{ chezmoi_dir }}/ansible/vars/package_sets/omarchy.yml"
+        name: dotfiles_omarchy_package_data
+      when: dotfiles_omarchy | bool
+
+    - name: Replace Arch package entries with the Omarchy ones
+      set_fact:
+        platform_package_data: >-
+          {{
+            platform_package_data
+            | combine({'package_sets': platform_package_data.package_sets | combine(dotfiles_omarchy_package_data.package_sets)})
+          }}
+      when: dotfiles_omarchy | bool
+
   tasks:
     - name: Run the shared setup tasks
       ansible.builtin.import_tasks: common.yml

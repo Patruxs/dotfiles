@@ -13,7 +13,18 @@ if [ -d "$HOME/.bashrc.d" ]; then
   unset rc
 fi
 
-if command -v mise >/dev/null 2>&1; then
+# Omarchy: its aliases, functions, completions, readline bindings and the
+# mise, starship, zoxide and fzf setup come from its own rc (what its
+# /etc/skel/.bashrc sources), so the equivalent blocks below are skipped there.
+if [ -r /usr/share/omarchy/default/bash/rc ]; then
+  [ -r /usr/share/omarchy/default/bash/env-bootstrap ] && . /usr/share/omarchy/default/bash/env-bootstrap
+  case $- in
+    *i*) . /usr/share/omarchy/default/bash/rc ;;
+  esac
+  omarchy_rc=1
+fi
+
+if [ -z "${omarchy_rc:-}" ] && command -v mise >/dev/null 2>&1; then
   eval "$(mise activate bash)"
 fi
 
@@ -31,11 +42,11 @@ flatpak() {
   return $ret
 }
 
-if command -v zoxide >/dev/null 2>&1; then
+if [ -z "${omarchy_rc:-}" ] && command -v zoxide >/dev/null 2>&1; then
   eval "$(zoxide init bash)"
 fi
 
-if command -v fzf >/dev/null 2>&1; then
+if [ -z "${omarchy_rc:-}" ] && command -v fzf >/dev/null 2>&1; then
   eval "$(fzf --bash)"
 fi
 
@@ -51,11 +62,12 @@ fi
 
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
-if command -v starship >/dev/null 2>&1; then
+if [ -z "${omarchy_rc:-}" ] && command -v starship >/dev/null 2>&1; then
   case "${PROMPT_COMMAND:-}" in
     *starship_precmd*) ;;
     *) eval "$(starship init bash)" ;;
   esac
 fi
+unset omarchy_rc
 export PATH="$HOME/.local/bin:$HOME/.local/ollama/bin:$PATH"
 export PATH="$(npm config get prefix)/bin:$PATH"
