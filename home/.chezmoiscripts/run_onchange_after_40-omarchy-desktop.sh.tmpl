@@ -66,4 +66,72 @@ if grep -qE '^Exec=.*(omarchy-launch-webapp|omarchy-webapp-handler)' "$applicati
     echo "Removed the {{ . }} web app."
 fi
 {{- end }}
+
+# About window: Omarchy sizes org.omarchy.about to hug fastfetch's output, but
+# only while there is no ~/.config/fastfetch/config.jsonc; with the managed one
+# in place its 920x480 float rule is all that is left. The rule lives in
+# ~/.config/hypr/hyprland.lua, which Omarchy writes once at install and never
+# refreshes, so it is edited in place: an existing About size rule is updated,
+# otherwise one is appended.
+{{- $aboutSize := default (list) (get $desktop "about_window_size") }}
+{{- if eq (len $aboutSize) 2 }}
+hypr_config="$HOME/.config/hypr/hyprland.lua"
+about_rule='o.window("org.omarchy.about", { size = { {{ index $aboutSize 0 }}, {{ index $aboutSize 1 }} } })'
+if [ ! -f "$hypr_config" ]; then
+    echo "No ~/.config/hypr/hyprland.lua yet; the About window rule waits for the next apply after Omarchy writes it." >&2
+elif grep -qF "$about_rule" "$hypr_config"; then
+    echo "About window rule already {{ index $aboutSize 0 }}x{{ index $aboutSize 1 }}."
+else
+    if grep -q '^o\.window("org\.omarchy\.about", { size = ' "$hypr_config"; then
+        sed -i "s|^o\.window(\"org\.omarchy\.about\", { size = {[^}]*} })|$about_rule|" "$hypr_config"
+    else
+        printf '\n%s\n%s\n%s\n' \
+            '-- About window: a user fastfetch config turns off Omarchy'"'"'s auto-fit, so size it' \
+            '-- to hold the logo plus the module columns at the current terminal font (chezmoi).' \
+            "$about_rule" >> "$hypr_config"
+    fi
+    if pgrep -x Hyprland >/dev/null 2>&1; then
+        hyprctl reload >/dev/null 2>&1 || true
+    fi
+    echo "About window rule set to {{ index $aboutSize 0 }}x{{ index $aboutSize 1 }}."
+fi
+{{- end }}
+
+# Branding in code: the Keystroke bar plugin (a clone of omarchy.menu) draws
+# its menu button with the Omarchy glyph from Omarchy's icon font. Shell
+# plugins are not managed here, so this only patches an installed copy, and
+# the Nerd Font the bar already uses supplies the Arch Linux glyph (U+F303).
+# `omarchy plugin update` can bring the Omarchy glyph back; a later apply
+# after this file changes patches it again.
+{{- if eq (default "" (get $desktop "branding")) "arch" }}
+keystroke_widget="$HOME/.config/omarchy/plugins/evindor.keystroke/BarWidget.qml"
+if [ -f "$keystroke_widget" ]; then
+    patch_status=0
+    python3 - "$keystroke_widget" <<'PY' || patch_status=$?
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    text = handle.read()
+old = '      text: ""\n      fontFamily: "omarchy"\n'
+new = '      text: ""\n'
+if old not in text:
+    sys.exit(2 if new in text else 1)
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(text.replace(old, new, 1))
+PY
+    case $patch_status in
+    0)
+        if pgrep -x quickshell >/dev/null 2>&1; then
+            omarchy restart shell >/dev/null 2>&1 || true
+        fi
+        echo "Keystroke bar button now shows the Arch glyph."
+        ;;
+    2) echo "Keystroke bar button already shows the Arch glyph." ;;
+    *) echo "Keystroke's BarWidget.qml no longer has the expected button; swap its glyph by hand." >&2 ;;
+    esac
+else
+    echo "Keystroke plugin not installed; nothing to rebrand on the bar."
+fi
+{{- end }}
 {{ end -}}

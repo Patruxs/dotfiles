@@ -22,3 +22,20 @@ omarchy_desktop:
     - Google Messages
     - Google Photos
     - HEY
+  # Arch branding. The files are plain chezmoi files: home/dot_config/omarchy/
+  # branding/about.txt (the About window and fastfetch logo, a braille render of
+  # /usr/share/pixmaps/archlinux-logo.svg at the 54x26 cell size Omarchy's own
+  # icon uses), branding/screensaver.txt (the ttfx screensaver, an outline of the
+  # same logo; branding/alt/ keeps the solid variant to swap in) and
+  # home/dot_config/fastfetch/config.jsonc (Omarchy's stock layout with the OS
+  # line reading "Arch Linux" and the kernel line without the -omarchy suffix).
+  # `arch` here also swaps the one Omarchy mark that lives in code, the menu
+  # button of the Keystroke bar plugin, for the Arch Linux Nerd Font glyph when
+  # that plugin is installed. Anything else leaves the plugin alone.
+  branding: arch
+  # Omarchy sizes the About window (org.omarchy.about) to hug fastfetch's output
+  # but steps aside as soon as ~/.config/fastfetch/config.jsonc exists, leaving
+  # its 920x480 float rule, which clips the layout above. This pins the size that
+  # holds the logo and the module columns at the 9pt terminal font; unset it to
+  # keep Omarchy's own.
+  about_window_size: [980, 540]

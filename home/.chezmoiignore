@@ -202,4 +202,7 @@ Documents/**
 .config/omarchy/**
 .config/gtk-3.0
 .config/gtk-3.0/**
+# The fastfetch config runs omarchy-* commands for its version lines.
+.config/fastfetch
+.config/fastfetch/**
 {{ end }}

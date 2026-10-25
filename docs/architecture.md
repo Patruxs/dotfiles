@@ -358,7 +358,8 @@ desktop_environment/
   kde/plasmoids/                      Plasma widgets written for this setup, installed by the kde role before the panels are rebuilt
 home/                                 the Chezmoi source directory
   dot_config/mise/conf.d/             one mise tool list per feature, every entry "latest"
-  .chezmoidata/omarchy.yaml           Omarchy theme, text size and dropped web apps, applied by a chezmoi script with omarchy commands
+  .chezmoidata/omarchy.yaml           Omarchy theme, text size, dropped web apps and Arch branding, applied by a chezmoi script with omarchy commands
+  dot_config/omarchy/branding/        Arch logo for Omarchy's About window, fastfetch and screensaver (with dot_config/fastfetch/config.jsonc)
 test/                                 harness and bootstrap regression checks
 ```
 
