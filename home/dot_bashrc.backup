@@ -1,0 +1,73 @@
+if [ -f /etc/bashrc ]; then
+  . /etc/bashrc
+fi
+
+if [ -f "$HOME/.profile" ]; then
+  . "$HOME/.profile"
+fi
+
+if [ -d "$HOME/.bashrc.d" ]; then
+  for rc in "$HOME"/.bashrc.d/*; do
+    [ -f "$rc" ] && . "$rc"
+  done
+  unset rc
+fi
+
+# Omarchy: its aliases, functions, completions, readline bindings and the
+# mise, starship, zoxide and fzf setup come from its own rc (what its
+# /etc/skel/.bashrc sources), so the equivalent blocks below are skipped there.
+if [ -r /usr/share/omarchy/default/bash/rc ]; then
+  [ -r /usr/share/omarchy/default/bash/env-bootstrap ] && . /usr/share/omarchy/default/bash/env-bootstrap
+  case $- in
+    *i*) . /usr/share/omarchy/default/bash/rc ;;
+  esac
+  omarchy_rc=1
+fi
+
+if [ -z "${omarchy_rc:-}" ] && command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)"
+fi
+
+flatpak() {
+  command flatpak "$@"
+  local ret=$?
+  for arg in "$@"; do
+    if [[ "$arg" == "install" || "$arg" == "update" || "$arg" == "remove" || "$arg" == "uninstall" ]]; then
+      if command -v update-flatpak-wrappers >/dev/null 2>&1; then
+        update-flatpak-wrappers
+      fi
+      break
+    fi
+  done
+  return $ret
+}
+
+if [ -z "${omarchy_rc:-}" ] && command -v zoxide >/dev/null 2>&1; then
+  eval "$(zoxide init bash)"
+fi
+
+if [ -z "${omarchy_rc:-}" ] && command -v fzf >/dev/null 2>&1; then
+  eval "$(fzf --bash)"
+fi
+
+export PNPM_HOME="$HOME/.local/share/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME/bin:"*) ;;
+  *) export PATH="$PNPM_HOME/bin:$PATH" ;;
+esac
+
+if command -v brew >/dev/null 2>&1; then
+  eval "$(brew shellenv)"
+fi
+
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
+if [ -z "${omarchy_rc:-}" ] && command -v starship >/dev/null 2>&1; then
+  case "${PROMPT_COMMAND:-}" in
+    *starship_precmd*) ;;
+    *) eval "$(starship init bash)" ;;
+  esac
+fi
+unset omarchy_rc
+export PATH="$HOME/.local/bin:$HOME/.local/ollama/bin:$PATH"
+export PATH="$(npm config get prefix)/bin:$PATH"

@@ -71,3 +71,11 @@ fi
 unset omarchy_rc
 export PATH="$HOME/.local/bin:$HOME/.local/ollama/bin:$PATH"
 export PATH="$(npm config get prefix)/bin:$PATH"
+
+export PATH=/home/pat/bin:$PATH
+
+[[ -e "/home/pat/lib/oracle-cli/lib/python3.14/site-packages/oci_cli/bin/oci_autocomplete.sh" ]] && source "/home/pat/lib/oracle-cli/lib/python3.14/site-packages/oci_cli/bin/oci_autocomplete.sh"
+
+alias t3stop='systemctl --user stop t3code'
+alias t3start='systemctl --user start t3code'
+alias t3restart='systemctl --user restart t3code'
