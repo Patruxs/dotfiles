@@ -44,8 +44,8 @@ omarchy_desktop:
     - id: dizziee.system-updates
       url: https://github.com/JJDizz1L/dizziee.system-updates.git
       section: right
-    - id: io.github.dragosol.better-displays-pro
-      url: https://github.com/dragosol/omarchy-better-displays.git
+    - id: io.github.jordi-adame.display-arranger
+      url: https://github.com/jordi-adame/omarchy-display-arranger.git
       section: right
     - id: omaplug
       url: https://github.com/fross100/omaplug.git
